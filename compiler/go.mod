@@ -1,10 +1,7 @@
-module github.com/OpenFFI/plugin-go
+module github.com/OpenFFI/lang-plugin-go/compiler
 
 require (
-	github.com/OpenFFI/OpenFFI/CLI/utils/go v0.0.0-20200812050943-32ea9144a191
-	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/antchfx/jsonquery v1.1.4
-	github.com/antchfx/xpath v1.1.10 // indirect
-	github.com/golang/protobuf v1.4.2
-	github.com/yoheimuta/go-protoparser v3.4.0+incompatible
+	github.com/OpenFFI/plugin-sdk/compiler/go v0.0.0-20210327114604-edf4c7dd49cd
 )
+
+replace github.com/OpenFFI/plugin-sdk/compiler/go => ../../plugin-sdk/compiler/go

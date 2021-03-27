@@ -2,65 +2,53 @@ package main
 
 import (
 	"fmt"
-	. "github.com/GreenFuze/OpenFFI/CLI/utils/go"
+	"github.com/OpenFFI/plugin-sdk/compiler/go"
+	"html/template"
+	"strings"
 )
 
 //--------------------------------------------------------------------
 type Compiler struct{
-	parser *ProtoParser
+	def *compiler.IDLDefinition
+	serializationCode map[string]string
 }
 //--------------------------------------------------------------------
-func NewCompiler(proto string, protoFilename string) (*Compiler, error) {
-
-	parser, err := NewProtoParser(proto, protoFilename)
-	if err != nil{
-		return nil, fmt.Errorf("Failed to create proto pparser. Error: %v", err)
-	}
-
-	return &Compiler{parser: parser}, nil
+func NewCompiler(def *compiler.IDLDefinition, serializationCode map[string]string) *Compiler {
+	return &Compiler{def: def, serializationCode: serializationCode}
 }
 //--------------------------------------------------------------------
-// @protobufFileName - The name of the protobuf python generated
 func (this *Compiler) CompileGuest() (string, error){
 
-	compilerParams, err := NewTemplateParameters(this.parser.GetProtoFileName(), PROTOBUF_GO_SUFFIX, this.parser.TargetLanguage, ProtoTypeToGoType, UnixNotationToCamelHumps)
+	temp, err := template.New("guest").Parse(GuestTemplate)
 	if err != nil{
-		return "", err
+		return "", fmt.Errorf("Failed to parse guest template. error: %v", err)
 	}
 
-	modules, err := this.parser.GetModules()
+	strbuf := strings.Builder{}
+
+	err = temp.Execute(&strbuf, this)
 	if err != nil{
-		return "", err
+		return "", fmt.Errorf("Failed to build guest template, err: %v", err)
 	}
 
-
-	for _, m := range modules{
-		compilerParams.AddModule(m)
-	}
-
-	// generate guest code
-	return compilerParams.Generate("guest", GuestTemplate)
+	return strbuf.String(), nil
 }
 //--------------------------------------------------------------------
 // @protobufFileName - The name of the protobuf python generated
 func (this *Compiler) CompileHost() (string, error){
 
-	compilerParams, err := NewTemplateParameters(this.parser.GetProtoFileName(), PROTOBUF_GO_SUFFIX, this.parser.TargetLanguage, ProtoTypeToGoType, UnixNotationToCamelHumps)
+	temp, err := template.New("host").Parse(HostTemplate)
 	if err != nil{
-		return "", err
+		return "", fmt.Errorf("Failed to parse host template. error: %v", err)
 	}
 
-	modules, err := this.parser.GetModules()
+	strbuf := strings.Builder{}
+
+	err = temp.Execute(&strbuf, this)
 	if err != nil{
-		return "", err
+		return "", fmt.Errorf("Failed to build host template, err: %v", err)
 	}
 
-
-	for _, m := range modules{
-		compilerParams.AddModule(m)
-	}
-
-	// generate host code
-	return compilerParams.Generate("host", HostTemplate)
+	return strbuf.String(), nil
 }
 //--------------------------------------------------------------------

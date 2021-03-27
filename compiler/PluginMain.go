@@ -1,6 +1,7 @@
 package main
 import (
 	"fmt"
+	"github.com/OpenFFI/plugin-sdk/compiler/go"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -140,64 +141,26 @@ func compileIDL(idlPath string, outPath string, direction compileDirection) erro
     return nil
 }
 //--------------------------------------------------------------------
-//export compile_to_guest
-func compile_to_guest(idl_path *C.char, idl_path_length C.uint,
-					  output_path *C.char, output_path_length C.uint,
-					  out_err **C.char, out_err_len *C.uint){
-
-	idlPath := C.GoStringN(idl_path, C.int(idl_path_length))
-	outPath := C.GoStringN(output_path, C.int(output_path_length))
-
-	err := compileIDL(idlPath, outPath, TO_GUEST)
-
-	if err != nil{
-		*out_err = C.CString(err.Error())
-		*out_err_len = C.uint(len(err.Error()))
-		return
-	}
+type LanguagePluginMain struct{
 }
 //--------------------------------------------------------------------
-//export compile_from_host
-func compile_from_host(idl_path *C.char, idl_path_length C.uint,
-	output_path *C.char, output_path_length C.uint,
-	out_err **C.char, out_err_len *C.uint){
-
-
-	idlPath := C.GoStringN(idl_path, C.int(idl_path_length))
-	outPath := C.GoStringN(output_path, C.int(output_path_length))
-
-	err := compileIDL(idlPath, outPath, FROM_HOST)
-
-	if err != nil{
-		*out_err = C.CString(err.Error())
-		*out_err_len = C.uint(len(err.Error()))
-		return
-	}
-
+func NewGoLanguagePluginMain() *LanguagePluginMain{
+	this := &LanguagePluginMain{}
+	compiler.CreateLanguagePluginInterfaceHandler(this)
+	return this
 }
 //--------------------------------------------------------------------
-//export compile_serialization
-func compile_serialization(idl_path *C.char, idl_path_length C.uint,
-	output_path *C.char, output_path_length C.uint,
-	out_err **C.char, out_err_len *C.uint){
+func (this *LanguagePluginMain) CompileToGuest(idlDefinition *compiler.IDLDefinition, outputPath string, serializationCode map[string]string) error{
 
-	idlPath := C.GoStringN(idl_path, C.int(idl_path_length))
-	outPath := C.GoStringN(output_path, C.int(output_path_length))
-
-	// compile given IDL to Python
-	protoc := exec.Command("protoc", "--go_out="+outPath, idlPath)
-	fmt.Printf("%v\n", strings.Join(protoc.Args, " "))
-	output, err := protoc.CombinedOutput()
-
-	if err != nil{
-		msg := fmt.Sprintf("Failed to compile %v to Protobuf serialization code using \"protoc\". Exit code: %v.\nOutput: %v", idlPath, err, string(output))
-		*out_err = C.CString(msg)
-		*out_err_len = C.uint(len(msg))
-		return
-	}
-
+	cmp := NewCompiler(idlDefinition, serializationCode)
+	return cmp.CompileGuest()
 }
 //--------------------------------------------------------------------
-func main(){
+func (this *LanguagePluginMain) CompileFromHost(idlDefinition *compiler.IDLDefinition, outputPath string, serializationCode map[string]string) error{
+
+	cmp := NewCompiler(idlDefinition, serializationCode)
+	return cmp.CompileHost()
 }
+//--------------------------------------------------------------------
+func main(){}
 //--------------------------------------------------------------------

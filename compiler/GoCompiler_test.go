@@ -1,7 +1,7 @@
 package main
 
 import (
-	. "github.com/GreenFuze/OpenFFI/CLI/utils/go"
+	. "github.com/OpenFFI/OpenFFI/CLI/utils/go"
 	"testing"
 )
 
