@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17.3)
-project(openffi-plugin-go VERSION 0.0.1)
+project(openffi.lang.go VERSION 0.0.1)
 
 include(CTest)
 enable_testing()

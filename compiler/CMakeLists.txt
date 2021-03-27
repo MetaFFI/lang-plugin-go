@@ -1,19 +1,19 @@
-
-# build openffi.compiler.python3 Go dynamic library
-FILE(GLOB go_sources "${CMAKE_CURRENT_LIST_DIR}/*.go")
+set(target_name "openffi.compiler.lang.proto")
 
 find_program(GOEXEC go)
 if(NOT GOEXEC)
-	message(FATAL "Go not found - Skipping build of Go support")
-else()
+	message(FATAL "Go not found")
+endif()
+
+message("${target_name}")
 
 # build
-add_custom_target(openffi.compiler.go ALL)
-add_custom_command(TARGET openffi.compiler.go
-					DEPENDS ${go_sources}
-					WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-					COMMAND ${GOEXEC} build -buildmode=c-shared -gcflags=-shared -o ${CMAKE_CURRENT_BINARY_DIR}/openffi.compiler.go${CMAKE_SHARED_LIBRARY_SUFFIX} ${GO_SRCS}
-					COMMENT "Building openffi.compiler.go compiler plugin")
+add_custom_target(${target_name} ALL)
+
+add_custom_command(TARGET ${target_name}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+		COMMAND ${GOEXEC} build -buildmode=c-shared -gcflags=-shared -o ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}
+		COMMENT "Building ${target_name} compiler plugin")
 
 
 # Unitest
@@ -21,4 +21,9 @@ add_test(NAME compiler_go_gotest
 		COMMAND ${GOEXEC} test
 		WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
 
-endif()
+# Copy to openffi directory
+add_custom_command(TARGET ${target_name} POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E copy
+		"${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+		"$ENV{OPENFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{OPENFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
