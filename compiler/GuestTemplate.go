@@ -131,7 +131,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_para
 const GuestFunctionTemplate = `
 {{range $mindex, $m := .Modules}}
 {{range $findex, $f := $m.Functions}}
-func OpenFFI_{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}}, {{end}}{{$elem.Name}} {{if eq $elem.PassMethod "by_pointer"}}*{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}){
+func OpenFFI_{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}}, {{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if eq $elem.PassMethod "by_pointer"}}*{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}){
 
 	// Call original function as it is defined in the IDL. Modify to suit your needs.
 	return {{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})

@@ -7,6 +7,8 @@ import (
 	"go/token"
 	"html/template"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -38,12 +40,13 @@ func (this *HostCompiler) Compile() (outputFileName string, err error){
 	}
 
 	// write to output
-	err = ioutil.WriteFile(this.outputDir+this.outputFilename, []byte(code), 0600)
+	outputFileName = this.outputDir+string(os.PathSeparator)+this.outputFilename+".go"
+	err = ioutil.WriteFile( outputFileName, []byte(code), 0600)
 	if err != nil{
 		return "", fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
 	}
 
-	return this.outputFilename, nil
+	return outputFileName, nil
 
 }
 //--------------------------------------------------------------------
@@ -68,6 +71,10 @@ func (this *HostCompiler) parseImports() (string, error){
 
 	for filename, code := range this.serializationCode{
 
+		if strings.ToLower(filepath.Ext(filename)) != ".go"{
+			continue
+		}
+
 		fset := token.NewFileSet()
 		ast, err := parser.ParseFile(fset, "", code, parser.ImportsOnly)
 		if err != nil{
@@ -76,22 +83,39 @@ func (this *HostCompiler) parseImports() (string, error){
 
 		// add to imports code + remove from serialization code (so it can be appended to the rest of the file)
 		for _, i := range ast.Imports{
-			importsCode += "import \""+i.Path.Value+"\"\n"
 
-			removeImportRegex, err := regexp.Compile(fmt.Sprintf("import[ ]+\"%v\"", i.Path.Value))
-			if err != nil{
-				return "", fmt.Errorf("Failed to create regex to remove imports from serialization code: \"%v\". Error: %v", fmt.Sprintf("import[ ]+\"%v\"", i.Path.Value), err)
+			// if import equals "main" - skip (as it is the package name of the generated code)
+			if i.Path.Value != `"main"`{
+				importsCode += "import "+i.Path.Value+"\n"
 			}
-
-			this.serializationCode[filename] = removeImportRegex.ReplaceAllString(this.serializationCode[filename], "")
 		}
+
+		// remove imports from serializationCode
+		removeImportRegex, err := regexp.Compile("\\n[ ]*import[^(\\\"|\\()]+\\\"[^\\\"]+\\\"|\\n[ ]*import[^(\\(|\")]+\\([^\\)]+\\)")
+		if err != nil{
+			return "", fmt.Errorf("Failed to create regex to remove imports from serialization code. Error: %v", err)
+		}
+		this.serializationCode[filename] = removeImportRegex.ReplaceAllString(this.serializationCode[filename], "")
 	}
 
 	return importsCode, nil
 }
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseForeignStubs() (string, error){
-	tmp, err := template.New("host").Parse(HostFunctionStubsTemplate)
+
+	var funcMap = map[string]interface{}{
+		"AsPublic": func(elem string) string {
+			if len(elem) == 0 {
+				return ""
+			} else if len(elem) == 1 {
+				return strings.ToUpper(elem)
+			} else {
+				return strings.ToUpper(elem[0:1]) + elem[1:]
+			}
+		},
+	}
+
+	tmp, err := template.New("host").Funcs(funcMap).Parse(HostFunctionStubsTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
 	}
@@ -116,7 +140,15 @@ func (this *HostCompiler) generateCode() (string, error){
 	res := header + imports + HostCImport + HostMainFunction + HostHelperFunctions + functionStubs
 
 	// append serialization code in the same file
-	for _, serializationCode := range this.serializationCode{
+	for filename, serializationCode := range this.serializationCode{
+
+		if strings.ToLower(filepath.Ext(filename)) != ".go"{
+			continue
+		}
+
+		// remove "package" lines
+		serializationCode = regexp.MustCompile("\npackage [^\n]+").ReplaceAllString(serializationCode, "")
+
 		res += serializationCode
 	}
 
