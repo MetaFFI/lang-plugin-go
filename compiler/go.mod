@@ -1,7 +1,9 @@
 module github.com/OpenFFI/lang-plugin-go/compiler
 
-require (
-	github.com/OpenFFI/plugin-sdk/compiler/go v0.0.0-20210327114604-edf4c7dd49cd
-)
+go 1.16
 
-replace github.com/OpenFFI/plugin-sdk/compiler/go => ../../plugin-sdk/compiler/go
+require (
+	github.com/OpenFFI/plugin-sdk/compiler v0.0.0-20210328210524-22c76a70ebaa
+	github.com/golang/protobuf v1.5.2
+	google.golang.org/protobuf v1.26.0
+)

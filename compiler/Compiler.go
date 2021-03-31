@@ -3,52 +3,35 @@ package main
 import (
 	"fmt"
 	"github.com/OpenFFI/plugin-sdk/compiler/go"
-	"html/template"
-	"strings"
 )
 
 //--------------------------------------------------------------------
 type Compiler struct{
 	def *compiler.IDLDefinition
 	serializationCode map[string]string
+	outputPath string
 }
 //--------------------------------------------------------------------
-func NewCompiler(def *compiler.IDLDefinition, serializationCode map[string]string) *Compiler {
-	return &Compiler{def: def, serializationCode: serializationCode}
+func NewCompiler(def *compiler.IDLDefinition, serializationCode map[string]string, outputPath string) *Compiler {
+	return &Compiler{def: def, serializationCode: serializationCode, outputPath: outputPath}
 }
 //--------------------------------------------------------------------
-func (this *Compiler) CompileGuest() (string, error){
+func (this *Compiler) CompileGuest() (outputFileName string, err error){
 
-	temp, err := template.New("guest").Parse(GuestTemplate)
+	cmp := NewGuestCompiler(this.def, this.outputPath, this.def.IDLFilename, this.serializationCode)
+	outputFileName, err = cmp.Compile()
 	if err != nil{
-		return "", fmt.Errorf("Failed to parse guest template. error: %v", err)
+		return
 	}
 
-	strbuf := strings.Builder{}
+	fmt.Printf("To build guest library execute the command: \"go build -buildmode=c-shared gcflags=-shared -o [output file]\"")
 
-	err = temp.Execute(&strbuf, this)
-	if err != nil{
-		return "", fmt.Errorf("Failed to build guest template, err: %v", err)
-	}
-
-	return strbuf.String(), nil
+	return outputFileName, err
 }
 //--------------------------------------------------------------------
-// @protobufFileName - The name of the protobuf python generated
-func (this *Compiler) CompileHost() (string, error){
+func (this *Compiler) CompileHost() (outputFileName string, err error){
 
-	temp, err := template.New("host").Parse(HostTemplate)
-	if err != nil{
-		return "", fmt.Errorf("Failed to parse host template. error: %v", err)
-	}
-
-	strbuf := strings.Builder{}
-
-	err = temp.Execute(&strbuf, this)
-	if err != nil{
-		return "", fmt.Errorf("Failed to build host template, err: %v", err)
-	}
-
-	return strbuf.String(), nil
+	cmp := NewHostCompiler(this.def, this.outputPath, this.def.IDLFilename, this.serializationCode)
+	return cmp.Compile()
 }
 //--------------------------------------------------------------------
