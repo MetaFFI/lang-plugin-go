@@ -24,7 +24,7 @@ func (this *Compiler) CompileGuest() (outputFileName string, err error){
 		return
 	}
 
-	fmt.Printf("To build guest library execute the command: \"go build -buildmode=c-shared gcflags=-shared -o [output file]\"")
+	fmt.Printf("To build guest library execute the command: \"go build -buildmode=c-shared gcflags=-shared -o %v.[dynamic lib extension]\"\n", this.def.IDLFilename)
 
 	return outputFileName, err
 }
