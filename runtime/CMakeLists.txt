@@ -3,22 +3,24 @@ find_package(Boost REQUIRED COMPONENTS filesystem) # Boost library
 include(CTest)
 enable_testing()
 
+set(target_name "xllr.go")
+
 # build xllr.go
-add_library(xllr.go
+add_library(${target_name}
 			SHARED
 			${CMAKE_CURRENT_LIST_DIR}/go_api.h
 			${CMAKE_CURRENT_LIST_DIR}/go_api.cpp
 			${CMAKE_CURRENT_LIST_DIR}/modules_repository.h
 			${CMAKE_CURRENT_LIST_DIR}/modules_repository.cpp
 )
-target_include_directories(xllr.go PUBLIC ${CMAKE_CURRENT_LIST_DIR} ${Boost_INCLUDE_DIRS})
+target_include_directories(${target_name} PUBLIC ${CMAKE_CURRENT_LIST_DIR} ${Boost_INCLUDE_DIRS})
 
-set_property(TARGET xllr.go PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET ${target_name} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # remove the "lib" prefix in linux to get the expected filename "xllr.go.[ext]"
-SET_TARGET_PROPERTIES(xllr.go PROPERTIES PREFIX "")
+SET_TARGET_PROPERTIES(${target_name} PROPERTIES PREFIX "")
 
-target_link_libraries(xllr.go Boost::filesystem)
+target_link_libraries(${target_name} Boost::filesystem)
 
 # Unitest go
 add_executable(xllr_go_test ${CMAKE_CURRENT_LIST_DIR}/xllr_go_test.cpp)
@@ -29,3 +31,10 @@ add_test(NAME test_go_module_lazy_runtime_success COMMAND xllr_go_test 3)
 add_test(NAME test_go_module_module_not_exist_fail COMMAND xllr_go_test 4)
 add_test(NAME test_go_call_success COMMAND xllr_go_test 5)
 add_test(NAME test_go_call_fail COMMAND xllr_go_test 6)
+
+# Copy to openffi directory
+add_custom_command(TARGET ${target_name} POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E copy
+		"${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+		"$ENV{OPENFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{OPENFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
