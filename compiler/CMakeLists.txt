@@ -1,4 +1,4 @@
-set(target_name "openffi.compiler.lang.proto")
+set(target_name "openffi.compiler.lang.go")
 
 find_program(GOEXEC go)
 if(NOT GOEXEC)
