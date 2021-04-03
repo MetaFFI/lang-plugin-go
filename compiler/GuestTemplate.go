@@ -78,9 +78,9 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_para
 	}
 	
 	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}OpenFFI{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if eq $elem.PassMethod "by_pointer"}}&{{end}}req.{{AsPublic $elem.Name}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.package}}.{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if eq $elem.PassMethod "by_pointer"}}&{{end}}req.{{AsPublic $elem.Name}}{{end}})
 	
-	ret := {{$f.ParametersType}}{}
+	ret := {{$f.ReturnValuesType}}{}
 
 	// === fill out_ret
 	// if one of the returned parameters is of interface type Error, check if error, and if so, return error
@@ -122,15 +122,4 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_para
 }
 {{end}}{{end}}
 
-`
-
-const GuestFunctionTemplate = `
-{{range $mindex, $m := .Modules}}
-{{range $findex, $f := $m.Functions}}
-func OpenFFI_{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}}, {{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if eq $elem.PassMethod "by_pointer"}}*{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}){
-
-	// Call original function as it is defined in the IDL. Modify to suit your needs.
-	return {{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
-}
-{{end}}{{end}}
 `

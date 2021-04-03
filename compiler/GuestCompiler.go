@@ -50,9 +50,14 @@ func (this *GuestCompiler) Compile() (outputFileName string, err error){
 		return "", fmt.Errorf("Failed to generate guest code: %v", err)
 	}
 
+	file, err := this.buildDynamicLibrary(code)
+	if err != nil{
+		return "", fmt.Errorf("Failed to generate guest code: %v", err)
+	}
+
 	// write to output
-	outputFullFileName := fmt.Sprintf("%v%v%v_OpenFFIGuest.go", this.outputDir, string(os.PathSeparator), this.outputFilename)
-	err = ioutil.WriteFile(outputFullFileName, []byte(code), 0600)
+	outputFullFileName := fmt.Sprintf("%v%v%v_OpenFFIGuest%v", this.outputDir, string(os.PathSeparator), this.outputFilename, getDynamicLibSuffix())
+	err = ioutil.WriteFile(outputFullFileName, file, 0700)
 	if err != nil{
 		return "", fmt.Errorf("Failed to write dynamic library to %v. Error: %v", this.outputDir+this.outputFilename, err)
 	}
@@ -156,14 +161,6 @@ func (this *GuestCompiler) parseForeignFunctions() (string, error){
 		},
 	}
 
-	tmpForeignFunctions, err := template.New("guest").Funcs(funcMap).Parse(GuestFunctionTemplate)
-	if err != nil{
-		return "", fmt.Errorf("Failed to parse tmpForeignFunctions: %v", err)
-	}
-
-	bufForeignFunctions := strings.Builder{}
-	err = tmpForeignFunctions.Execute(&bufForeignFunctions, this.def)
-
 	tmpEntryPoint, err := template.New("guest").Funcs(funcMap).Parse(GuestFunctionXLLRTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse GuestFunctionXLLRTemplate: %v", err)
@@ -172,7 +169,7 @@ func (this *GuestCompiler) parseForeignFunctions() (string, error){
 	bufEntryPoint := strings.Builder{}
 	err = tmpEntryPoint.Execute(&bufEntryPoint, this.def)
 
-	return bufForeignFunctions.String() + "\n" + bufEntryPoint.String(), err
+	return bufEntryPoint.String(), err
 }
 //--------------------------------------------------------------------
 func (this *GuestCompiler) generateCode() (string, error){
@@ -230,6 +227,32 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 		return nil, fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
 	}
 
+	// add "replace"s if there are local imports
+	addedLocalModules := make(map[string]bool)
+	for _, m := range this.def.Modules{
+		for _, f := range m.Functions {
+			for k, v := range f.PathToForeignFunction {
+				if k == "module" {
+					if fi, _ := os.Stat(v); fi != nil && fi.IsDir() { // if module is local dir
+						if _, alreadyAdded := addedLocalModules[v]; !alreadyAdded {
+							// point module to
+							getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", f.PathToForeignFunction["package"], v))
+							getCmd.Dir = dir
+							fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
+							output, err = getCmd.CombinedOutput()
+							if err != nil {
+								println(string(output))
+								return nil, fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+							}
+
+							addedLocalModules[v] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// build dynamic library
 	getCmd := exec.Command("go", "get", "-v")
 	getCmd.Dir = dir
@@ -249,7 +272,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	}
 
 	// copy to output dir
-	fileData, err := ioutil.ReadFile(dir+this.outputFilename)
+	fileData, err := ioutil.ReadFile(dir+this.outputFilename+getDynamicLibSuffix())
 	if err != nil{
 		return nil, fmt.Errorf("Failed to read created dynamic library. Error: %v", err)
 	}
