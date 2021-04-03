@@ -113,6 +113,19 @@ func (this *HostCompiler) parseForeignStubs() (string, error){
 				return strings.ToUpper(elem[0:1]) + elem[1:]
 			}
 		},
+
+		"ToGoNameConv": func(elem string) string{
+			elem = strings.Replace(elem, "_", " ", -1)
+			elem = strings.Title(elem)
+			return strings.Replace(elem, " ", "", -1)
+		},
+
+		"CastIfNeeded": func(elem string) string{
+			if strings.Contains(elem, "int"){
+				return "int("+elem+")"
+			}
+			return elem
+		},
 	}
 
 	tmp, err := template.New("host").Funcs(funcMap).Parse(HostFunctionStubsTemplate)

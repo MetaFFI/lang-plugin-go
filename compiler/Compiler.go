@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/OpenFFI/plugin-sdk/compiler/go"
 )
 
@@ -23,8 +22,6 @@ func (this *Compiler) CompileGuest() (outputFileName string, err error){
 	if err != nil{
 		return
 	}
-
-	fmt.Printf("To build guest library execute the command: \"go build -buildmode=c-shared gcflags=-shared -o %v.[dynamic lib extension]\"\n", this.def.IDLFilename)
 
 	return outputFileName, err
 }

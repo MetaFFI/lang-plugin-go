@@ -223,7 +223,7 @@ const HostFunctionStubsTemplate = `
 func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 
 	// serialize parameters
-	req := {{$f.ParametersType}}{}
+	req := {{ToGoNameConv $f.ParametersType}}{}
 	{{range $index, $elem := $f.Parameters}}
 	req.{{AsPublic $elem.Name}} = {{$elem.Name}}
 	{{end}}
@@ -290,7 +290,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	}
 
 	// deserialize result	
-	ret := {{$f.ReturnValuesType}}{}
+	ret := {{ToGoNameConv $f.ReturnValuesType}}{}
 	out_ret_buf := C.GoBytes(unsafe.Pointer(out_ret), C.int(out_ret_len))
 	err = proto.Unmarshal(out_ret_buf, &ret)
 	if err != nil{

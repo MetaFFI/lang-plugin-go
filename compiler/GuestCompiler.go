@@ -149,16 +149,41 @@ func (this *GuestCompiler) parseImports() (string, error){
 //--------------------------------------------------------------------
 func (this *GuestCompiler) parseForeignFunctions() (string, error){
 
-	var funcMap = map[string]interface{}{
-		"AsPublic": func(elem string) string {
-			if len(elem) == 0 {
-				return ""
-			} else if len(elem) == 1 {
-				return strings.ToUpper(elem)
-			} else {
-				return strings.ToUpper(elem[0:1]) + elem[1:]
-			}
-		},
+	asPublic := func(elem string) string {
+		if len(elem) == 0 {
+			return ""
+		} else if len(elem) == 1 {
+			return strings.ToUpper(elem)
+		} else {
+			return strings.ToUpper(elem[0:1]) + elem[1:]
+		}
+	}
+
+	toGoNameConv := func(elem string) string{
+		elem = strings.Replace(elem, "_", " ", -1)
+		elem = strings.Title(elem)
+		return strings.Replace(elem, " ", "", -1)
+	}
+
+	passParameter := func(p interface{}) string{
+		param := p.(*compiler.FieldDefinition)
+		res := "req."+asPublic(param.Name)
+
+		if param.PassMethod == "by_pointer"{
+			res = "&"+res
+		}
+
+		if strings.Contains(param.Type, "int"){
+			res = "int("+res+")"
+		}
+
+		return res
+	}
+
+	funcMap := map[string]interface{}{
+		"AsPublic": asPublic,
+		"ToGoNameConv": toGoNameConv,
+		"PassParameter": passParameter,
 	}
 
 	tmpEntryPoint, err := template.New("guest").Funcs(funcMap).Parse(GuestFunctionXLLRTemplate)
@@ -207,7 +232,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	if err != nil{
 		return nil, fmt.Errorf("Failed to create temp dir to build code: %v", err)
 	}
-	defer func(){ _ = os.RemoveAll(dir) }()
+	defer func(){ if err == nil{ _ = os.RemoveAll(dir) } }()
 
 	dir = dir+string(os.PathSeparator)
 
@@ -233,10 +258,11 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 		for _, f := range m.Functions {
 			for k, v := range f.PathToForeignFunction {
 				if k == "module" {
+					v = os.ExpandEnv(v)
 					if fi, _ := os.Stat(v); fi != nil && fi.IsDir() { // if module is local dir
 						if _, alreadyAdded := addedLocalModules[v]; !alreadyAdded {
 							// point module to
-							getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", f.PathToForeignFunction["package"], v))
+							getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", os.ExpandEnv(f.PathToForeignFunction["package"]), v))
 							getCmd.Dir = dir
 							fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
 							output, err = getCmd.CombinedOutput()
@@ -253,6 +279,12 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 		}
 	}
 
+	gomod, err := ioutil.ReadFile(dir+"go.mod")
+	if err != nil{
+		println("Failed to find go.mod in "+dir+"go.mod")
+	}
+	println(string(gomod))
+
 	// build dynamic library
 	getCmd := exec.Command("go", "get", "-v")
 	getCmd.Dir = dir
@@ -260,7 +292,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	output, err = getCmd.CombinedOutput()
 	if err != nil{
 		println(string(output))
-		return nil, fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
 	}
 
 	buildCmd := exec.Command("go", "build", "-v", "-tags=guest" , "-buildmode=c-shared", "-gcflags=-shared", "-o", dir+this.outputFilename+getDynamicLibSuffix())
@@ -268,7 +300,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	fmt.Printf("%v\n", strings.Join(buildCmd.Args, " "))
 	output, err = buildCmd.CombinedOutput()
 	if err != nil{
-		return nil, fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
 	}
 
 	// copy to output dir

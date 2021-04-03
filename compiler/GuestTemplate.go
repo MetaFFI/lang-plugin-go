@@ -70,7 +70,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_para
 
 	// deserialize parameters
 	inParams := C.GoStringN(in_params, C.int(in_params_len))
-	req := {{$f.ParametersType}}{}
+	req := {{ToGoNameConv $f.ParametersType}}{}
 	err := proto.Unmarshal([]byte(inParams), &req)
 	if err != nil{
 		errToOutError(out_ret, out_ret_len, is_error, "Failed to unmarshal parameters", err)
@@ -78,9 +78,9 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_para
 	}
 	
 	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.package}}.{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if eq $elem.PassMethod "by_pointer"}}&{{end}}req.{{AsPublic $elem.Name}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.package}}.{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{PassParameter $elem}}{{end}})
 	
-	ret := {{$f.ReturnValuesType}}{}
+	ret := {{ToGoNameConv $f.ReturnValuesType}}{}
 
 	// === fill out_ret
 	// if one of the returned parameters is of interface type Error, check if error, and if so, return error
