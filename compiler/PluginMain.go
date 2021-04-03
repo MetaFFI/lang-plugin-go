@@ -3,6 +3,10 @@ import (
 	"github.com/OpenFFI/plugin-sdk/compiler/go"
 )
 
+import "C"
+
+var pluginMain *LanguagePluginMain
+
 //--------------------------------------------------------------------
 type LanguagePluginMain struct{
 }
@@ -25,6 +29,11 @@ func (this *LanguagePluginMain) CompileFromHost(idlDefinition *compiler.IDLDefin
 	cmp := NewCompiler(idlDefinition, serializationCode, outputPath)
 	_, err := cmp.CompileHost()
 	return err
+}
+//--------------------------------------------------------------------
+//export init_plugin
+func init_plugin(){
+	pluginMain = NewGoLanguagePluginMain()
 }
 //--------------------------------------------------------------------
 func main(){}
