@@ -40,7 +40,7 @@ func (this *HostCompiler) Compile() (outputFileName string, err error){
 	}
 
 	// write to output
-	outputFileName = this.outputDir+string(os.PathSeparator)+this.outputFilename+".go"
+	outputFileName = this.outputDir+string(os.PathSeparator)+this.outputFilename+"_OpenFFIHost.go"
 	err = ioutil.WriteFile( outputFileName, []byte(code), 0600)
 	if err != nil{
 		return "", fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
@@ -150,7 +150,7 @@ func (this *HostCompiler) generateCode() (string, error){
 	functionStubs, err := this.parseForeignStubs()
 	if err != nil{ return "", err }
 
-	res := header + imports + HostCImport + HostMainFunction + HostHelperFunctions + functionStubs
+	res := header + imports + HostCImport + HostHelperFunctions + functionStubs
 
 	// append serialization code in the same file
 	for filename, serializationCode := range this.serializationCode{

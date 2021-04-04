@@ -9,13 +9,10 @@ package main
 
 const HostImports = `
 import "fmt"
+import "os"
 import "unsafe"
 import "github.com/golang/protobuf/proto"
 import "runtime"
-`
-
-const HostMainFunction = `
-func main(){} // main function must be declared to create dynamic library
 `
 
 const HostCImport = `
@@ -180,13 +177,18 @@ func loadXLLR() error{
         return nil
     }
 
+	openffiHome := os.Getenv("OPENFFI_HOME")
+    if openffiHome == ""{
+    	return fmt.Errorf("OPENFFI_HOME is not set")
+	}
+
 	var name *C.char
 	if runtime.GOOS == "darwin" {
-		name = C.CString("xllr.dylib")
+		name = C.CString(openffiHome+"/xllr.dylib")
 	}else if runtime.GOOS == "windows"{
-		name = C.CString("xllr.dll")
+		name = C.CString(openffiHome+"\\xllr.dll")
 	} else {
-		name = C.CString("xllr.so")
+		name = C.CString(openffiHome+"/xllr.so")
 	}
 
 	defer C.free(unsafe.Pointer(name))
@@ -240,7 +242,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pruntime_plugin := C.CString(runtime_plugin)
 	defer C.free(unsafe.Pointer(pruntime_plugin))
 
-	module_name := "{{$pfn}}OpenFFIGuest"
+	module_name := "{{$pfn}}_OpenFFIGuest"
 	pmodule_name := C.CString(module_name)
 	defer C.free(unsafe.Pointer(pmodule_name))
 
