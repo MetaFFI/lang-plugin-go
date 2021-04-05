@@ -24,10 +24,10 @@ func (this *LanguagePluginMain) CompileToGuest(idlDefinition *compiler.IDLDefini
 	return err
 }
 //--------------------------------------------------------------------
-func (this *LanguagePluginMain) CompileFromHost(idlDefinition *compiler.IDLDefinition, outputPath string, serializationCode map[string]string) error{
+func (this *LanguagePluginMain) CompileFromHost(idlDefinition *compiler.IDLDefinition, outputPath string, serializationCode map[string]string, hostOptions map[string]string) error{
 
 	cmp := NewCompiler(idlDefinition, serializationCode, outputPath)
-	_, err := cmp.CompileHost()
+	_, err := cmp.CompileHost(hostOptions)
 	return err
 }
 //--------------------------------------------------------------------

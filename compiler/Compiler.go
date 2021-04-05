@@ -26,9 +26,9 @@ func (this *Compiler) CompileGuest() (outputFileName string, err error){
 	return outputFileName, err
 }
 //--------------------------------------------------------------------
-func (this *Compiler) CompileHost() (outputFileName string, err error){
+func (this *Compiler) CompileHost(hostOptions map[string]string) (outputFileName string, err error){
 
-	cmp := NewHostCompiler(this.def, this.outputPath, this.def.IDLFilename, this.serializationCode)
+	cmp := NewHostCompiler(this.def, this.outputPath, this.def.IDLFilename, this.serializationCode, hostOptions)
 	return cmp.Compile()
 }
 //--------------------------------------------------------------------

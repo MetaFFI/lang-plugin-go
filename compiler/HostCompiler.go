@@ -18,17 +18,22 @@ type HostCompiler struct{
 	def *compiler.IDLDefinition
 	outputDir string
 	serializationCode map[string]string
+	hostOptions map[string]string
 	outputFilename string
 }
 //--------------------------------------------------------------------
-func NewHostCompiler(definition *compiler.IDLDefinition, outputDir string, outputFilename string, serializationCode map[string]string) *HostCompiler{
+func NewHostCompiler(definition *compiler.IDLDefinition, outputDir string, outputFilename string, serializationCode map[string]string, hostOptions map[string]string) *HostCompiler{
 
 	serializationCodeCopy := make(map[string]string)
 	for k, v := range serializationCode{
 		serializationCodeCopy[k] = v
 	}
 
-	return &HostCompiler{def: definition, outputDir: outputDir, serializationCode: serializationCodeCopy, outputFilename: outputFilename}
+	return &HostCompiler{def: definition,
+		outputDir: outputDir,
+		serializationCode: serializationCodeCopy,
+		outputFilename: outputFilename,
+		hostOptions: hostOptions}
 }
 //--------------------------------------------------------------------
 func (this *HostCompiler) Compile() (outputFileName string, err error){
