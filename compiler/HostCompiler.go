@@ -144,10 +144,37 @@ func (this *HostCompiler) parseForeignStubs() (string, error){
 	return buf.String(), err
 }
 //--------------------------------------------------------------------
+func (this *HostCompiler) parsePackage() (string, error){
+	tmp, err := template.New("host").Parse(HostPackageTemplate)
+	if err != nil{
+		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+	}
+
+	PackageName := struct {
+		Package string
+	}{
+		Package: "main",
+	}
+
+	if pckName, found := this.hostOptions["package"]; found{
+		PackageName.Package = pckName
+	}
+
+	buf := strings.Builder{}
+	err = tmp.Execute(&buf, &PackageName)
+
+	return buf.String(), err
+}
+//--------------------------------------------------------------------
 func (this *HostCompiler) generateCode() (string, error){
 
 	header, err := this.parseHeader()
 	if err != nil{ return "", err }
+
+	packageDeclaration, err := this.parsePackage()
+	if err != nil{
+		return "", err
+	}
 
 	imports, err := this.parseImports()
 	if err != nil{ return "", err }
@@ -155,7 +182,7 @@ func (this *HostCompiler) generateCode() (string, error){
 	functionStubs, err := this.parseForeignStubs()
 	if err != nil{ return "", err }
 
-	res := header + imports + HostCImport + HostHelperFunctions + functionStubs
+	res := header + packageDeclaration + imports + HostCImport + HostHelperFunctions + functionStubs
 
 	// append serialization code in the same file
 	for filename, serializationCode := range this.serializationCode{
