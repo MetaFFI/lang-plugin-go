@@ -5,13 +5,11 @@ enable_testing()
 
 set(target_name "xllr.go")
 
+file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp ${CMAKE_CURRENT_LIST_DIR}/*.h)
 # build xllr.go
 add_library(${target_name}
 			SHARED
-			${CMAKE_CURRENT_LIST_DIR}/go_api.h
-			${CMAKE_CURRENT_LIST_DIR}/go_api.cpp
-			${CMAKE_CURRENT_LIST_DIR}/modules_repository.h
-			${CMAKE_CURRENT_LIST_DIR}/modules_repository.cpp
+			${SRC_FILES}
 )
 target_include_directories(${target_name} PUBLIC ${CMAKE_CURRENT_LIST_DIR} ${Boost_INCLUDE_DIRS})
 

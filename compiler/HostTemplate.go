@@ -248,7 +248,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pmodule_name := C.CString(module_name)
 	defer C.free(unsafe.Pointer(pmodule_name))
 
-	func_name := "EntryPoint_{{$f.Name}}"
+	func_name := "EntryPoint_{{$f.PathToForeignFunction.function}}"
 	pfunc_name := C.CString(func_name)
 	defer C.free(unsafe.Pointer(pfunc_name))
 

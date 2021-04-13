@@ -1,8 +1,7 @@
-#include "go_api.h"
+#include <runtime/runtime_plugin_interface.h>
 #include <utils/scope_guard.hpp>
-#include <utils/function_loader.hpp>
 #include <boost/filesystem.hpp>
-#include "modules_repository.h"
+#include "functions_repository.h"
 
 using namespace openffi::utils;
 
@@ -23,31 +22,30 @@ using namespace openffi::utils;
 
 
 //--------------------------------------------------------------------
-void load_runtime(char** err, uint32_t* err_len){ /* No runtime to be loaded */ }
+void load_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime to load */ }
 //--------------------------------------------------------------------
-void free_runtime(char** err, uint32_t* err_len){ /* No runtime to be freed */ }
+void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-void load_module(const char* mod, uint32_t module_len, char** err, uint32_t* err_len)
+int64_t load_function(const char* function_path, uint32_t function_path_len, char** err, uint32_t* err_len)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
 	 */
 	
 	// if fails throws an exception which is handled by xllr_api.cpp.
-	modules_repository::get_instance()[std::string(mod, module_len)];
-	
+	return functions_repository::get_instance().load_function(std::string(function_path, function_path_len));
 }
 //--------------------------------------------------------------------
-void free_module(const char* /*mod*/, uint32_t /*module_len*/, char** /*err*/, uint32_t* /*err_len*/)
+void free_function(int64_t function_id, char** /*err*/, uint32_t* /*err_len*/)
 {
 	/*
-	 * Go doesn't support freeing modules
+	 * Go doesn't support freeing libraries
 	 */
 }
 //--------------------------------------------------------------------
 void call(
-	const char* mod, uint32_t module_name_len,
-	const char* func_name, uint32_t func_name_len,
+	// function id to call
+	int64_t function_id,
 	unsigned char* in_params, uint64_t in_params_len,
 	unsigned char** out_params, uint64_t* out_params_len,
 	unsigned char** out_ret, uint64_t* out_ret_len,
@@ -55,23 +53,12 @@ void call(
 )
 {
 	// get module
-	std::shared_ptr<boost::dll::shared_library> pmod = modules_repository::get_instance()[std::string(mod, module_name_len)];
+	std::shared_ptr<foreign_function_entrypoint> func = functions_repository::get_instance().get_function(function_id);
 	
-	// load requested function with the signature:
-	// void F(  unsigned char* in_params, uint64_t in_params_len,
-	//          char** out_params, uint64_t* out_params_len,
-	//          char** out_ret, uint64_t* out_ret_len,
-	//          uint8_t* is_error )
-	auto func = load_func<void(unsigned char*, uint64_t,
-                               unsigned char**, uint64_t*,
-                               unsigned char**, uint64_t*,
-                               uint8_t*)>(*pmod, std::string(func_name, func_name_len));
-		
 	// call function
 	(*func)(in_params, in_params_len,
 			out_params, out_params_len,
 			out_ret, out_ret_len,
 			is_error);
-	
 }
 //--------------------------------------------------------------------
