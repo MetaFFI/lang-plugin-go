@@ -47,7 +47,7 @@ int64_t functions_repository::load_function(const std::string& function_path)
 	}
 	
 	// load function (from guest module)
-	auto foreign_function = openffi::utils::load_func<foreign_function_entrypoint_signature>(*openffi_guest_lib, fp["function"]);
+	auto foreign_function = openffi::utils::load_func<foreign_function_entrypoint_signature>(*openffi_guest_lib, fp["entrypoint_function"]);
 	
 	int64_t function_id = (int64_t)this->functions.size();
 	this->functions.push_back(foreign_function);

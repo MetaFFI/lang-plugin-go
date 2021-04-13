@@ -36,7 +36,19 @@ func NewHostCompiler(definition *compiler.IDLDefinition, outputDir string, outpu
 		hostOptions: hostOptions}
 }
 //--------------------------------------------------------------------
+func (this *HostCompiler) addGuestInfoToFunctionPath(){
+	for _, m := range this.def.Modules{
+		for _, f := range m.Functions{
+			f.PathToForeignFunction["openffi_guest_lib"] = m.Name+"_OpenFFIGuest"
+			f.PathToForeignFunction["entrypoint_function"] = "EntryPoint_"+f.Name
+		}
+	}
+}
+//--------------------------------------------------------------------
 func (this *HostCompiler) Compile() (outputFileName string, err error){
+
+	// add to function paths the name of the OpenFFI module + entry point function
+	this.addGuestInfoToFunctionPath()
 
 	// generate code
 	code, err := this.generateCode()
