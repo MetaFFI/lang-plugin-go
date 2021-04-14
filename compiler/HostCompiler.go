@@ -39,8 +39,8 @@ func NewHostCompiler(definition *compiler.IDLDefinition, outputDir string, outpu
 func (this *HostCompiler) addGuestInfoToFunctionPath(){
 	for _, m := range this.def.Modules{
 		for _, f := range m.Functions{
-			f.PathToForeignFunction["openffi_guest_lib"] = m.Name+"_OpenFFIGuest"
-			f.PathToForeignFunction["entrypoint_function"] = "EntryPoint_"+f.Name
+			f.PathToForeignFunction[compiler.OPENFFI_GUEST_LIB] = m.Name+"_OpenFFIGuest"
+			f.PathToForeignFunction[compiler.ENTRYPOINT_FUNCTION] = "EntryPoint_"+f.Name
 		}
 	}
 }
