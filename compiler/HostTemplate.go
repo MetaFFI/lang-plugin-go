@@ -26,8 +26,7 @@ const HostCImport = `
 #include <stdint.h>
 void* xllr_handle = NULL;
 void (*pcall)(const char*, uint32_t,
-			 const char*, uint32_t,
-			 const char*, uint32_t,
+			 int64_t,
 			 unsigned char*, uint64_t,
 			 unsigned char**, uint64_t*,
 			 unsigned char**, uint64_t*,
@@ -36,7 +35,7 @@ void (*pcall)(const char*, uint32_t,
 int64_t (*pload_function)(const char*, uint32_t,
 						const char*, uint32_t,
 						int64_t,
-						unsigned char**, uint32_t*)
+						char**, uint32_t*) = NULL;
 
 #ifdef _WIN32 //// --- START WINDOWS ---
 #include <Windows.h>
@@ -134,8 +133,7 @@ void* load_symbol(void* handle, const char* name, char** out_err)
 
 void call(
 		const char* runtime_plugin, uint32_t runtime_plugin_len,
-		const char* module_name, uint32_t module_name_len,
-		const char* func_name, uint32_t func_name_len,
+		int64_t function_id,
 		unsigned char* in_params, uint64_t in_params_len,
 		unsigned char** out_params, uint64_t* out_params_len,
 		unsigned char** out_ret, uint64_t* out_ret_len,
@@ -143,12 +141,22 @@ void call(
 )
 {
 	pcall(runtime_plugin, runtime_plugin_len,
-			module_name, module_name_len,
-			func_name, func_name_len,
+			function_id,
 			in_params, in_params_len,
 			out_params, out_params_len,
 			out_ret, out_ret_len,
 			is_error);
+}
+
+int64_t load_function(const char* runtime_plugin, uint32_t runtime_plugin_len,
+						const char* function_path, uint32_t function_path_len,
+						int64_t function_id_opt,
+						char** out_err, uint32_t* out_err_len)
+{
+	return pload_function(runtime_plugin, runtime_plugin_len,
+							function_path, function_path_len,
+							function_id_opt,
+							out_err, out_err_len);
 }
 
 const char* load_xllr_api()
@@ -254,16 +262,19 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pruntime_plugin := C.CString(runtime_plugin)
 	defer C.free(unsafe.Pointer(pruntime_plugin))
 
-	if {$f.PathToForeignFunction.function}}_id == -1{
+	if {{$f.PathToForeignFunction.function}}_id == -1{
 		path := "{{$f.PathToForeignFunctionAsString}}"
+		ppath := C.CString(path)
+		defer C.free(unsafe.Pointer(ppath))
 
-		var out_err *C.uchar
+		var out_err *C.char
 		var out_err_len C.uint32_t
 		out_err_len = C.uint32_t(0)
-		{{$f.PathToForeignFunction.function}}_id = C.pload_function(pruntime_plugin, len(runtime_plugin), path, len(path), -1, &out_err, &out_err_len)
+		{{$f.PathToForeignFunction.function}}_id = int64(C.load_function(pruntime_plugin, C.uint(len(runtime_plugin)), ppath, C.uint(len(path)), C.int64_t(-1), &out_err, &out_err_len))
 		
-		if {$f.PathToForeignFunction.function}}_id == -1{ // failed
-			return fmt.Errorf("Failed to load function %v: %v", {{$f.PathToForeignFunction.function}}, C.GoString(out_err))
+		if {{$f.PathToForeignFunction.function}}_id == -1{ // failed
+			err = fmt.Errorf("Failed to load function %v: %v", "{{$f.PathToForeignFunction.function}}", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+			return
 		}
 	}
 	
@@ -295,7 +306,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	out_is_error = C.uchar(0)
 
 	C.call(pruntime_plugin, C.uint(len(runtime_plugin)),
-			{{$f.PathToForeignFunction.function}}_id,
+			C.int64_t({{$f.PathToForeignFunction.function}}_id),
 			pin_params, in_params_len,
 			&out_params, &out_params_len,
 			&out_ret, &out_ret_len,
