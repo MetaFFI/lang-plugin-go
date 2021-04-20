@@ -5,7 +5,7 @@ enable_testing()
 
 set(target_name "xllr.go")
 
-file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp ${CMAKE_CURRENT_LIST_DIR}/*.h)
+file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp ${CMAKE_CURRENT_LIST_DIR}/*.h ${OPENFFI_SDK}/utils/*.cpp)
 # build xllr.go
 add_library(${target_name}
 			SHARED
