@@ -59,7 +59,7 @@ func TestHost(t *testing.T){
 
 
 	cmp := NewCompiler(def, serializationCodeMap, ".")
-	outputFileName, err := cmp.CompileHost()
+	outputFileName, err := cmp.CompileHost(nil)
 	if err != nil{
 		t.Fatal(err)
 		return

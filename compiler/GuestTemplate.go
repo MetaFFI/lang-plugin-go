@@ -11,7 +11,7 @@ const GuestImportsTemplate = `
 import "github.com/golang/protobuf/proto"
 import "fmt"
 {{range $mindex, $i := .Imports}}
-import "{{$i}}"{{end}}
+import . "{{$i}}"{{end}}
 
 `
 
@@ -78,7 +78,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_para
 	}
 	
 	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.package}}.{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{PassParameter $elem}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{PassParameter $elem}}{{end}})
 	
 	ret := {{ToGoNameConv $f.ReturnValuesType}}{}
 

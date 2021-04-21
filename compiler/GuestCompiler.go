@@ -94,7 +94,15 @@ func (this *GuestCompiler) parseImports() (string, error){
 			if pack, found := f.PathToForeignFunction["package"]; found{
 
 				if pack != `main`{
-					set[pack] = true
+					set[os.ExpandEnv(pack)] = true
+				}
+			}
+
+			if mod, found := f.PathToForeignFunction["module"]; found{
+
+				mod = os.ExpandEnv(mod)
+				if fi, _ := os.Stat(mod); fi == nil { // ignore if module is local item
+					set[os.ExpandEnv(mod)] = true
 				}
 			}
 		}
