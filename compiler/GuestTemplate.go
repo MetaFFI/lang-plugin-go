@@ -37,8 +37,6 @@ func errToOutError(out_err **C.char, out_err_len *C.uint64_t, is_error *C.uint8_
 func panicHandler(out_err **C.char, out_err_len *C.uint64_t, is_error *C.uint8_t){
 	
 	if rec := recover(); rec != nil{
-		fmt.Println("Caught Panic")
-
 		msg := "Panic in Go function. Panic Data: "
 		switch recType := rec.(type){
 			case error: msg += (rec.(error)).Error()
