@@ -326,8 +326,8 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		err = fmt.Errorf("Failed to unmarshal return values into protobuf. Error: %v", err)
 		return
 	}
-
-	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret.{{AsPublic $elem.Name}}{{end}}{{if $f.ReturnValues}},{{end}} nil
+	
+	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret.{{$elemNameGoConv := ToGoNameConv $elem.Name}}{{AsPublic $elemNameGoConv}}{{end}}{{if $f.ReturnValues}},{{end}} nil
 
 }
 {{end}}
