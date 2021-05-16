@@ -21,16 +21,17 @@ import "runtime"
 const HostCImport = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
+#cgo CFLAGS: -I{{.ENV.OPENFFI_HOME}}
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <openffi_primitives.h>
 void* xllr_handle = NULL;
 void (*pcall)(const char*, uint32_t,
 			 int64_t,
-			 unsigned char*, uint64_t,
-			 unsigned char**, uint64_t*,
-			 unsigned char**, uint64_t*,
-			 uint8_t*) = NULL;
+			 char**, uint64_t*
+			 unsigned uint32_t,
+			 ...) = NULL;
 
 int64_t (*pload_function)(const char*, uint32_t,
 						const char*, uint32_t,
@@ -244,12 +245,6 @@ const HostFunctionStubsTemplate = `
 var {{$f.PathToForeignFunction.function}}_id int64 = -1
 func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 
-	// serialize parameters
-	req := {{ToGoNameConv $f.ParametersType}}{}
-	{{range $index, $elem := $f.Parameters}}
-	req.{{AsPublic $elem.Name}} = {{$elem.Name}}
-	{{end}}
-
 	// load XLLR
 	err = loadXLLR()
 	if err != nil{
@@ -277,57 +272,44 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			return
 		}
 	}
+
+	args_size := C.uint64_t(0);
 	
-	// in parameters
-	in_params, err := proto.Marshal(&req)
-	if err != nil{
-		err = fmt.Errorf("Failed to marshal return values into protobuf. Error: %v", err)
-		return
-	}
+	// convert parameters to C
+	{{range $index, $elem := $f.Parameters}}
+	{{ConvertToC $elem in_$elem.Name}}
+	args_size += C.uint64_t(C.sizeof({{in_$elem.Name}}))
+	{{end}}
 
-	var pin_params *C.uchar
-	var in_params_len C.uint64_t
-	if len(in_params) > 0{
-		pin_params = (*C.uchar)(unsafe.Pointer(&in_params[0]))
-		in_params_len = C.uint64_t(len(in_params))
-	} else {
-		in_params_len = C.uint64_t(0)
-	}
+	// return values in C
+	{{range $index, $elem := $f.ReturnValues}}
+	{{ConvertToC $elem out_$elem.Name}}
+	args_size += C.uint64_t(C.sizeof({{out_$elem.Name}}))
+	{{end}}
 
-	var out_ret *C.uchar
-	var out_ret_len C.uint64_t
-	out_ret_len = C.uint64_t(0)
-
-	var out_params *C.uchar
-	var out_params_len C.uint64_t
-	out_params_len = C.uint64_t(0)
-
-	var out_is_error C.uchar
-	out_is_error = C.uchar(0)
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
 
 	C.call(pruntime_plugin, C.uint(len(runtime_plugin)),
 			C.int64_t({{$f.PathToForeignFunction.function}}_id),
-			pin_params, in_params_len,
-			&out_params, &out_params_len,
-			&out_ret, &out_ret_len,
-			&out_is_error)
+			&out_err, &out_err_len,
+			args_size,
+			{{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{in_$elem.Name}}{{end}},
+			{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{out_$elem.Name}}{{end}})
 
 	// check errors
-	if out_is_error != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_ret), C.int(out_ret_len))))
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
 		return
 	}
 
-	// deserialize result	
-	ret := {{ToGoNameConv $f.ReturnValuesType}}{}
-	out_ret_buf := C.GoBytes(unsafe.Pointer(out_ret), C.int(out_ret_len))
-	err = proto.Unmarshal(out_ret_buf, &ret)
-	if err != nil{
-		err = fmt.Errorf("Failed to unmarshal return values into protobuf. Error: %v", err)
-		return
-	}
+	// convert from C to Go
+	{{range $index, $elem := $f.ReturnValues}}
+	{{ConvertToGo $elem ret_$elem.Name}}
+	{{end}}
 	
-	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret.{{$elemNameGoConv := ToGoNameConv $elem.Name}}{{AsPublic $elemNameGoConv}}{{end}}{{if $f.ReturnValues}},{{end}} nil
+	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}},{{end}} nil
 
 }
 {{end}}

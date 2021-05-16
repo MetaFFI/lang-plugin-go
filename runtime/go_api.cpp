@@ -59,12 +59,10 @@ void free_function(int64_t function_id, char** /*err*/, uint32_t* /*err_len*/)
 }
 //--------------------------------------------------------------------
 void call(
-	// function id to call
 	int64_t function_id,
-	unsigned char* in_params, uint64_t in_params_len,
-	unsigned char** out_params, uint64_t* out_params_len,
-	unsigned char** out_ret, uint64_t* out_ret_len,
-	uint8_t* is_error
+	char** out_err, uint64_t *out_err_len,
+	uint64_t args_len,
+	va_list params
 )
 {
 	try
@@ -73,11 +71,10 @@ void call(
 		std::shared_ptr<foreign_function_entrypoint> func = functions_repository::get_instance().get_function(function_id);
 		
 		// call function
-		(*func)(in_params, in_params_len,
-		        out_params, out_params_len,
-		        out_ret, out_ret_len,
-		        is_error);
+		(*func)(out_err, out_err_len,
+		        args_len,
+		        params);
 	}
-	catch_err((char**)out_ret, out_ret_len, exc.what());
+	catch_err((char**)out_err, out_err_len, exc.what());
 }
 //--------------------------------------------------------------------

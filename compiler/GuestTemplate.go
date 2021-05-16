@@ -17,7 +17,12 @@ import . "{{$i}}"{{end}}
 
 const GuestCImport = `
 /*
+#cgo !windows LDFLAGS: -L. -ldl
+#cgo CFLAGS: -I{{.ENV.OPENFFI_HOME}}
+
 #include <stdint.h>
+#include <stdarg.h>
+#include <openffi_primitives.h>
 */
 import "C"
 `
@@ -27,9 +32,10 @@ func main(){} // main function must be declared to create dynamic library
 `
 
 const GuestHelperFunctions = `
-func errToOutError(out_err **C.char, out_err_len *C.uint64_t, is_error *C.uint8_t, customText string, err error){
+func errToOutError(out_err **C.char, out_err_len *C.uint64_t, customText string, err error){
 	*is_error = 1
-	txt := customText+err.Error()
+	txt := customText
+	if err != nil { txt += err.Error() }
 	*out_err = C.CString(txt)
 	*out_err_len = C.uint64_t(len(txt))
 }
@@ -59,64 +65,51 @@ const GuestFunctionXLLRTemplate = `
 
 // Call to foreign {{$f.PathToForeignFunction.function}}
 //export EntryPoint_{{$f.PathToForeignFunction.function}}
-func EntryPoint_{{$f.PathToForeignFunction.function}}(in_params *C.char, in_params_len C.uint64_t, out_params **C.char, out_params_len *C.uint64_t, out_ret **C.char, out_ret_len *C.uint64_t, is_error *C.uint8_t){
+func EntryPoint_{{$f.PathToForeignFunction.function}}(out_err **C.char, out_err_len *C.uint64_t, args_size C.uint64_t, params C.va_list){
 
 	// catch panics and return them as errors
 	defer panicHandler(out_ret, out_ret_len, is_error)
 	
-	*is_error = 0
+	*out_err_len = 0
 
-	// deserialize parameters
-	inParams := C.GoStringN(in_params, C.int(in_params_len))
-	req := {{ToGoNameConv $f.ParametersType}}{}
-	err := proto.Unmarshal([]byte(inParams), &req)
-	if err != nil{
-		errToOutError(out_ret, out_ret_len, is_error, "Failed to unmarshal parameters", err)
+	isFailed := C.uint8(0);
+
+	// parameters
+	{{range $index, $elem := $f.Parameters}}C.set_openffi_param(openffi_{{$elem.Type}}, in_{{$elem.Name}}, params, args_size, isFailed){{end}}
+	if isFailed != C.uint8(0){
+		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading parameters in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
 		return
 	}
 	
-	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{PassParameter $elem}}{{end}})
-	
-	ret := {{ToGoNameConv $f.ReturnValuesType}}{}
-
-	// === fill out_ret
-	// if one of the returned parameters is of interface type Error, check if error, and if so, return error
-	{{range $index, $elem := $f.ReturnValues}}
-	if err, isError := interface{}({{$elem.Name}}).(error); isError{
-		errToOutError(out_ret, out_ret_len, is_error, "Error returned", err)
+	// return values
+	{{range $index, $elem := $f.ReturnValues}}C.set_openffi_param(*openffi_{{$elem.Type}}, out_{{$elem.Name}}, params, args_size, isFailed){{end}}
+	if isFailed != C.uint8(0){
+		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading return values in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
 		return
-	} else {
-		ret.{{AsPublic $elem.Name}} = {{if eq $elem.PassMethod "by_pointer"}}&{{end}}{{$elem.Name}}
-	}	
+	}
+
+	if args_size > C.uint64(0){
+		errToOutError(out_err, out_err_len, "Not all arguments were read from va_list in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
+		return
+	}
+
+	// convert parameters from C to Go
+	{{range $index, $elem := $f.Parameters}}
+	{{ConvertToGo in_$elem.Name $elem}}
 	{{end}}
 
-	// serialize results
-	serializedRet, err := proto.Marshal(&ret)
-	if err != nil{
-		errToOutError(out_ret, out_ret_len, is_error, "Failed to marshal return values into protobuf", err)
-		return
-	}
+	// call original function
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
 
-	// write serialized results to out_ret
-	serializedRetStr := string(serializedRet)
-	*out_ret = C.CString(serializedRetStr)
-	*out_ret_len = C.uint64_t(len(serializedRetStr))
-
-	// === fill out_params
-	serializedParams, err := proto.Marshal(&req)
-	if err != nil{
-		errToOutError(out_ret, out_ret_len, is_error, "Failed to marshal parameter values into protobuf", err)
+	// return values
+	{{range $index, $elem := $f.ReturnValues}}
+	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
+		errToOutError(out_err, out_err_len, is_error, "Error returned", err)
 		return
-	}
-	
-	if out_params != nil && out_params_len != nil{
-		// write serialized parameters to out_params
-		serializedParamsStr := string(serializedParams)
-		*out_params = C.CString(serializedParamsStr)
-		*out_params_len = C.uint64_t(len(serializedParamsStr))
-	}
-	
+	} else { // Convert from Go to C
+		*out_{{$elem.Name}} = {{ConvertToC $elem in_$elem.Name}}
+	}	
+	{{end}}	
 }
 {{end}}{{end}}
 

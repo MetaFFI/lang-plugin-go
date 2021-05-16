@@ -157,44 +157,7 @@ func (this *GuestCompiler) parseImports() (string, error){
 //--------------------------------------------------------------------
 func (this *GuestCompiler) parseForeignFunctions() (string, error){
 
-	asPublic := func(elem string) string {
-		if len(elem) == 0 {
-			return ""
-		} else if len(elem) == 1 {
-			return strings.ToUpper(elem)
-		} else {
-			return strings.ToUpper(elem[0:1]) + elem[1:]
-		}
-	}
-
-	toGoNameConv := func(elem string) string{
-		elem = strings.Replace(elem, "_", " ", -1)
-		elem = strings.Title(elem)
-		return strings.Replace(elem, " ", "", -1)
-	}
-
-	passParameter := func(p interface{}) string{
-		param := p.(*compiler.FieldDefinition)
-		res := "req."+asPublic(param.Name)
-
-		if param.PassMethod == "by_pointer"{
-			res = "&"+res
-		}
-
-		if strings.Contains(param.Type, "int"){
-			res = "int("+res+")"
-		}
-
-		return res
-	}
-
-	funcMap := map[string]interface{}{
-		"AsPublic": asPublic,
-		"ToGoNameConv": toGoNameConv,
-		"PassParameter": passParameter,
-	}
-
-	tmpEntryPoint, err := template.New("guest").Funcs(funcMap).Parse(GuestFunctionXLLRTemplate)
+	tmpEntryPoint, err := template.New("guest").Funcs(templatesFuncMap).Parse(GuestFunctionXLLRTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse GuestFunctionXLLRTemplate: %v", err)
 	}
