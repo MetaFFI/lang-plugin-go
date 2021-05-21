@@ -14,23 +14,23 @@ const HostImports = `
 import "fmt"
 import "os"
 import "unsafe"
-import "github.com/golang/protobuf/proto"
 import "runtime"
 `
 
-const HostCImport = `
+const HostCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{.ENV.OPENFFI_HOME}}
+#cgo CFLAGS: -I{{GetEnvVar "OPENFFI_HOME"}}
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <openffi_primitives.h>
 void* xllr_handle = NULL;
 void (*pcall)(const char*, uint32_t,
 			 int64_t,
 			 char**, uint64_t*
-			 unsigned uint32_t,
+			 uint32_t,
 			 ...) = NULL;
 
 int64_t (*pload_function)(const char*, uint32_t,
@@ -118,6 +118,13 @@ const char* free_library(void* lib)
 	return NULL;
 }
 
+const char* get_string_element(int index, openffi_string* str, openffi_size* sizes, openffi_size* out_size)
+{
+	const char* res = str[index];
+	*out_size = sizes[index];
+	return res;
+}
+
 void* load_symbol(void* handle, const char* name, char** out_err)
 {
 	void* res = dlsym(handle, name);
@@ -133,20 +140,23 @@ void* load_symbol(void* handle, const char* name, char** out_err)
 #endif // ------- END POSIX -----
 
 void call(
-		const char* runtime_plugin, uint32_t runtime_plugin_len,
+		const char* runtime_plugin_name, uint32_t runtime_plugin_name_len,
 		int64_t function_id,
-		unsigned char* in_params, uint64_t in_params_len,
-		unsigned char** out_params, uint64_t* out_params_len,
-		unsigned char** out_ret, uint64_t* out_ret_len,
-		uint8_t* is_error
+		char** out_err, uint64_t* out_err_len,
+		uint64_t args_size,
+		...
 )
 {
-	pcall(runtime_plugin, runtime_plugin_len,
+	va_list params;
+    va_start(params, args_size);
+
+	pcall(runtime_plugin_name, runtime_plugin_name_len,
 			function_id,
-			in_params, in_params_len,
-			out_params, out_params_len,
-			out_ret, out_ret_len,
-			is_error);
+			out_err, out_err_len,
+			args_size,
+			params);
+
+	va_end(params);
 }
 
 int64_t load_function(const char* runtime_plugin, uint32_t runtime_plugin_len,
@@ -163,7 +173,7 @@ int64_t load_function(const char* runtime_plugin, uint32_t runtime_plugin_len,
 const char* load_xllr_api()
 {
 	char* out_err = NULL;
-	pcall = load_symbol(xllr_handle, "call", &out_err);
+	pcall = load_symbol(xllr_handle, "call_args", &out_err);
 	if(!pcall)
 	{
 		return out_err;
@@ -177,6 +187,22 @@ const char* load_xllr_api()
 
 	return NULL;
 }
+
+{{range $mindex, $m := .Modules}}{{range $findex, $f := $m.Functions}}
+void {{$f.Name}}(const char* runtime_plugin_name, uint32_t runtime_plugin_name_len,
+											int64_t function_id,
+											char** out_err, uint64_t* out_err_len,
+											uint64_t args_size,
+											{{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{FormalCParameter $elem "in" }}{{end}},{{range $index, $elem := $f.ReturnValues}}{{FormalCParameter $elem "out"}}{{end}})
+{
+	call(runtime_plugin_name, runtime_plugin_name_len,
+				function_id,
+				out_err, out_err_len,
+				args_size,
+				{{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{ParamActual $elem "in" ""}}{{end}},
+				{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{ParamActual $elem "in" "out"}}{{end}});
+}
+{{end}}{{end}}
 
 */
 import "C"
@@ -277,26 +303,28 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	
 	// convert parameters to C
 	{{range $index, $elem := $f.Parameters}}
-	{{ConvertToC $elem in_$elem.Name}}
-	args_size += C.uint64_t(C.sizeof({{in_$elem.Name}}))
+	// {{if $elem.IsArray}}[]{{end}}{{$elem.Type}} {{$elem.Name}}
+	{{ConvertToC $elem "in"}}
+	args_size += C.uint64_t({{Sizeof $elem}})
 	{{end}}
 
 	// return values in C
 	{{range $index, $elem := $f.ReturnValues}}
-	{{ConvertToC $elem out_$elem.Name}}
-	args_size += C.uint64_t(C.sizeof({{out_$elem.Name}}))
+	// {{if $elem.IsArray}}[]{{end}}{{$elem.Type}} {{$elem.Name}}
+	{{ConvertToC $elem "out"}}
+	args_size += C.uint64_t({{Sizeof $elem}})
 	{{end}}
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.call(pruntime_plugin, C.uint(len(runtime_plugin)),
+	C.{{$f.Name}}(pruntime_plugin, C.uint(len(runtime_plugin)),
 			C.int64_t({{$f.PathToForeignFunction.function}}_id),
 			&out_err, &out_err_len,
 			args_size,
-			{{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{in_$elem.Name}}{{end}},
-			{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{out_$elem.Name}}{{end}})
+			{{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{ParamActual $elem "in" ""}}{{end}},
+			{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{ParamActual $elem "out" ""}}{{end}})
 
 	// check errors
 	if out_err_len != 0{
@@ -306,7 +334,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 
 	// convert from C to Go
 	{{range $index, $elem := $f.ReturnValues}}
-	{{ConvertToGo $elem ret_$elem.Name}}
+	{{ConvertToGo $elem "out" "ret"}}
 	{{end}}
 	
 	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}},{{end}} nil

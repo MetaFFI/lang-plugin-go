@@ -3,14 +3,10 @@ package main
 import (
 	"fmt"
 	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
-	"go/parser"
-	"go/token"
 	"html/template"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 )
@@ -28,18 +24,12 @@ func getDynamicLibSuffix() string{
 type GuestCompiler struct{
 	def *compiler.IDLDefinition
 	outputDir string
-	serializationCode map[string]string
 	outputFilename string
 }
 //--------------------------------------------------------------------
-func NewGuestCompiler(definition *compiler.IDLDefinition, outputDir string, outputFilename string, serializationCode map[string]string) *GuestCompiler{
+func NewGuestCompiler(definition *compiler.IDLDefinition, outputDir string, outputFilename string) *GuestCompiler{
 
-	serializationCodeCopy := make(map[string]string)
-	for k, v := range serializationCode{
-		serializationCodeCopy[k] = v
-	}
-
-	return &GuestCompiler{def: definition, outputDir: outputDir, serializationCode: serializationCodeCopy, outputFilename: outputFilename}
+	return &GuestCompiler{def: definition, outputDir: outputDir, outputFilename: outputFilename}
 }
 //--------------------------------------------------------------------
 func (this *GuestCompiler) Compile() (outputFileName string, err error){
@@ -121,37 +111,6 @@ func (this *GuestCompiler) parseImports() (string, error){
 	err = tmp.Execute(&buf, imports)
 	importsCode := buf.String()
 
-	// get all imports from the serialization code
-
-	for filename, code := range this.serializationCode{
-
-		if strings.ToLower(filepath.Ext(filename)) != ".go"{
-			continue
-		}
-
-		fset := token.NewFileSet()
-		ast, err := parser.ParseFile(fset, "", code, parser.ImportsOnly)
-		if err != nil{
-			return "", fmt.Errorf("Failed to parse serialization code of file %v. Error: %v", filename, err)
-		}
-
-		// add to imports code + remove import from serialization code (so it can be appended to the rest of the file)
-		for _, i := range ast.Imports{
-
-			// if import equals "main" - skip (as it is the package name of the generated code)
-			if i.Path.Value != `"main"`{
-				importsCode += "import "+i.Path.Value+"\n"
-			}
-		}
-
-		// remove imports from serializationCode
-		removeImportRegex, err := regexp.Compile("\\n[ ]*import[^(\\\"|\\()]+\\\"[^\\\"]+\\\"|\\n[ ]*import[^(\\(|\")]+\\([^\\)]+\\)")
-		if err != nil{
-			return "", fmt.Errorf("Failed to create regex to remove imports from serialization code. Error: %v", err)
-		}
-		this.serializationCode[filename] = removeImportRegex.ReplaceAllString(this.serializationCode[filename], "")
-	}
-
 	return importsCode, err
 }
 //--------------------------------------------------------------------
@@ -180,19 +139,6 @@ func (this *GuestCompiler) generateCode() (string, error){
 	if err != nil{ return "", err }
 
 	res := header + imports + GuestCImport + functionStubs + GuestHelperFunctions + GuestMainFunction
-
-	// append serialization code in the same file
-	for filename, serializationCode := range this.serializationCode{
-
-		if strings.ToLower(filepath.Ext(filename)) != ".go"{
-			continue
-		}
-
-		// remove "package" lines
-		serializationCode = regexp.MustCompile("\npackage [^\n]+").ReplaceAllString(serializationCode, "")
-
-		res += serializationCode
-	}
 
 	return res, nil
 }

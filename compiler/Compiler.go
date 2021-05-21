@@ -7,17 +7,16 @@ import (
 //--------------------------------------------------------------------
 type Compiler struct{
 	def *compiler.IDLDefinition
-	serializationCode map[string]string
 	outputPath string
 }
 //--------------------------------------------------------------------
-func NewCompiler(def *compiler.IDLDefinition, serializationCode map[string]string, outputPath string) *Compiler {
-	return &Compiler{def: def, serializationCode: serializationCode, outputPath: outputPath}
+func NewCompiler(def *compiler.IDLDefinition, outputPath string) *Compiler {
+	return &Compiler{def: def, outputPath: outputPath}
 }
 //--------------------------------------------------------------------
 func (this *Compiler) CompileGuest() (outputFileName string, err error){
 
-	cmp := NewGuestCompiler(this.def, this.outputPath, this.def.IDLFilename, this.serializationCode)
+	cmp := NewGuestCompiler(this.def, this.outputPath, this.def.IDLFilename)
 	outputFileName, err = cmp.Compile()
 	if err != nil{
 		return
@@ -28,7 +27,7 @@ func (this *Compiler) CompileGuest() (outputFileName string, err error){
 //--------------------------------------------------------------------
 func (this *Compiler) CompileHost(hostOptions map[string]string) (outputFileName string, err error){
 
-	cmp := NewHostCompiler(this.def, this.outputPath, this.def.IDLFilename, this.serializationCode, hostOptions)
+	cmp := NewHostCompiler(this.def, this.outputPath, this.def.IDLFilename, hostOptions)
 	return cmp.Compile()
 }
 //--------------------------------------------------------------------

@@ -17,16 +17,16 @@ func NewGoLanguagePluginMain() *LanguagePluginMain{
 	return this
 }
 //--------------------------------------------------------------------
-func (this *LanguagePluginMain) CompileToGuest(idlDefinition *compiler.IDLDefinition, outputPath string, serializationCode map[string]string) error{
+func (this *LanguagePluginMain) CompileToGuest(idlDefinition *compiler.IDLDefinition, outputPath string) error{
 
-	cmp := NewCompiler(idlDefinition, serializationCode, outputPath)
+	cmp := NewCompiler(idlDefinition, outputPath)
 	_, err := cmp.CompileGuest()
 	return err
 }
 //--------------------------------------------------------------------
-func (this *LanguagePluginMain) CompileFromHost(idlDefinition *compiler.IDLDefinition, outputPath string, serializationCode map[string]string, hostOptions map[string]string) error{
+func (this *LanguagePluginMain) CompileFromHost(idlDefinition *compiler.IDLDefinition, outputPath string, hostOptions map[string]string) error{
 
-	cmp := NewCompiler(idlDefinition, serializationCode, outputPath)
+	cmp := NewCompiler(idlDefinition, outputPath)
 	_, err := cmp.CompileHost(hostOptions)
 	return err
 }
