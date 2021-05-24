@@ -98,7 +98,6 @@ func TestHost(t *testing.T){
 		return
 	}
 
-	/*
 	defer func(){
 		err = os.RemoveAll("temp")
 		if err != nil{
@@ -106,7 +105,7 @@ func TestHost(t *testing.T){
 			return
 		}
 	}()
-	*/
+
 	cmp := NewCompiler(def, "./temp")
 	_, err = cmp.CompileHost(nil)
 	if err != nil{
