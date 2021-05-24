@@ -60,9 +60,9 @@ void free_function(int64_t function_id, char** /*err*/, uint32_t* /*err_len*/)
 //--------------------------------------------------------------------
 void call(
 	int64_t function_id,
-	char** out_err, uint64_t *out_err_len,
-	uint64_t args_len,
-	va_list params
+	void** parameters, uint64_t parameters_len,
+	void** return_values, uint64_t return_values_len,
+	char** out_err, uint64_t* out_err_len
 )
 {
 	try
@@ -71,9 +71,9 @@ void call(
 		std::shared_ptr<foreign_function_entrypoint> func = functions_repository::get_instance().get_function(function_id);
 		
 		// call function
-		(*func)(out_err, out_err_len,
-		        args_len,
-		        params);
+		(*func)(parameters, parameters_len,
+		        return_values, return_values_len,
+		        out_err, out_err_len);
 	}
 	catch_err((char**)out_err, out_err_len, exc.what());
 }

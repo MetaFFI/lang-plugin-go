@@ -5,20 +5,57 @@ import (
 	"fmt"
 	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
 	"os"
+	"strconv"
 	"strings"
 )
 
 var templatesFuncMap = map[string]interface{}{
-	"AsPublic": asPublic,
-	"ToGoNameConv": toGoNameConv,
-	"CastIfNeeded": castIfNeeded,
-	"PassParameter": passParameter,
-	"ConvertToC": convertToC,
-	"ConvertToGo": convertToGo,
-	"ParamActual": paramActual,
+	"AsPublic":         asPublic,
+	"ToGoNameConv":     toGoNameConv,
+	"CastIfNeeded":     castIfNeeded,
+	"PassParameter":    passParameter,
+	"ConvertToCHost":   convertToCHost,
+	"ConvertToCGuest":  convertToCGuest,
+	"ConvertToGo":      convertToGo,
+	"ParamActual":      paramActual,
 	"FormalCParameter": formalCParameter,
-	"GetEnvVar": getEnvVar,
-	"Sizeof": Sizeof,
+	"GetEnvVar":        getEnvVar,
+	"Sizeof":           Sizeof,
+	"CalculateArgsLength": calculateArgsLength,
+	"CalculateArgLength": calculateArgLength,
+	"Add": add,
+}
+//--------------------------------------------------------------------
+func add(x int, y int) int{
+	return x + y
+}
+//--------------------------------------------------------------------
+func calculateArgLength(f *compiler.FieldDefinition) int{
+
+	if f.IsString(){
+		if f.IsArray{
+			return 3 // pointer to string array, pointer to sizes array, length of array
+		} else {
+			return 2 // pointer to string, size of string
+		}
+	} else {
+		if f.IsArray{
+			return 2 // pointer to type array, length of array
+		} else {
+			return 1 // value
+		}
+	}
+}
+//--------------------------------------------------------------------
+func calculateArgsLength(fields []*compiler.FieldDefinition) int{
+
+	length := 0
+
+	for _, f := range fields{
+		length += calculateArgLength(f)
+	}
+
+	return length
 }
 //--------------------------------------------------------------------
 func formalCParameter(field *compiler.FieldDefinition, direction string) string{
@@ -124,9 +161,15 @@ func paramActual(field *compiler.FieldDefinition, direction string, namePrefix s
 	}
 }
 //--------------------------------------------------------------------
-func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string) string{
+func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string, index int, argsBufferName string) string{
 
-	varName := varPrefix+"_"+field.Name
+	var varName string
+	if varPrefix != ""{
+		varName = varPrefix+"_"+field.Name
+	} else {
+		varName = field.Name
+	}
+
 	fieldName := fieldPrefix+"_"+field.Name
 
 	switch field.Type{
@@ -141,16 +184,34 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string)
 		case compiler.UINT32: fallthrough
 		case compiler.UINT64:
 			if field.IsArray{
-				return varName+" := make([]"+field.Type+", 0); for _, val := range "+fieldName+"{ "+varName+" = append("+varName+", "+field.Type+"("+fieldName+")) }"
+				res := fieldName+" := C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index)+"); "
+				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+1)+"); "
+				res += varName+" := make([]"+field.Type+", 0); "
+				res += "for i:=C.int; i<C.int("+fieldName+"_len); i++ { "
+				res += "val := C.get_openffi_"+field.Type+"_element("+fieldName+", i); "
+				res += varName+" = append("+varName+", "+field.Type+"(val)) "
+				res += "}"
+				return res
 			} else {
-				return varName+" := "+field.Type+"("+fieldName+")"
+				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+") "
+				res += varName+" := "+field.Type+"("+fieldName+")"
+				return res
 			}
 
 		case compiler.BOOL:
 			if field.IsArray{
-				return varName+" := make([]"+field.Type+", 0); for _, val := range "+fieldName+"{ "+varName+" = append("+varName+", "+field.Type+"("+fieldName+")) }"
+				res := fieldName+" := C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index)+"); "
+				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+1)+"); "
+				res += varName+" := make([]"+field.Type+", 0); "
+				res += "for i:=C.int; i<C.int("+fieldName+"_len); i++ { "
+				res += "val := C.get_openffi_"+field.Type+"_element("+fieldName+", i); "
+				res += varName+" = append("+varName+", val != C.openffi_bool(0)) "
+				res += "}"
+				return res
 			} else {
-				return fmt.Sprintf("%v := %v != C.openffi_bool(0)", varName, fieldName)
+				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+") "
+				res += varName+" := "+fieldName+" != C.openffi_bool(0)"
+				return res
 			}
 
 		case compiler.STRING: fallthrough
@@ -158,9 +219,21 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string)
 		case compiler.STRING16: fallthrough
 		case compiler.STRING32:
 			if field.IsArray{
-				return varName+" := make([]string, 0); for i:=C.openffi_size(0) ; i<"+fieldName+"_len ; i++ { val_size := C.openffi_size(0); val := C.get_string_element(C.int(i), "+fieldName+", "+fieldName+"_sizes, &val_size); "+varName+" = append("+varName+", C.GoStringN(val, C.int(val_size))) }"
+				res := fieldName+" := (*C.openffi_string)(C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index)+")); "
+				res += fieldName+"_sizes := (*C.openffi_size)(C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index+1)+")); "
+				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+2)+"); "
+				res += varName+" := make([]string, 0); for i:=C.openffi_size(0) ; "
+				res += "i<"+fieldName+"_len ; i++ { "
+				res += "val_size := C.openffi_size(0); "
+				res += "val := C.get_openffi_string_element(C.int(i), "+fieldName+", "+fieldName+"_sizes, &val_size); "
+				res += varName+" = append("+varName+", C.GoStringN(val, C.int(val_size))) "
+				res += "}"
+				return res
 			} else {
-				return fmt.Sprintf("%v := C.GoStringN(%v, C.int(%v))", varName, fieldName, fieldName+"_len")
+				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+") "
+				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+1)+") "
+				res += fmt.Sprintf("%v := C.GoStringN(%v, C.int(%v))", varName, fieldName, fieldName+"_len")
+				return res
 			}
 
 		default:
@@ -168,9 +241,64 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string)
 	}
 }
 //--------------------------------------------------------------------
-func convertToC(field *compiler.FieldDefinition, direction string) string{
+func convertToCGuest(field *compiler.FieldDefinition, prefix string) string{
+	varName := prefix +"_"+field.Name
 
-	varName := direction +"_"+field.Name
+	res := ""
+
+	switch field.Type{
+	case compiler.FLOAT64: fallthrough
+	case compiler.FLOAT32: fallthrough
+	case compiler.INT8:  fallthrough
+	case compiler.INT16: fallthrough
+	case compiler.INT32: fallthrough
+	case compiler.INT64: fallthrough
+	case compiler.UINT8: fallthrough
+	case compiler.UINT16: fallthrough
+	case compiler.UINT32: fallthrough
+	case compiler.UINT64:
+		if field.IsArray {
+			res = varName + "_arr := C.malloc(len("+field.Name+")*"+Sizeof(field)+"); "
+			res += varName + `_len = C.openffi_size(len(` + field.Name + `)); `
+			res += `for i, val := range ` + field.Name + ` { C.set_openffi_`+field.Type+`_element(` + varName + `_arr, i, val); }; `
+			res += varName + ` = &(` + varName + `_arr[0]); `
+		} else {
+			return fmt.Sprintf(`%v = C.openffi_`+field.Type+`(%v)`, varName, field.Name)
+		}
+
+	case compiler.BOOL:
+		if field.IsArray {
+			res = varName + "_arr := C.malloc(len("+field.Name+")*"+Sizeof(field)+"); "
+			res += varName + `_len = C.openffi_size(len(` + field.Name + `)); `
+			res += `for i, val := range ` + field.Name + ` { var cval C.openffi_bool; if val{ cval = C.openffi_bool(1) } else { cval = C.openffi_bool(0) }; C.set_openffi_`+field.Type+`_element(` + varName + `_arr, i, cval); }; `
+			res += varName + ` = &(` + varName + `_arr[0]); `
+		} else {
+			res = `if ` + field.Name + ` { ` + varName + ` = C.openffi_bool(1) } else { ` + varName + ` = C.openffi_bool(0) }`
+		}
+
+	case compiler.STRING: fallthrough
+	case compiler.STRING8: fallthrough
+	case compiler.STRING16: fallthrough
+	case compiler.STRING32:
+		if field.IsArray {
+			res = "*"+varName + " = C.malloc(len("+field.Name+")*"+Sizeof(field)+"); "
+			res = "*"+varName + "_sizes = C.malloc(len("+field.Name+")*C.sizeof_openffi_size); "
+			res += varName + `_len = C.openffi_size(len(` + field.Name + `)); `
+			res += `for i, val := range ` + field.Name + ` { C.set_openffi_string_element(i, ` + varName + `, `+varName + `_sizes, C.CString(val), C.openffi_size(len(val))); }; `
+		} else {
+			res = fmt.Sprintf("%v := C.CString(%v); %v_len := C.ulong(len(%v)); defer C.free(unsafe.Pointer(%v))", varName, field.Name, varName, field.Name, varName)
+		}
+
+	default:
+		panic("Unsupported OpenFFI Type "+field.Type)
+	}
+
+	return res
+}
+//--------------------------------------------------------------------
+func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, argsBufferName string) string{
+
+	varName := prefix +"_"+field.Name
 
 	res := ""
 
@@ -185,63 +313,48 @@ func convertToC(field *compiler.FieldDefinition, direction string) string{
 		case compiler.UINT16: fallthrough
 		case compiler.UINT32: fallthrough
 		case compiler.UINT64:
-			if direction != "out" {
-				if field.IsArray {
-					res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
-					res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
-					res += `for _, val := range ` + field.Name + ` { ` + varName + `_arr = append(` + varName + `_arr, C.openffi_` + field.Type + `(val)) }; `
-					res += varName + ` := &(` + varName + `_arr[0]); `
-				} else {
-					return fmt.Sprintf(`%v := C.openffi_`+field.Type+`(%v)`, varName, field.Name)
-				}
+			if field.IsArray {
+				res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
+				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
+				res += `for _, val := range ` + field.Name + ` { ` + varName + `_arr = append(` + varName + `_arr, C.openffi_` + field.Type + `(val)) }; `
+				res += varName + ` := &(` + varName + `_arr[0]); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`,unsafe.Pointer(`+varName+`)); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`,unsafe.Pointer(&`+varName+`_len));`
 			} else {
-				if field.IsArray {
-					return varName+` C.openffi_`+field.Type+`(0); `+varName+`_len := C.openffi_size(0);`
-				} else {
-					return varName+` := C.openffi_`+field.Type+`(0)`
-				}
+				return fmt.Sprintf(`%v := C.openffi_%v(%v); C.set_arg(%v, %v, unsafe.Pointer(&%v)) `, varName, field.Type, field.Name, argsBufferName, index, varName)
 			}
 
 		case compiler.BOOL:
-			if direction != "out" {
-				if field.IsArray {
-					res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
-					res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
-					res += `for _, val := range ` + field.Name + ` { var cval C.openffi_bool; if val{ cval=C.openffi_bool(1) } else { cval=C.openffi_bool(0) }; ` + varName + `_arr = append(` + varName + `_arr, cval) }; `
-					res += varName + ` := &(` + varName + `_arr[0]); `
-
-				} else {
-					res = `var ` + varName + ` C.openffi_` + field.Type + `; if ` + field.Name + ` { ` + varName + ` = C.openffi_bool(1) } else { ` + varName + ` = C.openffi_bool(0) }`
-				}
+			if field.IsArray {
+				res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
+				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
+				res += `for _, val := range ` + field.Name + ` { var cval C.openffi_bool; if val{ cval=C.openffi_bool(1) } else { cval=C.openffi_bool(0) }; ` + varName + `_arr = append(` + varName + `_arr, cval) }; `
+				res += varName + ` := &(` + varName + `_arr[0]); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`,unsafe.Pointer(`+varName+`)); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`,unsafe.Pointer(&`+varName+`_len));`
 			} else {
-				if field.IsArray {
-					return varName+` := C.openffi_`+field.Type+`(0); `+varName+`_len := C.openffi_size(0);`
-				} else {
-					return varName+` := C.openffi_`+field.Type+`(0)`
-				}
+				res = `var ` + varName + ` C.openffi_` + field.Type + `; if ` + field.Name + ` { ` + varName + ` = C.openffi_bool(1) } else { ` + varName + ` = C.openffi_bool(0) }; `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`, unsafe.Pointer(&`+varName+`))`
 			}
 
 		case compiler.STRING: fallthrough
 		case compiler.STRING8: fallthrough
 		case compiler.STRING16: fallthrough
 		case compiler.STRING32:
-			if direction != "out" {
-				if field.IsArray {
-					res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
-					res += varName + `_go_sizes := make([]C.openffi_size, 0); `
-					res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
-					res += `for _, val := range ` + field.Name + ` { curCval := C.CString(val); ` + varName + `_arr = append(` + varName + `_arr, curCval); ` + varName + `_go_sizes = append(` + varName + `_go_sizes, C.openffi_size(len(val)));  defer C.free(unsafe.Pointer(curCval)) }; `
-					res += varName + ` := &(` + varName + `_arr[0]); `
-					res += varName + `_sizes := &(` + varName + `_go_sizes[0]); `
-				} else {
-					res = fmt.Sprintf("%v := C.CString(%v); %v_len := C.ulong(len(%v)); defer C.free(unsafe.Pointer(%v))", varName, field.Name, varName, field.Name, varName)
-				}
+			if field.IsArray {
+				res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
+				res += varName + `_go_sizes := make([]C.openffi_size, 0); `
+				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
+				res += `for _, val := range ` + field.Name + ` { curCval := C.CString(val); ` + varName + `_arr = append(` + varName + `_arr, curCval); ` + varName + `_go_sizes = append(` + varName + `_go_sizes, C.openffi_size(len(val)));  defer C.free(unsafe.Pointer(curCval)) }; `
+				res += varName + ` := &(` + varName + `_arr[0]); `
+				res += varName + `_sizes := &(` + varName + `_go_sizes[0]); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`, unsafe.Pointer(`+varName+`)); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`, unsafe.Pointer(`+varName+`_sizes)); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+2)+`, unsafe.Pointer(&`+varName+`_len)); `
 			} else {
-				if field.IsArray {
-					return `var `+varName+` *C.openffi_string; var `+varName+`_sizes *C.openffi_size; `+varName+`_len := C.openffi_size(0);`
-				} else {
-					return varName+` := C.openffi_`+field.Type+`(0)`
-				}
+				res = fmt.Sprintf("%v := C.CString(%v); %v_len := C.ulong(len(%v)); defer C.free(unsafe.Pointer(%v)); ", varName, field.Name, varName, field.Name, varName)
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`, unsafe.Pointer(`+varName+`)); `
+				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`, unsafe.Pointer(&`+varName+`_len)) `
 			}
 
 		default:

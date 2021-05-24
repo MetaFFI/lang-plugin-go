@@ -58,14 +58,23 @@ func TestGuest(t *testing.T){
 		return
 	}
 
-	cmp := NewCompiler(def, ".")
-	outputFileName, err := cmp.CompileGuest()
+	_ = os.RemoveAll("temp")
+
+	err = os.Mkdir("temp", 0700)
 	if err != nil{
 		t.Fatal(err)
 		return
 	}
+	defer func(){
+		/*err = os.RemoveAll("temp")
+		if err != nil{
+			t.Fatal(err)
+			return
+		}*/
+	}()
 
-	err = os.Remove(outputFileName)
+	cmp := NewCompiler(def, "temp")
+	_, err = cmp.CompileGuest()
 	if err != nil{
 		t.Fatal(err)
 		return
@@ -88,6 +97,8 @@ func TestHost(t *testing.T){
 		t.Fatal(err)
 		return
 	}
+
+	/*
 	defer func(){
 		err = os.RemoveAll("temp")
 		if err != nil{
@@ -95,7 +106,7 @@ func TestHost(t *testing.T){
 			return
 		}
 	}()
-
+	*/
 	cmp := NewCompiler(def, "./temp")
 	_, err = cmp.CompileHost(nil)
 	if err != nil{

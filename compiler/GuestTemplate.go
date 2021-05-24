@@ -8,18 +8,18 @@ package main
 `
 
 const GuestImportsTemplate = `
-import "github.com/golang/protobuf/proto"
 import "fmt"
 {{range $mindex, $i := .Imports}}
 import . "{{$i}}"{{end}}
 
 `
 
-const GuestCImport = `
+const GuestCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{.ENV.OPENFFI_HOME}}
+#cgo CFLAGS: -I{{GetEnvVar "OPENFFI_HOME"}}
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <openffi_primitives.h>
@@ -33,14 +33,13 @@ func main(){} // main function must be declared to create dynamic library
 
 const GuestHelperFunctions = `
 func errToOutError(out_err **C.char, out_err_len *C.uint64_t, customText string, err error){
-	*is_error = 1
 	txt := customText
 	if err != nil { txt += err.Error() }
 	*out_err = C.CString(txt)
 	*out_err_len = C.uint64_t(len(txt))
 }
 
-func panicHandler(out_err **C.char, out_err_len *C.uint64_t, is_error *C.uint8_t){
+func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
 	
 	if rec := recover(); rec != nil{
 		msg := "Panic in Go function. Panic Data: "
@@ -50,7 +49,6 @@ func panicHandler(out_err **C.char, out_err_len *C.uint64_t, is_error *C.uint8_t
 			default: msg += fmt.Sprintf("Panic with type: %v - %v", recType, rec)
 		}
 
-		*is_error = 1
 		*out_err = C.CString(msg)
 		*out_err_len = C.uint64_t(len(msg))
 	}
@@ -65,49 +63,71 @@ const GuestFunctionXLLRTemplate = `
 
 // Call to foreign {{$f.PathToForeignFunction.function}}
 //export EntryPoint_{{$f.PathToForeignFunction.function}}
-func EntryPoint_{{$f.PathToForeignFunction.function}}(out_err **C.char, out_err_len *C.uint64_t, args_size C.uint64_t, params C.va_list){
+func EntryPoint_{{$f.PathToForeignFunction.function}}(out_err **C.char, out_err_len *C.uint64_t, args_size C.uint64_t, params_wrapped C.struct_va_list_wrapper){
+
+	params := params_wrapped.list
 
 	// catch panics and return them as errors
-	defer panicHandler(out_ret, out_ret_len, is_error)
-	
+	defer panicHandler(out_err, out_err_len)
 	*out_err_len = 0
 
-	isFailed := C.uint8(0);
+	isFailed := C.uint8_t(0);
 
 	// parameters
-	{{range $index, $elem := $f.Parameters}}C.set_openffi_param(openffi_{{$elem.Type}}, in_{{$elem.Name}}, params, args_size, isFailed){{end}}
-	if isFailed != C.uint8(0){
+	{{range $index, $elem := $f.Parameters}}
+	var in_{{$elem.Name}} {{if $elem.IsArray}}*{{end}}C.openffi_{{$elem.Type}}
+	{{if $elem.IsArray}}in_{{$elem.Name}} = *C.openffi_{{$elem.Type}}(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
+	if isFailed{ errToOutError(out_err, out_err_len, "Failed to read argumentof type openffi_{{$elem.Type}} in EntryPoint_{{$f.PathToForeignFunction.function}}", nil); return}
+	var in_{{$elem.Name}}_len C.openffi_size; in_{{$elem.Name}}_len = C.get_va_arg_openffi_size(params, &args_size, &isFailed)
+	if isFailed{ errToOutError(out_err, out_err_len, "Failed to read argumentof type openffi_size in EntryPoint_{{$f.PathToForeignFunction.function}}", nil); return}
+	{{else}}
+	in_{{$elem.Name}} = C.get_va_arg_openffi_{{$elem.Type}}(params, &args_size, &isFailed){{end}}
+	{{if $elem.IsString}}
+	{{if not $elem.IsArray}}var in_{{$elem.Name}}_len C.openffi_size; in_{{$elem.Name}}_len = C.get_va_arg_openffi_size(params, &args_size, &isFailed){{end}}
+	{{if $elem.IsArray}}var in_{{$elem.Name}}_sizes C.openffi_size; in_{{$elem.Name}}_sizes = *C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed)){{end}}
+	{{end}}
+	if isFailed == 0{
 		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading parameters in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
 		return
 	}
+	{{end}}
 	
 	// return values
-	{{range $index, $elem := $f.ReturnValues}}C.set_openffi_param(*openffi_{{$elem.Type}}, out_{{$elem.Name}}, params, args_size, isFailed){{end}}
-	if isFailed != C.uint8(0){
-		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading return values in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
+	{{range $index, $elem := $f.ReturnValues}}
+	out_{{$elem.Name}} := {{if $elem.IsArray}}*{{end}}*C.openffi_{{$elem.Type}}(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
+	{{if $elem.IsString}}
+	{{if $elem.IsArray}}out_{{$elem.Name}}_sizes := **C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed)){{end}}
+	out_{{$elem.Name}}_len := *C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
+	{{else if $elem.IsArray}}
+	out_{{$elem.Name}}_len := *C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
+	{{end}}
+	if isFailed == 0{
+		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading parameters in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
 		return
 	}
+	{{end}}
 
-	if args_size > C.uint64(0){
+
+	if args_size > C.uint64_t(0){
 		errToOutError(out_err, out_err_len, "Not all arguments were read from va_list in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
 		return
 	}
 
 	// convert parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}
-	{{ConvertToGo in_$elem.Name $elem}}
+	{{ConvertToGo $elem "in" ""}}
 	{{end}}
 
 	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
-		errToOutError(out_err, out_err_len, is_error, "Error returned", err)
+		errToOutError(out_err, out_err_len, "Error returned", err)
 		return
-	} else { // Convert from Go to C
-		*out_{{$elem.Name}} = {{ConvertToC $elem in_$elem.Name}}
+	} else { // Convert return values from Go to C
+		{{ConvertToCGuest $elem "out"}}
 	}	
 	{{end}}	
 }

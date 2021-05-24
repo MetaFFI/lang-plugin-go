@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
-	"html/template"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"text/template"
 )
 
 //--------------------------------------------------------------------
@@ -127,6 +127,19 @@ func (this *GuestCompiler) parseForeignFunctions() (string, error){
 	return bufEntryPoint.String(), err
 }
 //--------------------------------------------------------------------
+func (this *GuestCompiler) parseCImports() (string, error){
+
+	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(GuestCImportTemplate)
+	if err != nil{
+		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+	}
+
+	buf := strings.Builder{}
+	err = tmp.Execute(&buf, this.def)
+
+	return buf.String(), err
+}
+//--------------------------------------------------------------------
 func (this *GuestCompiler) generateCode() (string, error){
 
 	header, err := this.parseHeader()
@@ -135,10 +148,13 @@ func (this *GuestCompiler) generateCode() (string, error){
 	imports, err := this.parseImports()
 	if err != nil{ return "", err }
 
+	cimports, err := this.parseCImports()
+	if err != nil{ return "", err }
+
 	functionStubs, err := this.parseForeignFunctions()
 	if err != nil{ return "", err }
 
-	res := header + imports + GuestCImport + functionStubs + GuestHelperFunctions + GuestMainFunction
+	res := header + imports + cimports + functionStubs + GuestHelperFunctions + GuestMainFunction
 
 	return res, nil
 }
