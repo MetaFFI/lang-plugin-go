@@ -184,8 +184,8 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 		case compiler.UINT32: fallthrough
 		case compiler.UINT64:
 			if field.IsArray{
-				res := fieldName+" := C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index)+"); "
-				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+1)+"); "
+				res := "var "+fieldName+"_len C.openffi_size; "
+				res += fieldName+" := C.get_arg_"+field.Type+"_array("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_len); "
 				res += varName+" := make([]"+field.Type+", 0); "
 				res += "for i:=C.int; i<C.int("+fieldName+"_len); i++ { "
 				res += "val := C.get_openffi_"+field.Type+"_element("+fieldName+", i); "
@@ -200,8 +200,8 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 
 		case compiler.BOOL:
 			if field.IsArray{
-				res := fieldName+" := C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index)+"); "
-				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+1)+"); "
+				res := "var "+fieldName+"_len C.openffi_size; "
+				res += fieldName+" := C.get_arg_openffi_bool_type("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_len); "
 				res += varName+" := make([]"+field.Type+", 0); "
 				res += "for i:=C.int; i<C.int("+fieldName+"_len); i++ { "
 				res += "val := C.get_openffi_"+field.Type+"_element("+fieldName+", i); "
@@ -219,9 +219,8 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 		case compiler.STRING16: fallthrough
 		case compiler.STRING32:
 			if field.IsArray{
-				res := fieldName+" := (*C.openffi_string)(C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index)+")); "
-				res += fieldName+"_sizes := (*C.openffi_size)(C.get_arg_pointer_type("+argsBufferName+", "+strconv.Itoa(index+1)+")); "
-				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+2)+"); "
+				res := "var "+fieldName+"_sizes *C.openffi_size; var "+fieldName+"_len C.openffi_size; "
+				res += fieldName+" := (*C.openffi_string)(C.get_arg_openffi_string_array("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_sizes, &"+fieldName+"_len)); "
 				res += varName+" := make([]string, 0); for i:=C.openffi_size(0) ; "
 				res += "i<"+fieldName+"_len ; i++ { "
 				res += "val_size := C.openffi_size(0); "
@@ -230,8 +229,8 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 				res += "}"
 				return res
 			} else {
-				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+") "
-				res += fieldName+"_len := C.get_arg_openffi_size("+argsBufferName+", "+strconv.Itoa(index+1)+") "
+				res := "var "+fieldName+"_len C.openffi_size; "
+				res += fieldName+" := C.get_arg_openffi_string("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_len); "
 				res += fmt.Sprintf("%v := C.GoStringN(%v, C.int(%v))", varName, fieldName, fieldName+"_len")
 				return res
 			}
