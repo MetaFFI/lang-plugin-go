@@ -50,7 +50,7 @@ func TestHostCompiler(t *testing.T){
 
 
 //--------------------------------------------------------------------
-func TestGuest(t *testing.T){
+func estGuest(t *testing.T){
 
 	def, err := compiler.NewIDLDefinition(idl)
 	if err != nil{

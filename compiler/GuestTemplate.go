@@ -63,29 +63,49 @@ const GuestFunctionXLLRTemplate = `
 
 // Call to foreign {{$f.PathToForeignFunction.function}}
 //export EntryPoint_{{$f.PathToForeignFunction.function}}
-func EntryPoint_{{$f.PathToForeignFunction.function}}(out_err **C.char, out_err_len *C.uint64_t, args_size C.uint64_t, params_wrapped C.struct_va_list_wrapper){
-
-	params := params_wrapped.list
+func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, parameters_length C.uint64_t, return_values **C.void, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 	*out_err_len = 0
 
-	isFailed := C.uint8_t(0);
-
-	// parameters
+	// parameters from C to Go
+	bufIndex := C.int(0)
 	{{range $index, $elem := $f.Parameters}}
-	var in_{{$elem.Name}} {{if $elem.IsArray}}*{{end}}C.openffi_{{$elem.Type}}
-	{{if $elem.IsArray}}in_{{$elem.Name}} = *C.openffi_{{$elem.Type}}(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
-	if isFailed{ errToOutError(out_err, out_err_len, "Failed to read argumentof type openffi_{{$elem.Type}} in EntryPoint_{{$f.PathToForeignFunction.function}}", nil); return}
-	var in_{{$elem.Name}}_len C.openffi_size; in_{{$elem.Name}}_len = C.get_va_arg_openffi_size(params, &args_size, &isFailed)
-	if isFailed{ errToOutError(out_err, out_err_len, "Failed to read argumentof type openffi_size in EntryPoint_{{$f.PathToForeignFunction.function}}", nil); return}
+	{{if $elem.IsString}}
+	{{if $elem.IsArray}}
+	in_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.get_arg_pointer_type(parameters, bufIndex))
+	in_{{$elem.Name}}_sizes := (*C.openffi_size)(C.get_arg_pointer_type(parameters, bufIndex+1))
+	in_{{$elem.Name}}_len := (C.openffi_size)(C.get_arg_openffi_size(parameters, bufIndex+2))
+	bufIndex += C.openffi_size({{CalculateArgLength $elem}})
+
+	{{$elem.Name}} := make([]{{$elem.Type}}, 0)
+	for i:=0 ; i<in{{$elem.Name}} ; i++{
+		str_size := C.openffi_size(0)
+		str := C.get_openffi_string_element(i, in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, &str_size)
+		{{$elem.Name}} = append({{$elem.Name}}, C.GoStringN(str, str_size))
+	}
+	{{else}}
+	in_{{$elem.Name}} := (C.openffi_{{$elem.Type}})(C.get_arg_pointer_type(parameters, bufIndex))
+	in_{{$elem.Name}}_len := (C.openffi_size)(C.get_arg_openffi_size(parameters, bufIndex+1))
+	{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, in_{{$elem.Name}}_len)
+	bufIndex += C.openffi_size({{CalculateArgLength $elem}})
+	{{end}}
+	{{else}}
+	
+	{{if $elem.IsArray}}
+	in_{{$elem.Name}} := *C.openffi_{{$elem.Type}}(C.get_arg_pointer_type(parameters, bufIndex))
+	in_{{$elem.Name}}_len := C.get_va_arg_openffi_size(params, bufIndex+1)
+	
+	{{$elem.Name}} := make([]{{$elem.Type}}, 0)
+	for i:=0 ; i<in{{$elem.Name}} ; i++{
+		str_size := C.openffi_size(0)
+		str := C.get_openffi_string_element(i, in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, &str_size)
+		{{$elem.Name}} = append({{$elem.Name}}, C.GoStringN(str, str_size))
+	}
 	{{else}}
 	in_{{$elem.Name}} = C.get_va_arg_openffi_{{$elem.Type}}(params, &args_size, &isFailed){{end}}
-	{{if $elem.IsString}}
-	{{if not $elem.IsArray}}var in_{{$elem.Name}}_len C.openffi_size; in_{{$elem.Name}}_len = C.get_va_arg_openffi_size(params, &args_size, &isFailed){{end}}
-	{{if $elem.IsArray}}var in_{{$elem.Name}}_sizes C.openffi_size; in_{{$elem.Name}}_sizes = *C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed)){{end}}
-	{{end}}
+	
 	if isFailed == 0{
 		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading parameters in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
 		return
@@ -106,12 +126,6 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(out_err **C.char, out_err_
 		return
 	}
 	{{end}}
-
-
-	if args_size > C.uint64_t(0){
-		errToOutError(out_err, out_err_len, "Not all arguments were read from va_list in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
-		return
-	}
 
 	// convert parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}

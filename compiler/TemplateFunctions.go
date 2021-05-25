@@ -318,10 +318,9 @@ func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, a
 				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
 				res += `for _, val := range ` + field.Name + ` { ` + varName + `_arr = append(` + varName + `_arr, C.openffi_` + field.Type + `(val)) }; `
 				res += varName + ` := &(` + varName + `_arr[0]); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`,unsafe.Pointer(`+varName+`)); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`,unsafe.Pointer(&`+varName+`_len));`
+				res += `C.set_arg_openffi_`+field.Type+`_array(`+argsBufferName+`,`+strconv.Itoa(index)+`,`+varName+`, &`+varName+`_len); `
 			} else {
-				return fmt.Sprintf(`%v := C.openffi_%v(%v); C.set_arg(%v, %v, unsafe.Pointer(&%v)) `, varName, field.Type, field.Name, argsBufferName, index, varName)
+				return fmt.Sprintf(`%v := C.openffi_%v(%v); C.set_arg_openffi_`+field.Type+`(%v, %v, &%v) `, varName, field.Type, field.Name, argsBufferName, index, varName)
 			}
 
 		case compiler.BOOL:
@@ -330,11 +329,10 @@ func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, a
 				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
 				res += `for _, val := range ` + field.Name + ` { var cval C.openffi_bool; if val{ cval=C.openffi_bool(1) } else { cval=C.openffi_bool(0) }; ` + varName + `_arr = append(` + varName + `_arr, cval) }; `
 				res += varName + ` := &(` + varName + `_arr[0]); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`,unsafe.Pointer(`+varName+`)); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`,unsafe.Pointer(&`+varName+`_len));`
+				res += `C.set_arg_openffi_`+field.Type+`_array(`+argsBufferName+`,`+strconv.Itoa(index)+`,`+varName+`, &`+varName+`_len); `
 			} else {
 				res = `var ` + varName + ` C.openffi_` + field.Type + `; if ` + field.Name + ` { ` + varName + ` = C.openffi_bool(1) } else { ` + varName + ` = C.openffi_bool(0) }; `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`, unsafe.Pointer(&`+varName+`))`
+				res += `C.set_arg_openffi_`+field.Type+`(`+argsBufferName+`,`+strconv.Itoa(index)+`, &`+varName+`)`
 			}
 
 		case compiler.STRING: fallthrough
@@ -348,13 +346,10 @@ func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, a
 				res += `for _, val := range ` + field.Name + ` { curCval := C.CString(val); ` + varName + `_arr = append(` + varName + `_arr, curCval); ` + varName + `_go_sizes = append(` + varName + `_go_sizes, C.openffi_size(len(val)));  defer C.free(unsafe.Pointer(curCval)) }; `
 				res += varName + ` := &(` + varName + `_arr[0]); `
 				res += varName + `_sizes := &(` + varName + `_go_sizes[0]); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`, unsafe.Pointer(`+varName+`)); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`, unsafe.Pointer(`+varName+`_sizes)); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+2)+`, unsafe.Pointer(&`+varName+`_len)); `
+				res += `C.set_arg_openffi_string_array(`+argsBufferName+`,`+strconv.Itoa(index)+`, `+varName+`, `+varName+`_sizes, &`+varName+`_len); `
 			} else {
 				res = fmt.Sprintf("%v := C.CString(%v); %v_len := C.ulong(len(%v)); defer C.free(unsafe.Pointer(%v)); ", varName, field.Name, varName, field.Name, varName)
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index)+`, unsafe.Pointer(`+varName+`)); `
-				res += `C.set_arg(`+argsBufferName+`,`+strconv.Itoa(index+1)+`, unsafe.Pointer(&`+varName+`_len)) `
+				res += `C.set_arg_openffi_string(`+argsBufferName+`,`+strconv.Itoa(index)+`, `+varName+`, &`+varName+`_len); `
 			}
 
 		default:
