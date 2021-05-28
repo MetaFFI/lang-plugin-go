@@ -31,6 +31,7 @@ int64_t functions_repository::load_function(const std::string& function_path)
 	openffi::utils::function_path_parser fp(function_path);
 	
 	std::string openffi_guest_lib_name = fp[function_path_entry_openffi_guest_lib];
+	
 	if(openffi_guest_lib_name.empty()){
 		throw std::runtime_error("Guest library is not defined");
 	}
@@ -49,8 +50,10 @@ int64_t functions_repository::load_function(const std::string& function_path)
 	{
 		openffi_guest_lib = it->second;
 	}
+	
 	// load function (from guest module)
-	auto foreign_function = openffi::utils::load_func<foreign_function_entrypoint_signature>(*openffi_guest_lib, fp["entrypoint_function"]);
+	auto foreign_function = openffi::utils::load_func<foreign_function_entrypoint_signature>(*openffi_guest_lib, fp[function_path_entry_entrypoint_function]);
+	
 	int64_t function_id = (int64_t)this->functions.size();
 	this->functions.push_back(foreign_function);
 	

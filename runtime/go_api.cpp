@@ -38,7 +38,6 @@ int64_t load_function(const char* function_path, uint32_t function_path_len, cha
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
 	 */
-	
 	try
 	{
 		return functions_repository::get_instance().load_function(std::string(function_path, function_path_len));

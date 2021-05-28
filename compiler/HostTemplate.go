@@ -24,7 +24,6 @@ const HostCImportTemplate = `
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdarg.h>
 #include <openffi_primitives.h>
 #include <args_helpers.h>
 void* xllr_handle = NULL;
@@ -118,13 +117,6 @@ const char* free_library(void* lib)
 	}
 
 	return NULL;
-}
-
-const char* get_string_element(int index, openffi_string* str, openffi_size* sizes, openffi_size* out_size)
-{
-	const char* res = str[index];
-	*out_size = sizes[index];
-	return res;
 }
 
 void* load_symbol(void* handle, const char* name, char** out_err)

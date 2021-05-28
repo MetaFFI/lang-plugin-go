@@ -1,0 +1,156 @@
+package main
+
+import (
+	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
+	"io/ioutil"
+	"os"
+	"testing"
+)
+
+const idl_guest = `{"idl_filename": "test","idl_extension": ".proto","idl_filename_with_extension": "test.proto","idl_full_path": "","modules": [{"name": "Service1","target_language": "test","comment": "Comments for Service1\n","tags": {"openffi_function_path": "package=main","openffi_target_language": "go"},"functions": [{"name": "f1","comment": "F1 comment\nparam1 comment\n","tags": {"openffi_function_path": "function=F1,openffi_guest_lib=$PWD/temp/test_OpenFFIGuest.so"},"path_to_foreign_function": {"module": "$PWD/temp","package": "GoFuncs","function": "F1"},"parameter_type": "Params1","return_values_type": "Return1","parameters": [{ "name": "p1", "type": "float64", "comment": "= 3.141592", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p2", "type": "float32", "comment": "= 2.71", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p3", "type": "int8", "comment": "= -10", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p4", "type": "int16", "comment": "= -20", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p5", "type": "int32", "comment": "= -30", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p6", "type": "int64", "comment": "= -40", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p7", "type": "uint8", "comment": "= 50", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p8", "type": "uint16", "comment": "= 60", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p9", "type": "uint32", "comment": "= 70", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p10", "type": "uint64", "comment": "= 80", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p11", "type": "bool", "comment": "= true", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p12", "type": "string", "comment": "= This is an input", "tags": null, "is_array": false, "pass_method": "" },{ "name": "p13", "type": "string", "comment": "= {element one, element two}", "tags": null, "is_array": true, "pass_method": "" },{ "name": "p14", "type": "uint8", "comment": "= {2, 4, 6, 8, 10}", "tags": null, "is_array": true, "pass_method": "" }],"return_values": [{"name": "r1","type": "string","comment": "= {return one, return two}","tags": null,"is_array": true,"pass_method": ""}]}]}]}`
+
+const GuestCode = `
+package GoFuncs
+
+func F1(p1 float64, p2 float32, p3 int8, p4 int16, p5 int32, p6 int64, p7 uint8, p8 uint16, p9 uint32, p10 uint64, p11 bool, p12 string, p13 []string, p14 []byte) []string{
+
+	/* This function expects the parameters (in that order):
+		double = 3.141592
+	    float = 2.71f
+
+	    int8 = -10
+	    int16 = -20
+	    int32 = -30
+	    int64 = -40
+
+	    uint8 = 50
+	    uint16 = 60
+	    uint32 = 70
+	    uint64 = 80
+
+	    bool = 1
+
+	    string = "This is an input"
+	    string[] = {"element one", "element two"}
+
+	    bytes = {2, 4, 6, 8, 10}
+	*/
+
+	println("Hello from Go F1")
+
+	if p1 != 3.141592{
+		panic("p1 != 3.141592")
+	}
+
+	if p2 != 2.71{
+		panic("p2 != 2.71")
+	}
+
+	if p3 != -10{
+		panic("p3 != -10")
+	}
+
+	if p4 != -20{
+		panic("p4 != -20")
+	}
+
+	if p5 != -30{
+		panic("p5 != -30")
+	}
+
+	if p6 != -40{
+		panic("p6 != -40")
+	}
+
+	if p7 != 50{
+		panic("p7 != 50")
+	}
+
+	if p8 != 60{
+		panic("p8 != 60")
+	}
+
+	if p9 != 70{
+		panic("p9 != 70")
+	}
+
+	if p10 != 80{
+		panic("p10 != 80")
+	}
+
+	if !p11 {
+		panic("p11 == false")
+	}
+
+	if p12 != "This is an input"{
+		panic("p12 != \"This is an input\"")
+	}
+
+	if len(p13) != 2{
+		panic("len(p13) != 2")
+	}
+
+	if p13[0] != "element one"{
+		panic("p13[0] != \"element one\"")
+	}
+
+	if p13[1] != "element two"{
+		panic("p13[1] != \"element two\"")
+	}
+
+	if len(p14) != 5{
+		panic("len(p14) != 5")
+	}
+
+	if p14[0] != 2 || p14[1] != 4 || p14[2] != 6 || p14[3] != 8 || p14[4] != 10{
+
+	}
+
+	return []string{"return one", "return two"}
+}`
+
+//--------------------------------------------------------------------
+func TestGuest(t *testing.T){
+
+	def, err := compiler.NewIDLDefinition(idl_guest)
+	if err != nil{
+		t.Fatal(err)
+		return
+	}
+
+	_ = os.RemoveAll("temp")
+
+	err = os.Mkdir("temp", 0700)
+	if err != nil{
+		t.Fatal(err)
+		return
+	}
+
+	err = ioutil.WriteFile("./temp/GuestCode.go", []byte(GuestCode), 0600)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	err = ioutil.WriteFile("./temp/go.mod", []byte("module  GoFuncs"), 0600)
+
+	defer func(){
+		err = os.RemoveAll("temp")
+		if err != nil{
+			t.Fatal(err)
+			return
+		}
+	}()
+
+	cmp := NewCompiler(def, "temp")
+	_, err = cmp.CompileGuest()
+	if err != nil{
+		t.Fatal(err)
+		return
+	}
+
+	if CallHostMock() != 0{
+		t.Fatal("Failed calling guest")
+	}
+}
+//--------------------------------------------------------------------

@@ -9,6 +9,7 @@ package main
 
 const GuestImportsTemplate = `
 import "fmt"
+import "unsafe"
 {{range $mindex, $i := .Imports}}
 import . "{{$i}}"{{end}}
 
@@ -21,8 +22,8 @@ const GuestCImportTemplate = `
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdarg.h>
 #include <openffi_primitives.h>
+#include <args_helpers.h>
 */
 import "C"
 `
@@ -67,84 +68,94 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
-	*out_err_len = 0
 
 	// parameters from C to Go
 	bufIndex := C.int(0)
 	{{range $index, $elem := $f.Parameters}}
 	{{if $elem.IsString}}
 	{{if $elem.IsArray}}
-	in_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.get_arg_pointer_type(parameters, bufIndex))
-	in_{{$elem.Name}}_sizes := (*C.openffi_size)(C.get_arg_pointer_type(parameters, bufIndex+1))
-	in_{{$elem.Name}}_len := (C.openffi_size)(C.get_arg_openffi_size(parameters, bufIndex+2))
-	bufIndex += C.openffi_size({{CalculateArgLength $elem}})
+	var in_{{$elem.Name}}_sizes *C.openffi_size
+	var in_{{$elem.Name}}_len C.openffi_size
+	in_{{$elem.Name}} := C.get_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}_sizes, &in_{{$elem.Name}}_len)
+	bufIndex += C.int({{CalculateArgLength $elem}})
 
 	{{$elem.Name}} := make([]{{$elem.Type}}, 0)
-	for i:=0 ; i<in{{$elem.Name}} ; i++{
-		str_size := C.openffi_size(0)
-		str := C.get_openffi_string_element(i, in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, &str_size)
-		{{$elem.Name}} = append({{$elem.Name}}, C.GoStringN(str, str_size))
+	for i:=0 ; i<int(in_{{$elem.Name}}_len) ; i++{
+		var str_size C.openffi_size
+		str := C.get_openffi_string_element(C.int(i), in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, &str_size)
+		{{$elem.Name}} = append({{$elem.Name}}, C.GoStringN(str, C.int(str_size)))
 	}
 	{{else}}
-	in_{{$elem.Name}} := (C.openffi_{{$elem.Type}})(C.get_arg_pointer_type(parameters, bufIndex))
-	in_{{$elem.Name}}_len := (C.openffi_size)(C.get_arg_openffi_size(parameters, bufIndex+1))
-	{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, in_{{$elem.Name}}_len)
-	bufIndex += C.openffi_size({{CalculateArgLength $elem}})
+	var in_{{$elem.Name}}_len C.openffi_size
+	in_{{$elem.Name}} := C.get_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}_len)
+	{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, C.int(in_{{$elem.Name}}_len))
+	bufIndex += C.int({{CalculateArgLength $elem}})
 	{{end}}
-	{{else}}
-	
+	{{else}}	
 	{{if $elem.IsArray}}
-	in_{{$elem.Name}} := *C.openffi_{{$elem.Type}}(C.get_arg_pointer_type(parameters, bufIndex))
-	in_{{$elem.Name}}_len := C.get_va_arg_openffi_size(params, bufIndex+1)
-	
-	{{$elem.Name}} := make([]{{$elem.Type}}, 0)
-	for i:=0 ; i<in{{$elem.Name}} ; i++{
-		str_size := C.openffi_size(0)
-		str := C.get_openffi_string_element(i, in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, &str_size)
-		{{$elem.Name}} = append({{$elem.Name}}, C.GoStringN(str, str_size))
+	var in_{{$elem.Name}}_len C.openffi_size
+	in_{{$elem.Name}} := C.get_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}_len)
+		
+	{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(in_{{$elem.Name}}_len))
+	for i:=C.int(0) ; i<C.int(in_{{$elem.Name}}_len) ; i++{
+		val := C.get_openffi_{{$elem.Type}}_element(in_{{$elem.Name}}, C.int(i))
+		{{$elem.Name}} = append({{$elem.Name}}, {{$elem.Type}}(val))
 	}
+	bufIndex += C.int({{CalculateArgLength $elem}})
 	{{else}}
-	in_{{$elem.Name}} = C.get_va_arg_openffi_{{$elem.Type}}(params, &args_size, &isFailed){{end}}
-	
-	if isFailed == 0{
-		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading parameters in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
-		return
-	}
+	in_{{$elem.Name}} := C.get_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex)
+	{{$elem.Name}} := {{if eq $elem.Type "bool"}}in_{{$elem.Name}} != C.openffi_bool(0){{else}}{{$elem.Type}}(in_{{$elem.Name}}){{end}}
+	bufIndex += C.int({{CalculateArgLength $elem}})
+	{{end}}
+	{{end}}
 	{{end}}
 	
-	// return values
-	{{range $index, $elem := $f.ReturnValues}}
-	out_{{$elem.Name}} := {{if $elem.IsArray}}*{{end}}*C.openffi_{{$elem.Type}}(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
-	{{if $elem.IsString}}
-	{{if $elem.IsArray}}out_{{$elem.Name}}_sizes := **C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed)){{end}}
-	out_{{$elem.Name}}_len := *C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
-	{{else if $elem.IsArray}}
-	out_{{$elem.Name}}_len := *C.openffi_size(C.get_va_arg_pointer_type(params, &args_size, &isFailed))
-	{{end}}
-	if isFailed == 0{
-		errToOutError(out_err, out_err_len, "Too many arguments were read from va_list while reading parameters in EntryPoint_{{$f.PathToForeignFunction.function}}", nil)
-		return
-	}
-	{{end}}
-
-	// convert parameters from C to Go
-	{{range $index, $elem := $f.Parameters}}
-	{{ConvertToGo $elem "in" ""}}
-	{{end}}
-
 	// call original function
 	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
 
 	// return values
+	bufIndex = C.int(0)
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
 		errToOutError(out_err, out_err_len, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
-		{{ConvertToCGuest $elem "out"}}
+		
+		{{if $elem.IsString}}
+		{{if $elem.IsArray}}
+		out_{{$elem.Name}}_len := C.openffi_size(len({{$elem.Name}}))
+		out_{{$elem.Name}} := (*C.openffi_string)(C.malloc(out_{{$elem.Name}}_len*{{Sizeof $elem}}))
+		out_{{$elem.Name}}_sizes := (*C.openffi_size)(C.malloc(out_{{$elem.Name}}_len*{{Sizeof $elem}}))
+		for i, val := range {{$elem.Name}}{
+			C.set_openffi_string_element(C.int(i), out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
+		}
+		C.set_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, &out_{{$elem.Name}}_len)
+		bufIndex += C.int({{CalculateArgLength $elem}})
+		{{else}}
+		out_{{$elem.Name}}_len := C.openffi_size(len({{$elem.Name}}))
+		out_{{$elem.Name}} := C.String({{$elem.Name}})
+		in_{{$elem.Name}} := (C.openffi_{{$elem.Type}})(C.get_arg_openffi_string(parameters, bufIndex, &in_{{$elem.Name}}_len))
+		{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, C.int(in_{{$elem.Name}}_len))
+		C.set_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, &out_{{$elem.Name}}_len)
+		bufIndex += C.int({{CalculateArgLength $elem}})
+		{{end}}
+		{{else}}
+		{{if $elem.IsArray}}
+		out_{{$elem.Name}}_len := C.openffi_size(len({{$elem.Name}}))
+		out_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(out_{{$elem.Name}}_len*{{Sizeof $elem}}))
+		for i, val := range {{$elem.Name}}{
+			C.set_openffi_{{$elem.Type}}_element(C.int(i), out_{{$elem.Name}}, C.openffi_{{$elem.Type}}(val))
+		}
+		C.set_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, &out_{{$elem.Name}}_len)
+		bufIndex += C.int({{CalculateArgLength $elem}})
+		{{else}}
+		out_{{$elem.Name}} := C.openffi_{{$elem.Type}}({{$elem.Name}})
+		C.set_arg_openffi_{{$elem.Name}}((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}})
+		bufIndex += C.int({{CalculateArgLength $elem}})
+		{{end}}
+		{{end}}
 	}	
 	{{end}}	
 }
 {{end}}{{end}}
-
 `
