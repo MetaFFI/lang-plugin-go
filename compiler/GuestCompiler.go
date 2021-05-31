@@ -127,20 +127,34 @@ func (this *GuestCompiler) parseForeignFunctions() (string, error){
 	return bufEntryPoint.String(), err
 }
 //--------------------------------------------------------------------
-func (this *GuestCompiler) parseCImports() (string, error){
+func (this *GuestCompiler) parseCImportsCGoFile() (string, error){
 
-	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(GuestCImportTemplate)
+	tmp, err := template.New("guest").Funcs(templatesFuncMap).Parse(GuestCImportCGoFileTemplate)
 	if err != nil{
-		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+		return "", fmt.Errorf("Failed to parse GuestCImportCGoFileTemplate: %v", err)
 	}
 
 	buf := strings.Builder{}
-	err = tmp.Execute(&buf, this.def)
+	err = tmp.Execute(&buf, nil)
+
+	return buf.String(), err
+}
+//--------------------------------------------------------------------
+func (this *GuestCompiler) parseCImports() (string, error){
+
+	tmp, err := template.New("guest").Funcs(templatesFuncMap).Parse(GuestCImportTemplate)
+	if err != nil{
+		return "", fmt.Errorf("Failed to parse GuestCImportTemplate: %v", err)
+	}
+
+	buf := strings.Builder{}
+	err = tmp.Execute(&buf, nil)
 
 	return buf.String(), err
 }
 //--------------------------------------------------------------------
 func (this *GuestCompiler) generateCode() (string, error){
+
 
 	header, err := this.parseHeader()
 	if err != nil{ return "", err }
@@ -173,6 +187,18 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	if err != nil{
 		return nil, fmt.Errorf("Failed to write guest go code: %v", err)
 	}
+
+	// TODO: This should move to "generate code" that need to return a map of files
+	cgoCode, err := this.parseCImportsCGoFile()
+	if err != nil{
+		return nil, fmt.Errorf("Failed to generate CGo guest go code: %v", err)
+	}
+
+	err = ioutil.WriteFile(dir+"openffi_guest_cgo.go", []byte(cgoCode), 0700)
+	if err != nil{
+		return nil, fmt.Errorf("Failed to write guest go code: %v", err)
+	}
+
 
 	fmt.Println("Building Go foreign functions")
 

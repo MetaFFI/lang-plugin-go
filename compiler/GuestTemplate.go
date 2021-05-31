@@ -15,21 +15,38 @@ import . "{{$i}}"{{end}}
 
 `
 
+const GuestCImportCGoFileTemplate = `
+package main
+
+/*
+#cgo !windows LDFLAGS: -L. -ldl
+#cgo CFLAGS: -I{{GetEnvVar "OPENFFI_HOME"}}
+
+#include <include/language_plugin_helpers.cpp>
+*/
+import "C"
+`
+
 const GuestCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
 #cgo CFLAGS: -I{{GetEnvVar "OPENFFI_HOME"}}
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <openffi_primitives.h>
-#include <args_helpers.h>
+#include <include/language_plugin_helpers.h>
 */
 import "C"
 `
 
 const GuestMainFunction = `
 func main(){} // main function must be declared to create dynamic library
+func init(){
+	C.xllr_handle = nil
+
+	err := C.load_args_helpers()
+	if err != nil{
+		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
+	}
+}
 `
 
 const GuestHelperFunctions = `

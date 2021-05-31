@@ -12,9 +12,7 @@ const HostPackageTemplate = `package {{.Package}}
 
 const HostImports = `
 import "fmt"
-import "os"
 import "unsafe"
-import "runtime"
 `
 
 const HostCImportTemplate = `
@@ -24,210 +22,19 @@ const HostCImportTemplate = `
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <openffi_primitives.h>
-#include <args_helpers.h>
-void* xllr_handle = NULL;
-void (*pcall)(const char*, uint32_t,
-			 int64_t,
-			 void**, uint64_t,
-			 void**, uint64_t,
-			 char**, uint64_t*
-			 ) = NULL;
-
-int64_t (*pload_function)(const char*, uint32_t,
-						const char*, uint32_t,
-						int64_t,
-						char**, uint32_t*) = NULL;
-
-#ifdef _WIN32 //// --- START WINDOWS ---
-#include <Windows.h>
-void get_last_error_string(DWORD err, char** out_err_str)
-{
-    DWORD bufLen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                 FORMAT_MESSAGE_FROM_SYSTEM |
-							     FORMAT_MESSAGE_IGNORE_INSERTS,
-							     NULL,
-							     err,
-						         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-						         (LPTSTR) out_err_str,
-						         0,
-						         NULL );
-
-    // TODO: out_err_str should get cleaned up!
-}
-
-void* load_library(const char* name, char** out_err)
-{
-	void* handle = LoadLibraryA(name);
-	if(!handle)
-	{
-		get_last_error_string(GetLastError(), out_err);
-	}
-
-	return handle;
-}
-
-const char* free_library(void* lib) // return error string. null if no error.
-{
-	if(!lib)
-	{
-		return NULL;
-	}
-
-	if(!FreeLibrary(lib))
-	{
-		char* out_err;
-		get_last_error_string(GetLastError(), &out_err);
-		return out_err;
-	}
-
-	return NULL;
-}
-
-void* load_symbol(void* handle, const char* name, char** out_err)
-{
-	void* res = GetProcAddress(handle, name);
-	if(!res)
-	{
-		get_last_error_string(GetLastError(), out_err);
-		return NULL;
-	}
-
-	return res;
-}
-
-#else // ------ START POSIX ----
-#include <dlfcn.h>
-void* load_library(const char* name, char** out_err)
-{
-	void* handle = dlopen(name, RTLD_NOW);
-	if(!handle)
-	{
-		*out_err = dlerror();
-	}
-
-	return handle;
-}
-
-const char* free_library(void* lib)
-{
-	if(dlclose(lib))
-	{
-		return dlerror();
-	}
-
-	return NULL;
-}
-
-void* load_symbol(void* handle, const char* name, char** out_err)
-{
-	void* res = dlsym(handle, name);
-	if(!res)
-	{
-		*out_err = dlerror();
-		return NULL;
-	}
-
-	return res;
-}
-
-#endif // ------- END POSIX -----
-
-int64_t load_function(const char* runtime_plugin, uint32_t runtime_plugin_len,
-						const char* function_path, uint32_t function_path_len,
-						int64_t function_id_opt,
-						char** out_err, uint32_t* out_err_len)
-{
-	return pload_function(runtime_plugin, runtime_plugin_len,
-							function_path, function_path_len,
-							function_id_opt,
-							out_err, out_err_len);
-}
-
-void call(
-		const char* runtime_plugin_name, uint32_t runtime_plugin_name_len,
-		int64_t function_id,
-		void** parameters, uint64_t parameters_length,
-		void** return_values, uint64_t return_values_length,
-		char** out_err, uint64_t* out_err_len
-)
-{
-	pcall(runtime_plugin_name, runtime_plugin_name_len,
-			function_id,
-			parameters, parameters_length,
-			return_values, return_values_length,
-			out_err, out_err_len);
-}
-
-const char* load_xllr_api()
-{
-	char* out_err = NULL;
-	pcall = load_symbol(xllr_handle, "call", &out_err);
-	if(!pcall)
-	{
-		return out_err;
-	}
-
-	pload_function = load_symbol(xllr_handle, "load_function", &out_err);
-	if(!pload_function)
-	{
-		return out_err;
-	}
-
-	return NULL;
-}
-
-
-
+#include <include/language_plugin_helpers.cpp>
 */
 import "C"
 `
 
 const HostHelperFunctions = `
-func freeXLLR() error{
-	errstr := C.free_library(C.xllr_handle)
+func init(){
+	C.xllr_handle = nil
 
-	if errstr != nil{
-		return fmt.Errorf("Failed to free XLLR: %v", C.GoString(errstr))
+	err := C.load_args_helpers()
+	if err != nil{
+		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
 	}
-
-	return nil
-}
-
-// TODO: make sure it is called only once!
-func loadXLLR() error{
-
-	if C.xllr_handle != nil && C.pcall != nil{
-        return nil
-    }
-
-	openffiHome := os.Getenv("OPENFFI_HOME")
-    if openffiHome == ""{
-    	return fmt.Errorf("OPENFFI_HOME is not set")
-	}
-
-	var name *C.char
-	if runtime.GOOS == "darwin" {
-		name = C.CString(openffiHome+"/xllr.dylib")
-	}else if runtime.GOOS == "windows"{
-		name = C.CString(openffiHome+"\\xllr.dll")
-	} else {
-		name = C.CString(openffiHome+"/xllr.so")
-	}
-
-	defer C.free(unsafe.Pointer(name))
-
-	var out_err *C.char
-	if C.xllr_handle = C.load_library(name, &out_err)
-	C.xllr_handle == nil{ // error has occurred
-		return fmt.Errorf("Failed to load XLLR: %v", C.GoString(out_err))
-	}
-
-    if cerr := C.load_xllr_api(); cerr != nil{
-        return fmt.Errorf("Failed to load call function: %v", C.GoString(cerr))
-    }
-
-	return nil
 }
 `
 
@@ -245,13 +52,6 @@ const HostFunctionStubsTemplate = `
 {{if $elem.Comment}}// {{$elem.Name}} - {{$elem.Comment}}{{end}}{{end}}
 var {{$f.PathToForeignFunction.function}}_id int64 = -1
 func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
-
-	// load XLLR
-	err = loadXLLR()
-	if err != nil{
-		err = fmt.Errorf("Failed to marshal return values into protobuf. Error: %v", err)
-		return
-	}
 
 	// load function (no need to use a lock)
 	runtime_plugin := "xllr.{{$m.TargetLanguage}}"
