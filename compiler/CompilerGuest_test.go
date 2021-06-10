@@ -103,7 +103,7 @@ func F1(p1 float64, p2 float32, p3 int8, p4 int16, p5 int32, p6 int64, p7 uint8,
 	}
 
 	if p14[0] != 2 || p14[1] != 4 || p14[2] != 6 || p14[3] != 8 || p14[4] != 10{
-
+		panic("p14[0] != 2 || p14[1] != 4 || p14[2] != 6 || p14[3] != 8 || p14[4] != 10")
 	}
 
 	return []string{"return one", "return two"}
