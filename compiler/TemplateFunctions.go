@@ -193,7 +193,7 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 				res += "}"
 				return res
 			} else {
-				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+") "
+				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+"); "
 				res += varName+" := "+field.Type+"("+fieldName+")"
 				return res
 			}
@@ -209,7 +209,7 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 				res += "}"
 				return res
 			} else {
-				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+") "
+				res := fieldName+" := C.get_arg_openffi_"+field.Type+"("+argsBufferName+", "+strconv.Itoa(index)+"); "
 				res += varName+" := "+fieldName+" != C.openffi_bool(0)"
 				return res
 			}
