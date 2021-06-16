@@ -150,7 +150,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 		bufIndex += C.int({{CalculateArgLength $elem}})
 		{{else}}
 		out_{{$elem.Name}}_len := C.openffi_size(len({{$elem.Name}}))
-		out_{{$elem.Name}} := C.String({{$elem.Name}})
+		out_{{$elem.Name}} := C.CString({{$elem.Name}})
 		in_{{$elem.Name}} := (C.openffi_{{$elem.Type}})(C.get_arg_openffi_string(parameters, bufIndex, &in_{{$elem.Name}}_len))
 		{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, C.int(in_{{$elem.Name}}_len))
 		C.set_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, &out_{{$elem.Name}}_len)
@@ -167,7 +167,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 		bufIndex += C.int({{CalculateArgLength $elem}})
 		{{else}}
 		out_{{$elem.Name}} := C.openffi_{{$elem.Type}}({{$elem.Name}})
-		C.set_arg_openffi_{{$elem.Name}}((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}})
+		C.set_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}})
 		bufIndex += C.int({{CalculateArgLength $elem}})
 		{{end}}
 		{{end}}
