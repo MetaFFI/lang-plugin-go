@@ -24,7 +24,7 @@ int call_guest_test()
 	void* res = dlsym(lib_handle, "test_guest");
 	if(!res)
 	{
-		printf("Failed loading symbol - %s\n", dlerror());
+		printf("Failed loading symbol test_guest from xllr.test.so - %s\n", dlerror());
 		return -1;
 	}
 

@@ -254,6 +254,14 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
 	}
 
+	cleanCmd := exec.Command("go", "clean", "-cache")
+	cleanCmd.Dir = dir
+	fmt.Printf("%v\n", strings.Join(cleanCmd.Args, " "))
+	output, err = cleanCmd.CombinedOutput()
+	if err != nil{
+		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
+	}
+
 	buildCmd := exec.Command("go", "build", "-v", "-tags=guest" , "-buildmode=c-shared", "-gcflags=-shared", "-o", dir+this.outputFilename+getDynamicLibSuffix())
 	buildCmd.Dir = dir
 	fmt.Printf("%v\n", strings.Join(buildCmd.Args, " "))

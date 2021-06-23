@@ -24,6 +24,26 @@ var templatesFuncMap = map[string]interface{}{
 	"CalculateArgsLength": calculateArgsLength,
 	"CalculateArgLength": calculateArgLength,
 	"Add": add,
+	"IsInteger": isInteger,
+	"IsParametersOrReturnValues": isParametersOrReturnValues,
+	"ConvertToCType": convertToCType,
+}
+//--------------------------------------------------------------------
+func convertToCType(openffiType string) string{
+	switch openffiType {
+		case "float32": return "float"
+		case "float64": return "double"
+		default:
+			return "C."+openffiType
+	}
+}
+//--------------------------------------------------------------------
+func isParametersOrReturnValues(f *compiler.FunctionDefinition) bool{
+	return len(f.Parameters) > 0 || len(f.ReturnValues) > 0
+}
+//--------------------------------------------------------------------
+func isInteger(t string) bool{
+	return strings.Index(t, "int") == 0
 }
 //--------------------------------------------------------------------
 func add(x int, y int) int{
@@ -33,13 +53,13 @@ func add(x int, y int) int{
 func calculateArgLength(f *compiler.FieldDefinition) int{
 
 	if f.IsString(){
-		if f.IsArray{
+		if f.IsArray(){
 			return 3 // pointer to string array, pointer to sizes array, length of array
 		} else {
 			return 2 // pointer to string, size of string
 		}
 	} else {
-		if f.IsArray{
+		if f.IsArray(){
 			return 2 // pointer to type array, length of array
 		} else {
 			return 1 // value
@@ -65,7 +85,7 @@ func formalCParameter(field *compiler.FieldDefinition, direction string) string{
 		ctype += "*"
 	}
 
-	if field.IsArray{
+	if field.IsArray(){
 		ctype += "*"
 	}
 
@@ -75,7 +95,7 @@ func formalCParameter(field *compiler.FieldDefinition, direction string) string{
 
 	if strings.Index(field.Type, compiler.STRING) == 0{
 
-		if field.IsArray{
+		if field.IsArray(){
 			if direction == "out"{
 				result += ", openffi_size** "+direction+"_"+field.Name+"_sizes, openffi_size* "+direction+"_"+field.Name+"_len"
 			} else {
@@ -92,7 +112,7 @@ func formalCParameter(field *compiler.FieldDefinition, direction string) string{
 
 	} else {
 
-		if field.IsArray { // add another parameter for length
+		if field.IsArray() { // add another parameter for length
 			if direction == "out"{
 				result += ", openffi_size* "+direction+"_"+field.Name+"_len"
 			} else {
@@ -127,7 +147,7 @@ func paramActual(field *compiler.FieldDefinition, direction string, namePrefix s
 		case compiler.STRING8: fallthrough
 		case compiler.STRING16: fallthrough
 		case compiler.STRING32:
-			if field.IsArray{
+			if field.IsArray(){
 				if direction == "out"{
 					return fmt.Sprintf("&"+prefix+field.Name+",&"+prefix+field.Name+"_sizes"+",&"+prefix+field.Name+"_len")
 				} else {
@@ -144,7 +164,7 @@ func paramActual(field *compiler.FieldDefinition, direction string, namePrefix s
 			}
 
 		default:
-			if field.IsArray{
+			if field.IsArray(){
 				if direction == "out"{
 					return fmt.Sprintf("&"+prefix+field.Name+",&"+prefix+field.Name+"_len")
 				} else {
@@ -183,11 +203,11 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 		case compiler.UINT16: fallthrough
 		case compiler.UINT32: fallthrough
 		case compiler.UINT64:
-			if field.IsArray{
+			if field.IsArray(){
 				res := "var "+fieldName+"_len C.openffi_size; "
 				res += fieldName+" := C.get_arg_"+field.Type+"_array("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_len); "
 				res += varName+" := make([]"+field.Type+", 0); "
-				res += "for i:=C.int; i<C.int("+fieldName+"_len); i++ { "
+				res += "for i:=C.int(0); i<C.int("+fieldName+"_len); i++ { "
 				res += "val := C.get_openffi_"+field.Type+"_element("+fieldName+", i); "
 				res += varName+" = append("+varName+", "+field.Type+"(val)) "
 				res += "}"
@@ -199,11 +219,11 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 			}
 
 		case compiler.BOOL:
-			if field.IsArray{
+			if field.IsArray(){
 				res := "var "+fieldName+"_len C.openffi_size; "
 				res += fieldName+" := C.get_arg_openffi_bool_type("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_len); "
 				res += varName+" := make([]"+field.Type+", 0); "
-				res += "for i:=C.int; i<C.int("+fieldName+"_len); i++ { "
+				res += "for i:=C.int(0); i<C.int("+fieldName+"_len); i++ { "
 				res += "val := C.get_openffi_"+field.Type+"_element("+fieldName+", i); "
 				res += varName+" = append("+varName+", val != C.openffi_bool(0)) "
 				res += "}"
@@ -218,7 +238,7 @@ func convertToGo(field *compiler.FieldDefinition, fieldPrefix, varPrefix string,
 		case compiler.STRING8: fallthrough
 		case compiler.STRING16: fallthrough
 		case compiler.STRING32:
-			if field.IsArray{
+			if field.IsArray(){
 				res := "var "+fieldName+"_sizes *C.openffi_size; var "+fieldName+"_len C.openffi_size; "
 				res += fieldName+" := (*C.openffi_string)(C.get_arg_openffi_string_array("+argsBufferName+", "+strconv.Itoa(index)+", &"+fieldName+"_sizes, &"+fieldName+"_len)); "
 				res += varName+" := make([]string, 0); for i:=C.openffi_size(0) ; "
@@ -256,7 +276,7 @@ func convertToCGuest(field *compiler.FieldDefinition, prefix string) string{
 	case compiler.UINT16: fallthrough
 	case compiler.UINT32: fallthrough
 	case compiler.UINT64:
-		if field.IsArray {
+		if field.IsArray() {
 			res = varName + "_arr := C.malloc(len("+field.Name+")*"+Sizeof(field)+"); "
 			res += varName + `_len = C.openffi_size(len(` + field.Name + `)); `
 			res += `for i, val := range ` + field.Name + ` { C.set_openffi_`+field.Type+`_element(` + varName + `_arr, i, val); }; `
@@ -266,7 +286,7 @@ func convertToCGuest(field *compiler.FieldDefinition, prefix string) string{
 		}
 
 	case compiler.BOOL:
-		if field.IsArray {
+		if field.IsArray() {
 			res = varName + "_arr := C.malloc(len("+field.Name+")*"+Sizeof(field)+"); "
 			res += varName + `_len = C.openffi_size(len(` + field.Name + `)); `
 			res += `for i, val := range ` + field.Name + ` { var cval C.openffi_bool; if val{ cval = C.openffi_bool(1) } else { cval = C.openffi_bool(0) }; C.set_openffi_`+field.Type+`_element(` + varName + `_arr, i, cval); }; `
@@ -279,7 +299,7 @@ func convertToCGuest(field *compiler.FieldDefinition, prefix string) string{
 	case compiler.STRING8: fallthrough
 	case compiler.STRING16: fallthrough
 	case compiler.STRING32:
-		if field.IsArray {
+		if field.IsArray() {
 			res = "*"+varName + " = C.malloc(len("+field.Name+")*"+Sizeof(field)+"); "
 			res = "*"+varName + "_sizes = C.malloc(len("+field.Name+")*C.sizeof_openffi_size); "
 			res += varName + `_len = C.openffi_size(len(` + field.Name + `)); `
@@ -312,7 +332,7 @@ func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, a
 		case compiler.UINT16: fallthrough
 		case compiler.UINT32: fallthrough
 		case compiler.UINT64:
-			if field.IsArray {
+			if field.IsArray() {
 				res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
 				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
 				res += `for _, val := range ` + field.Name + ` { ` + varName + `_arr = append(` + varName + `_arr, C.openffi_` + field.Type + `(val)) }; `
@@ -323,7 +343,7 @@ func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, a
 			}
 
 		case compiler.BOOL:
-			if field.IsArray {
+			if field.IsArray() {
 				res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
 				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
 				res += `for _, val := range ` + field.Name + ` { var cval C.openffi_bool; if val{ cval=C.openffi_bool(1) } else { cval=C.openffi_bool(0) }; ` + varName + `_arr = append(` + varName + `_arr, cval) }; `
@@ -338,7 +358,7 @@ func convertToCHost(field *compiler.FieldDefinition, prefix string, index int, a
 		case compiler.STRING8: fallthrough
 		case compiler.STRING16: fallthrough
 		case compiler.STRING32:
-			if field.IsArray {
+			if field.IsArray() {
 				res = varName + `_arr := make([]C.openffi_` + field.Type + `, 0); `
 				res += varName + `_go_sizes := make([]C.openffi_size, 0); `
 				res += varName + `_len := C.openffi_size(len(` + field.Name + `)); `
