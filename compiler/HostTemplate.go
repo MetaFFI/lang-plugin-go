@@ -22,15 +22,18 @@ const HostCImportTemplate = `
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <include/language_plugin_helpers.cpp>
+#include <include/common_data_type_helper_loader.c>
+
+openffi_size get_int_item(openffi_size* array, int index)
+{
+	return array[index];
+}
 */
 import "C"
 `
 
 const HostHelperFunctions = `
 func init(){
-	C.xllr_handle = nil
-
 	err := C.load_args_helpers()
 	if err != nil{
 		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
@@ -53,12 +56,15 @@ const HostFunctionStubsTemplate = `
 var {{$f.PathToForeignFunction.function}}_id int64 = -1
 func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 
+	runtime_plugin := "xllr.{{$m.TargetLanguage}}"
+	pruntime_plugin := C.CString(runtime_plugin)
+	defer C.free(unsafe.Pointer(pruntime_plugin))
+
+	var cur_type C.openffi_type
+
 	if {{$f.PathToForeignFunction.function}}_id == -1{
 
 		// load function (no need to use a lock)
-		runtime_plugin := "xllr.{{$m.TargetLanguage}}"
-		pruntime_plugin := C.CString(runtime_plugin)
-		defer C.free(unsafe.Pointer(pruntime_plugin))
 
 		path := "{{$f.PathToForeignFunctionAsString}}"
 		ppath := C.CString(path)
@@ -67,7 +73,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		var out_err *C.char
 		var out_err_len C.uint32_t
 		out_err_len = C.uint32_t(0)
-		{{$f.PathToForeignFunction.function}}_id = int64(C.load_function(pruntime_plugin, C.uint(len(runtime_plugin)), ppath, C.uint(len(path)), C.int64_t(-1), &out_err, &out_err_len))
+		{{$f.PathToForeignFunction.function}}_id = int64(C.xllr_load_function(pruntime_plugin, C.uint(len(runtime_plugin)), ppath, C.uint(len(path)), C.int64_t(-1), &out_err, &out_err_len))
 		
 		if {{$f.PathToForeignFunction.function}}_id == -1{ // failed
 			err = fmt.Errorf("Failed to load function %v: %v", "{{$f.PathToForeignFunction.function}}", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
@@ -75,27 +81,80 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		}
 	}
 
-	paramsBufferLength := C.uint64_t({{CalculateArgsLength $f.Parameters}})
-	paramsBuffer := C.alloc_args_buffer(C.int(paramsBufferLength))
+	{{if IsParametersOrReturnValues $f}}var bufIndex C.int{{end}}
+	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	returnValuesBufferLength := C.uint64_t({{CalculateArgsLength $f.ReturnValues}})
-	returnValuesBuffer := C.alloc_args_buffer(C.int(returnValuesBufferLength))
+	parameters_buffer_len := C.openffi_size({{range $index, $field := $f.Parameters}}{{if $index}} + {{end}}C.openffi_type_type_size + C.openffi_{{$field.Type}}_type_size{{if gt $field.Dimensions 0}} + C.openffi_array_type_size{{end}}{{end}})
+	parameters := C.alloc_args_buffer(C.int(parameters_buffer_len))
+
+	return_values_length := C.openffi_size({{range $index, $field := $f.ReturnValues}}{{if $index}} + {{end}}C.openffi_type_type_size + C.openffi_{{$field.Type}}_type_size{{if gt $field.Dimensions 0}} + C.openffi_array_type_size{{end}}{{end}})
+	return_values := C.alloc_args_buffer(C.int(return_values_length))
 	
-	// convert parameters to C
-	{{$paramIndex := 0}}
+	// parameters
+	{{if gt $paramsLength 0}}bufIndex = C.int(0){{end}}
 	{{range $index, $elem := $f.Parameters}}
-	{{ConvertToCHost $elem "in" $paramIndex "paramsBuffer"}}
-	{{$fieldSize := CalculateArgLength $elem }}{{$paramIndex = Add $paramIndex $fieldSize}}
+	
+	{{if $elem.IsString}}
+	{{if gt $elem.Dimensions 0}}
+	// string array
+
+	in_{{$elem.Name}} := (*C.openffi_string)(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
+	in_{{$elem.Name}}_sizes := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_size))
+	in_{{$elem.Name}}_dimensions := (*C.openffi_size)(C.alloc_openffi_size_on_heap( 1 ) )
+	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size * (*in_{{$elem.Name}}_dimensions)))
+	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
+	
+	for i, val := range {{$elem.Name}}{
+		C.set_openffi_string_element(C.int(i), in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
+	}
+	bufIndex = C.set_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, in_{{$elem.Name}}_dimensions_lengths, in_{{$elem.Name}}_dimensions)
+	
+	{{else}}
+	// string
+	in_{{$elem.Name}}_len := C.openffi_size(C.ulong(len({{$elem.Name}})))
+	in_{{$elem.Name}} := C.CString({{$elem.Name}})
+	bufIndex = C.set_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}}, &in_{{$elem.Name}}_len)
+
+	{{end}}{{else}}{{if gt $elem.Dimensions 0}}
+	// non-string array
+	
+	in_{{$elem.Name}}_dimensions := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_size))
+	*in_{{$elem.Name}}_dimensions = 1
+	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
+	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
+
+	in_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
+	for i, val := range {{$elem.Name}}{
+		C.set_openffi_{{$elem.Type}}_element(in_{{$elem.Name}}, C.int(i), C.openffi_{{$elem.Type}}(val))
+	}
+
+	bufIndex = C.set_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}}, in_{{$elem.Name}}_dimensions_lengths, in_{{$elem.Name}}_dimensions)
+	{{else}}
+	// non-string
+	
+	{{if $elem.IsBool}}
+	var in_{{$elem.Name}} *C.openffi_bool
+	if {{$elem.Name}} { 
+		in_{{$elem.Name}} = C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_bool(1))
+	} else { 
+		in_{{$elem.Name}} = C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_bool(0)) 
+	}
+	{{else}}
+	in_{{$elem.Name}} := C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_{{$elem.Type}}({{$elem.Name}}))
 	{{end}}
+	bufIndex = C.set_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}})
+	{{end}}
+	{{end}}
+	{{end}}	
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.call(pruntime_plugin, C.uint(len(runtime_plugin)),
+	C.xllr_call(pruntime_plugin, C.uint(len(runtime_plugin)),
 			C.int64_t({{$f.PathToForeignFunction.function}}_id),
-			paramsBuffer, paramsBufferLength,
-			returnValuesBuffer, returnValuesBufferLength,
+			parameters, parameters_buffer_len,
+			return_values, return_values_length,
 			&out_err, &out_err_len)
 
 	// check errors
@@ -104,14 +163,57 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		return
 	}
 
-	// convert from C to Go
-	{{$retIndex := 0}}
+	{{if gt $returnLength 0}}bufIndex = C.int(0){{end}}
 	{{range $index, $elem := $f.ReturnValues}}
-	{{ConvertToGo $elem "out" "ret" $retIndex "returnValuesBuffer"}}
-	{{$fieldSize := CalculateArgLength $elem }}{{$retIndex = Add $retIndex $fieldSize}}
-	{{end}}
+
+	bufIndex = C.get_type((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &cur_type)
+
+	{{if $elem.IsString}}
 	
-	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}},{{end}} nil
+	{{if gt $elem.Dimensions 0}}
+	// string[] // TODO: handle multi-dimensional arrays
+	var out_{{$elem.Name}} *C.openffi_string
+	var out_{{$elem.Name}}_sizes *C.openffi_size
+	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size
+	var out_{{$elem.Name}}_dimensions C.openffi_size
+	bufIndex = C.get_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}}, &out_{{$elem.Name}}_sizes, &out_{{$elem.Name}}_dimensions_lengths, &out_{{$elem.Name}}_dimensions)
+	
+	ret_{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
+	for i:=C.int(0) ; i<C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
+		var str_size C.openffi_size
+		str := C.get_openffi_string_element(i, out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, &str_size)
+		ret_{{$elem.Name}} = append(ret_{{$elem.Name}}, C.GoStringN(str, C.int(str_size)))
+	}
+	{{else}}
+	// string
+	var out_{{$elem.Name}}_len C.openffi_size
+	var out_{{$elem.Name}} C.openffi_string
+	bufIndex = C.get_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}}, &out_{{$elem.Name}}_len)
+	ret_{{$elem.Name}} := C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
+	{{end}}{{else}}{{if $elem.IsArray}}
+
+	// non-string array
+	var out_{{$elem.Name}} *C.openffi_{{$elem.Type}}
+	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size
+	var out_{{$elem.Name}}_dimensions C.openffi_size
+	bufIndex = C.get_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}}, &out_{{$elem.Name}}_dimensions_lengths, &out_{{$elem.Name}}_dimensions)
+		
+	ret_{{$elem.Name}} := make([]{{$elem.Type}}, 0)
+	for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
+		val := C.get_openffi_{{$elem.Type}}_element(out_{{$elem.Name}}, C.int(i))
+		ret_{{$elem.Name}} = append(ret_{{$elem.Name}}, {{$elem.Type}}(val))
+	}
+	{{else}}
+
+	// non-string
+	var out_{{$elem.Name}} C.openffi_{{$elem.Type}}
+	bufIndex = C.get_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}})
+	ret_{{$elem.Name}} := {{if eq $elem.Type "bool"}}out_{{$elem.Name}} != C.openffi_bool(0){{else}}{{$elem.Type}}(out_{{$elem.Name}}){{end}}
+	{{end}}
+	{{end}}
+	{{end}}
+
+	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
 }
 {{end}}
 {{end}}
