@@ -109,7 +109,6 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 	var in_{{$elem.Name}}_sizes *C.openffi_size
 	var in_{{$elem.Name}}_dimensions_lengths *C.openffi_size
 	var in_{{$elem.Name}}_dimensions C.openffi_size
-	fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 	bufIndex = C.get_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}, &in_{{$elem.Name}}_sizes, &in_{{$elem.Name}}_dimensions_lengths, &in_{{$elem.Name}}_dimensions)
 	
 	{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0)))
@@ -122,7 +121,6 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 	// string
 	var in_{{$elem.Name}}_len C.openffi_size
 	var in_{{$elem.Name}} C.openffi_string
-	fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 	bufIndex = C.get_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}, &in_{{$elem.Name}}_len)
 	{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, C.int(in_{{$elem.Name}}_len))
 	{{end}}{{else}}{{if $elem.IsArray}}

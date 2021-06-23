@@ -53,12 +53,13 @@ const HostFunctionStubsTemplate = `
 var {{$f.PathToForeignFunction.function}}_id int64 = -1
 func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 
-	// load function (no need to use a lock)
-	runtime_plugin := "xllr.{{$m.TargetLanguage}}"
-	pruntime_plugin := C.CString(runtime_plugin)
-	defer C.free(unsafe.Pointer(pruntime_plugin))
-
 	if {{$f.PathToForeignFunction.function}}_id == -1{
+
+		// load function (no need to use a lock)
+		runtime_plugin := "xllr.{{$m.TargetLanguage}}"
+		pruntime_plugin := C.CString(runtime_plugin)
+		defer C.free(unsafe.Pointer(pruntime_plugin))
+
 		path := "{{$f.PathToForeignFunctionAsString}}"
 		ppath := C.CString(path)
 		defer C.free(unsafe.Pointer(ppath))
