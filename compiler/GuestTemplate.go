@@ -125,14 +125,12 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 	fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 	bufIndex = C.get_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}, &in_{{$elem.Name}}_len)
 	{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, C.int(in_{{$elem.Name}}_len))
-	println("{{$elem.Name}}: "+{{$elem.Name}})
 	{{end}}{{else}}{{if $elem.IsArray}}
 
 	// non-string array
 	var in_{{$elem.Name}} *C.openffi_{{$elem.Type}}
 	var in_{{$elem.Name}}_dimensions_lengths *C.openffi_size
 	var in_{{$elem.Name}}_dimensions C.openffi_size
-	fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 	bufIndex = C.get_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}}, &in_{{$elem.Name}}_dimensions_lengths, &in_{{$elem.Name}}_dimensions)
 		
 	{{$elem.Name}} := make([]{{$elem.Type}}, 0)
@@ -144,7 +142,6 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 
 	// non-string
 	var in_{{$elem.Name}} C.openffi_{{$elem.Type}}
-	fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 	bufIndex = C.get_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, &in_{{$elem.Name}})
 	{{$elem.Name}} := {{if eq $elem.Type "bool"}}in_{{$elem.Name}} != C.openffi_bool(0){{else}}{{$elem.Type}}(in_{{$elem.Name}}){{end}}
 	{{end}}
@@ -175,14 +172,12 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 		for i, val := range {{$elem.Name}}{
 			C.set_openffi_string_element(C.int(i), out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
 		}
-		fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 		bufIndex = C.set_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, out_{{$elem.Name}}_dimensions_lengths, out_{{$elem.Name}}_dimensions)
 		
 		{{else}}
 		// string
 		out_{{$elem.Name}}_len := C.openffi_size(C.ulong(len({{$elem.Name}})))
 		out_{{$elem.Name}} := C.CString({{$elem.Name}})
-		fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
 		bufIndex = C.set_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, &out_{{$elem.Name}}_len)
 
 		{{end}}{{else}}{{if gt $elem.Dimensions 0}}
@@ -197,7 +192,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 		for i, val := range {{$elem.Name}}{
 			C.set_openffi_{{$elem.Type}}_element(out_{{$elem.Name}}, C.int(i), C.openffi_{{$elem.Type}}(val))
 		}
-		fmt.Printf("{{$elem.Name}} - Index: %d\n", int(bufIndex))
+
 		bufIndex = C.set_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}}, out_{{$elem.Name}}_dimensions_lengths, out_{{$elem.Name}}_dimensions)
 		{{else}}
 		// non-string
@@ -212,7 +207,6 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters **C.void, param
 		{{else}}
 		out_{{$elem.Name}} := C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_{{$elem.Type}}({{$elem.Name}}))
 		{{end}}
-		fmt.Printf("{{$elem.Name}} {{$elem.Type}} - Index: %d\n", int(bufIndex))
 		bufIndex = C.set_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, out_{{$elem.Name}})
 		{{end}}
 		{{end}}
