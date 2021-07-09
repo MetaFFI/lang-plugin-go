@@ -35,7 +35,7 @@ func TestHostCompiler(t *testing.T){
 		t.Fatalf("Failed with error: %v\n", err)
 	}
 
-	if r1 != 0.57721{ t.Fatalf("r1 != 0.57721") }
+	if r1 != 0.57721{ t.Fatalf("r1 != 0.57721. r1=%v", r1) }
 	if r2 != 3.359{ t.Fatalf("r2 != 3.359") }
 	
 	if r3 != -11{ t.Fatalf("r3 != -11") }

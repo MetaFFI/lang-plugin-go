@@ -156,7 +156,6 @@ func TestGuest(t *testing.T){
 
 	err = ioutil.WriteFile("./temp/go.mod", []byte("module  GoFuncs"), 0600)
 
-	/*
 	defer func(){
 		err = os.RemoveAll("temp")
 		if err != nil{
@@ -164,7 +163,6 @@ func TestGuest(t *testing.T){
 			return
 		}
 	}()
-	*/
 
 	cmp := NewCompiler(def, "temp")
 	_, err = cmp.CompileGuest()

@@ -22,19 +22,33 @@ const HostCImportTemplate = `
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <include/common_data_type_helper_loader.c>
+#include <include/cdt_structs.h>
+#include <include/cdt_capi_loader.h>
+#include <include/cdt_capi_loader.c>
 
 openffi_size get_int_item(openffi_size* array, int index)
 {
 	return array[index];
 }
+
+void* convert_union_to_ptr(void* p)
+{
+	return p;
+}
+
+void set_cdt_type(struct cdt* p, openffi_type t)
+{
+	p->type = t;
+}
+
+
 */
 import "C"
 `
 
 const HostHelperFunctions = `
 func init(){
-	err := C.load_args_helpers()
+	err := C.load_cdt_capi()
 	if err != nil{
 		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
 	}
@@ -60,8 +74,6 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pruntime_plugin := C.CString(runtime_plugin)
 	defer C.free(unsafe.Pointer(pruntime_plugin))
 
-	var cur_type C.openffi_type
-
 	if {{$f.PathToForeignFunction.function}}_id == -1{
 
 		// load function (no need to use a lock)
@@ -81,17 +93,12 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		}
 	}
 
-	{{if IsParametersOrReturnValues $f}}var bufIndex C.int{{end}}
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parameters_buffer_len := C.openffi_size({{range $index, $field := $f.Parameters}}{{if $index}} + {{end}}C.openffi_type_type_size + C.openffi_{{$field.Type}}_type_size{{if gt $field.Dimensions 0}} + C.openffi_array_type_size{{end}}{{end}})
-	parameters := C.alloc_args_buffer(C.int(parameters_buffer_len))
-
-	return_values_length := C.openffi_size({{range $index, $field := $f.ReturnValues}}{{if $index}} + {{end}}C.openffi_type_type_size + C.openffi_{{$field.Type}}_type_size{{if gt $field.Dimensions 0}} + C.openffi_array_type_size{{end}}{{end}})
-	return_values := C.alloc_args_buffer(C.int(return_values_length))
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
-	{{if gt $paramsLength 0}}bufIndex = C.int(0){{end}}
 	{{range $index, $elem := $f.Parameters}}
 	
 	{{if $elem.IsString}}
@@ -100,26 +107,39 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 
 	in_{{$elem.Name}} := (*C.openffi_string)(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
 	in_{{$elem.Name}}_sizes := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_size))
-	in_{{$elem.Name}}_dimensions := (*C.openffi_size)(C.alloc_openffi_size_on_heap( 1 ) )
-	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size * (*in_{{$elem.Name}}_dimensions)))
-	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
+	in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size * (in_{{$elem.Name}}_dimensions)))
+	*in_{{$elem.Name}}_dimensions_lengths = C.openffi_size(len({{$elem.Name}}))
 	
 	for i, val := range {{$elem.Name}}{
-		C.set_openffi_string_element(C.int(i), in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
+		C.set_openffi_string_element(in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.int(i), C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
 	}
-	bufIndex = C.set_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, in_{{$elem.Name}}_dimensions_lengths, in_{{$elem.Name}}_dimensions)
 	
+	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$elem.Type}}_array_type)
+	in_{{$elem.Name}}_cdt.free_required = 1
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals_sizes = in_{{$elem.Name}}_sizes
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+
 	{{else}}
 	// string
 	in_{{$elem.Name}}_len := C.openffi_size(C.ulong(len({{$elem.Name}})))
 	in_{{$elem.Name}} := C.CString({{$elem.Name}})
-	bufIndex = C.set_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}}, &in_{{$elem.Name}}_len)
+	
+	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$elem.Type}}_type)
+	in_{{$elem.Name}}_cdt.free_required = 1
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.val = in_{{$elem.Name}}
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.length = in_{{$elem.Name}}_len
 
 	{{end}}{{else}}{{if gt $elem.Dimensions 0}}
 	// non-string array
 	
-	in_{{$elem.Name}}_dimensions := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_size))
-	*in_{{$elem.Name}}_dimensions = 1
+	in_{{$elem.Name}}_dimensions := C.openffi_size(1)
 	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
 	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
 
@@ -128,21 +148,32 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		C.set_openffi_{{$elem.Type}}_element(in_{{$elem.Name}}, C.int(i), C.openffi_{{$elem.Type}}(val))
 	}
 
-	bufIndex = C.set_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}}, in_{{$elem.Name}}_dimensions_lengths, in_{{$elem.Name}}_dimensions)
+	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$elem.Type}}_array_type)
+	in_{{$elem.Name}}_cdt.free_required = 1
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+
 	{{else}}
 	// non-string
 	
 	{{if $elem.IsBool}}
-	var in_{{$elem.Name}} *C.openffi_bool
+	var in_{{$elem.Name}} C.openffi_bool
 	if {{$elem.Name}} { 
-		in_{{$elem.Name}} = C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_bool(1))
+		in_{{$elem.Name}} = C.openffi_bool(1)
 	} else { 
-		in_{{$elem.Name}} = C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_bool(0)) 
+		in_{{$elem.Name}} = C.openffi_bool(0)
 	}
 	{{else}}
-	in_{{$elem.Name}} := C.alloc_openffi_{{$elem.Type}}_on_heap(C.openffi_{{$elem.Type}}({{$elem.Name}}))
+	in_{{$elem.Name}} := C.openffi_{{$elem.Type}}({{$elem.Name}})
 	{{end}}
-	bufIndex = C.set_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(parameters)), bufIndex, in_{{$elem.Name}})
+	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$elem.Type}}_type)
+	in_{{$elem.Name}}_cdt.free_required = 1
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.val = in_{{$elem.Name}}
 	{{end}}
 	{{end}}
 	{{end}}	
@@ -153,8 +184,8 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 
 	C.xllr_call(pruntime_plugin, C.uint(len(runtime_plugin)),
 			C.int64_t({{$f.PathToForeignFunction.function}}_id),
-			parameters, parameters_buffer_len,
-			return_values, return_values_length,
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -163,41 +194,45 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		return
 	}
 
-	{{if gt $returnLength 0}}bufIndex = C.int(0){{end}}
 	{{range $index, $elem := $f.ReturnValues}}
-
-	bufIndex = C.get_type((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &cur_type)
 
 	{{if $elem.IsString}}
 	
 	{{if gt $elem.Dimensions 0}}
 	// string[] // TODO: handle multi-dimensional arrays
-	var out_{{$elem.Name}} *C.openffi_string
-	var out_{{$elem.Name}}_sizes *C.openffi_size
-	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size
-	var out_{{$elem.Name}}_dimensions C.openffi_size
-	bufIndex = C.get_arg_openffi_string_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}}, &out_{{$elem.Name}}_sizes, &out_{{$elem.Name}}_dimensions_lengths, &out_{{$elem.Name}}_dimensions)
-	
+	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+
+	var out_{{$elem.Name}} *C.openffi_string = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals
+	var out_{{$elem.Name}}_sizes *C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals_sizes
+	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
+	//var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+
 	ret_{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
 	for i:=C.int(0) ; i<C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
 		var str_size C.openffi_size
-		str := C.get_openffi_string_element(i, out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, &str_size)
+		str := C.get_openffi_string_element(out_{{$elem.Name}}, C.int(i), out_{{$elem.Name}}_sizes, &str_size)
 		ret_{{$elem.Name}} = append(ret_{{$elem.Name}}, C.GoStringN(str, C.int(str_size)))
 	}
+
 	{{else}}
+
 	// string
-	var out_{{$elem.Name}}_len C.openffi_size
-	var out_{{$elem.Name}} C.openffi_string
-	bufIndex = C.get_arg_openffi_string((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}}, &out_{{$elem.Name}}_len)
+	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+	var out_{{$elem.Name}}_len C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.length
+	var out_{{$elem.Name}} C.openffi_string = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
+
 	ret_{{$elem.Name}} := C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
 	{{end}}{{else}}{{if $elem.IsArray}}
 
 	// non-string array
-	var out_{{$elem.Name}} *C.openffi_{{$elem.Type}}
-	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size
-	var out_{{$elem.Name}}_dimensions C.openffi_size
-	bufIndex = C.get_arg_openffi_{{$elem.Type}}_array((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}}, &out_{{$elem.Name}}_dimensions_lengths, &out_{{$elem.Name}}_dimensions)
-		
+	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+	var out_{{$elem.Name}} *C.openffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals
+	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
+	// var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+			
 	ret_{{$elem.Name}} := make([]{{$elem.Type}}, 0)
 	for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
 		val := C.get_openffi_{{$elem.Type}}_element(out_{{$elem.Name}}, C.int(i))
@@ -206,8 +241,10 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	{{else}}
 
 	// non-string
-	var out_{{$elem.Name}} C.openffi_{{$elem.Type}}
-	bufIndex = C.get_arg_openffi_{{$elem.Type}}((*unsafe.Pointer)(unsafe.Pointer(return_values)), bufIndex, &out_{{$elem.Name}})
+	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+	var out_{{$elem.Name}} C.openffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
+	
 	ret_{{$elem.Name}} := {{if eq $elem.Type "bool"}}out_{{$elem.Name}} != C.openffi_bool(0){{else}}{{$elem.Type}}(out_{{$elem.Name}}){{end}}
 	{{end}}
 	{{end}}

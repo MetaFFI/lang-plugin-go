@@ -62,7 +62,6 @@ import "C"
 const GuestMainFunction = `
 func main(){} // main function must be declared to create dynamic library
 func init(){
-	println("INIT!")
 	err := C.load_cdt_capi()
 	if err != nil{
 		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
@@ -123,7 +122,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 	var in_{{$elem.Name}} *C.openffi_string = pcdt_{{$elem.Type}}_{{$elem.Name}}.vals
 	var in_{{$elem.Name}}_sizes *C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.vals_sizes
 	var in_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
-	// var in_{{$elem.Name}}_dimensions C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until mutli-dimensions support!
+	// var in_{{$elem.Name}}_dimensions C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
 		
 	{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0)))
 	for i:=C.int(0) ; i<C.int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
@@ -149,7 +148,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 
 	var in_{{$elem.Name}} *C.openffi_{{$elem.Type}} = pcdt_{{$elem.Type}}_{{$elem.Name}}.vals
 	var in_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
-	// var in_{{$elem.Name}}_dimensions C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until mutli-dimensions support!
+	// var in_{{$elem.Name}}_dimensions C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
 	
 	{{$elem.Name}} := make([]{{$elem.Type}}, 0)
 	for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
@@ -159,20 +158,20 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 	{{else}}
 
 	// non-string
-	println("1")
+	
 	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-	println("1.5")
+	
 	pcdt_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-	println("2")
+	
 	var in_{{$elem.Name}} C.openffi_{{$elem.Type}} = pcdt_{{$elem.Type}}_{{$elem.Name}}.val
 	{{$elem.Name}} := {{if eq $elem.Type "bool"}}in_{{$elem.Name}} != C.openffi_bool(0){{else}}{{$elem.Type}}(in_{{$elem.Name}}){{end}}
-	println("3")
+	
 	{{end}}
 	{{end}}
 	{{end}}
 	
 	// call original function
-	println("Call original")
+	
 	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
 
 	// return values
