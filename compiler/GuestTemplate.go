@@ -119,15 +119,15 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
 	pcdt_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
 	
-	var in_{{$elem.Name}} *C.openffi_string = pcdt_{{$elem.Type}}_{{$elem.Name}}.vals
+	var in_{{$elem.Name}} *C.openffi_{{$elem.Type}} = pcdt_{{$elem.Type}}_{{$elem.Name}}.vals
 	var in_{{$elem.Name}}_sizes *C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.vals_sizes
 	var in_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
 	// var in_{{$elem.Name}}_dimensions C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
 		
-	{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0)))
+	{{$elem.Name}} := make([]string, 0, int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0)))
 	for i:=C.int(0) ; i<C.int(C.get_int_item(in_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
 		var str_size C.openffi_size
-		str := C.get_openffi_string_element(in_{{$elem.Name}}, i, in_{{$elem.Name}}_sizes, &str_size)
+		str := C.get_openffi_{{$elem.Type}}_element(in_{{$elem.Name}}, i, in_{{$elem.Name}}_sizes, &str_size)
 		{{$elem.Name}} = append({{$elem.Name}}, C.GoStringN(str, C.int(str_size)))
 	}
 	{{else}}
@@ -136,7 +136,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 	pcdt_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
 
 	var in_{{$elem.Name}}_len C.openffi_size = pcdt_{{$elem.Type}}_{{$elem.Name}}.length
-	var in_{{$elem.Name}} C.openffi_string = pcdt_{{$elem.Type}}_{{$elem.Name}}.val
+	var in_{{$elem.Name}} C.openffi_{{$elem.Type}} = pcdt_{{$elem.Type}}_{{$elem.Name}}.val
 
 	{{$elem.Name}} := C.GoStringN(in_{{$elem.Name}}, C.int(in_{{$elem.Name}}_len))
 	{{end}}{{else}}{{if $elem.IsArray}}
@@ -172,7 +172,9 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 	
 	// call original function
 	
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{$elem.Name}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}})
+
+	println("After call")
 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
@@ -185,14 +187,14 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 		{{if gt $elem.Dimensions 0}}
 		// string array
 
-		out_{{$elem.Name}} := (*C.openffi_string)(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
+		out_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
 		out_{{$elem.Name}}_sizes := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_size))
 		out_{{$elem.Name}}_dimensions := C.openffi_size( 1 )
 		out_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size * (out_{{$elem.Name}}_dimensions)))
 		*out_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
 		
 		for i, val := range {{$elem.Name}}{
-			C.set_openffi_string_element(out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, C.int(i), C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
+			C.set_openffi_{{$elem.Type}}_element(out_{{$elem.Name}}, out_{{$elem.Name}}_sizes, C.int(i), C.openffi_{{$elem.Type}}(C.CString(val)), C.openffi_size(len(val)))
 		}
 
 		out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
@@ -223,7 +225,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 		// non-string array
 		
 		out_{{$elem.Name}}_dimensions := C.openffi_size(1)
-		out_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(out_{{$elem.Name}}_dimensions*C.sizeof_openffi_size))
+		out_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(out_{{$elem.Name}}_dimensions*C.sizeof_openffi_{{$elem.Type}}))
 		*out_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
 
 		out_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))

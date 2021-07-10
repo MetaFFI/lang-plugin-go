@@ -68,7 +68,7 @@ const HostFunctionStubsTemplate = `
 {{range $index, $elem := $f.Parameters}}
 {{if $elem.Comment}}// {{$elem.Name}} - {{$elem.Comment}}{{end}}{{end}}
 var {{$f.PathToForeignFunction.function}}_id int64 = -1
-func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{if $elem.IsArray}}[]{{end}}{{if $elem.InnerTypes}}*{{end}}{{$elem.Type}}{{if eq $elem.Type "map"}}[{{$elem.MapKeyType}}]{{$elem.MapValueType}}{{end}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 
 	runtime_plugin := "xllr.{{$m.TargetLanguage}}"
 	pruntime_plugin := C.CString(runtime_plugin)
@@ -105,14 +105,14 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	{{if gt $elem.Dimensions 0}}
 	// string array
 
-	in_{{$elem.Name}} := (*C.openffi_string)(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
+	in_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
 	in_{{$elem.Name}}_sizes := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_size))
 	in_{{$elem.Name}}_dimensions := C.openffi_size(1)
 	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size * (in_{{$elem.Name}}_dimensions)))
 	*in_{{$elem.Name}}_dimensions_lengths = C.openffi_size(len({{$elem.Name}}))
 	
 	for i, val := range {{$elem.Name}}{
-		C.set_openffi_string_element(in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.int(i), C.openffi_string(C.CString(val)), C.openffi_size(len(val)))
+		C.set_openffi_{{$elem.Type}}_element(in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.int(i), C.openffi_{{$elem.Type}}(C.CString(val)), C.openffi_size(len(val)))
 	}
 	
 	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
@@ -203,15 +203,15 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
 	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 
-	var out_{{$elem.Name}} *C.openffi_string = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals
+	var out_{{$elem.Name}} *C.openffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals
 	var out_{{$elem.Name}}_sizes *C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals_sizes
 	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
 	//var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
 
-	ret_{{$elem.Name}} := make([]{{$elem.Type}}, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
+	ret_{{$elem.Name}} := make([]string, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
 	for i:=C.int(0) ; i<C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
 		var str_size C.openffi_size
-		str := C.get_openffi_string_element(out_{{$elem.Name}}, C.int(i), out_{{$elem.Name}}_sizes, &str_size)
+		str := C.get_openffi_{{$elem.Type}}_element(out_{{$elem.Name}}, C.int(i), out_{{$elem.Name}}_sizes, &str_size)
 		ret_{{$elem.Name}} = append(ret_{{$elem.Name}}, C.GoStringN(str, C.int(str_size)))
 	}
 
@@ -221,7 +221,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
 	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 	var out_{{$elem.Name}}_len C.openffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.length
-	var out_{{$elem.Name}} C.openffi_string = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
+	var out_{{$elem.Name}} C.openffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
 
 	ret_{{$elem.Name}} := C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
 	{{end}}{{else}}{{if $elem.IsArray}}
