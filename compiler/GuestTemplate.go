@@ -171,10 +171,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 	{{end}}
 	
 	// call original function
-	
 	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}})
-
-	println("After call")
 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
@@ -245,7 +242,7 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 
 		{{else}}
 		// non-string
-		
+
 		{{if $elem.IsBool}}
 		var out_{{$elem.Name}} C.openffi_bool
 		if {{$elem.Name}} { 
@@ -263,10 +260,11 @@ func EntryPoint_{{$f.PathToForeignFunction.function}}(parameters *C.struct_cdt, 
 		pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 
 		pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val = out_{{$elem.Name}}
+
 		{{end}}
 		{{end}}
 	}	
-	{{end}}	
+	{{end}}
 
 }
 {{end}}{{end}}
