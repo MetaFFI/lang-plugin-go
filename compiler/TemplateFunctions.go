@@ -12,16 +12,20 @@ var templatesFuncMap = map[string]interface{}{
 	"AsPublic":         asPublic,
 	"ToGoNameConv":     toGoNameConv,
 	"CastIfNeeded":     castIfNeeded,
-	"ParamActual":      paramActual,
-	"GetEnvVar":        getEnvVar,
-	"Sizeof":           Sizeof,
-	"CalculateArgsLength": calculateArgsLength,
-	"CalculateArgLength": calculateArgLength,
-	"Add": add,
-	"IsInteger": isInteger,
+	"ParamActual":                paramActual,
+	"GetEnvVar":                  getEnvVar,
+	"Sizeof":                     Sizeof,
+	"CalculateArgsLength":        calculateArgsLength,
+	"CalculateArgLength":         calculateArgLength,
+	"Add":                        add,
+	"IsInteger":                  isInteger,
 	"IsParametersOrReturnValues": isParametersOrReturnValues,
-	"ConvertToCType": convertToCType,
-	"ConvertToGoType": convertToGoType,
+	"ConvertToCType":             convertToCType,
+	"ConvertToGoType":            convertToGoType,
+	"GetNumericTypes":            getNumericTypes,
+	"GetOpenFFIType":      getOpenFFIType,
+	"GetOpenFFIArrayType":        getOpenFFIArrayType,
+	"GetOpenFFIStringTypes":      getOpenFFIStringTypes,
 }
 //--------------------------------------------------------------------
 func convertToGoType(def *compiler.FieldDefinition) string{
@@ -29,10 +33,12 @@ func convertToGoType(def *compiler.FieldDefinition) string{
 	var res string
 
 	switch def.Type {
-		case "string8": fallthrough
-		case "string16": fallthrough
-		case "string32":
+		case compiler.STRING8: fallthrough
+		case compiler.STRING16: fallthrough
+		case compiler.STRING32:
 			res = "string"
+		case compiler.ANY: return "interface{}"
+		case compiler.HANDLE: return "handle"
 		default:
 			res = string(def.Type)
 	}
@@ -44,12 +50,12 @@ func convertToGoType(def *compiler.FieldDefinition) string{
 	return res
 }
 //--------------------------------------------------------------------
-func convertToCType(openffiType string) string{
+func convertToCType(openffiType compiler.OpenFFIType) string{
 	switch openffiType {
 		case "float32": return "float"
 		case "float64": return "double"
 		default:
-			return "C."+openffiType
+			return string("C."+openffiType)
 	}
 }
 //--------------------------------------------------------------------
@@ -170,5 +176,21 @@ func castIfNeeded(elem string) string{
 		return "int("+elem+")"
 	}
 	return elem
+}
+//--------------------------------------------------------------------
+func getNumericTypes() (numericTypes []string ){
+	return []string{ "handle", "float64", "float32", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64" }
+}
+//--------------------------------------------------------------------
+func getOpenFFIStringTypes() (numericTypes []string ){
+	return []string{ "string8" }
+}
+//--------------------------------------------------------------------
+func getOpenFFIType(numericType string) (numericTypes uint64){
+	return compiler.TypeStringToTypeEnum[compiler.OpenFFIType(numericType)]
+}
+//--------------------------------------------------------------------
+func getOpenFFIArrayType(numericType string) (numericTypes uint64){
+	return compiler.TypeStringToTypeEnum[compiler.OpenFFIType(numericType+"_array")]
 }
 //--------------------------------------------------------------------

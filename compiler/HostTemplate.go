@@ -41,6 +41,10 @@ void set_cdt_type(struct cdt* p, openffi_type t)
 	p->type = t;
 }
 
+openffi_type get_cdt_type(struct cdt* p)
+{
+	return p->type;
+}
 
 */
 import "C"
@@ -53,6 +57,9 @@ func init(){
 		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
 	}
 }
+
+type handle unsafe.Pointer
+
 `
 
 const HostFunctionStubsTemplate = `
@@ -100,8 +107,135 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
+
+	{{if $elem.IsAny}}
+	// any
+	switch {{$elem.Name}}.(type) {
+		{{ range $numTypeIndex, $numType := GetNumericTypes }}
+		case {{$numType}}:
+			in_{{$elem.Name}} := C.openffi_{{$numType}}({{$elem.Name}}.({{$numType}}))
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$numType}}_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_{{$numType}}_{{$elem.Name}}.val = in_{{$elem.Name}}
+
+		{{end}}
+		
+
+		{{ range $index, $numType := GetNumericTypes }}
+		case []{{$numType}}:
+			in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+			in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
+			*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}.([]{{$numType}})))
+		
+			in_{{$elem.Name}} := (*C.openffi_{{$numType}})(C.malloc(C.ulong(len({{$elem.Name}}.([]{{$numType}})))*C.sizeof_openffi_{{$numType}}))
+			for i, val := range {{$elem.Name}}.([]{{$numType}}){
+				C.set_openffi_{{$numType}}_element(in_{{$elem.Name}}, C.int(i), C.openffi_{{$numType}}(val))
+			}
+		
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$numType}}_array_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_{{$numType}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
+			pcdt_in_{{$numType}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+			pcdt_in_{{$numType}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+
+		{{end}}
+
+		case int:
+			in_{{$elem.Name}} := C.openffi_int64(int64({{$elem.Name}}.(int)))
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_int64_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_int64_{{$elem.Name}} := ((*C.struct_cdt_openffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_int64_{{$elem.Name}}.val = in_{{$elem.Name}}
+
+		case []int:
+			in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+			in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
+			*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}.([]int)))
+		
+			in_{{$elem.Name}} := (*C.openffi_int64)(C.malloc(C.ulong(len({{$elem.Name}}.([]int)))*C.sizeof_openffi_int64))
+			for i, val := range {{$elem.Name}}.([]int){
+				C.set_openffi_int64_element(in_{{$elem.Name}}, C.int(i), C.openffi_int64(val))
+			}
+		
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_int64_array_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_int64_{{$elem.Name}} := ((*C.struct_cdt_openffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_int64_{{$elem.Name}}.vals = in_{{$elem.Name}}
+			pcdt_in_int64_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+			pcdt_in_int64_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+
+		case bool:
+			var in_{{$elem.Name}} C.openffi_bool
+			if {{$elem.Name}}.(bool) { in_{{$elem.Name}} = C.openffi_bool(1) } else { in_{{$elem.Name}} = C.openffi_bool(0) }
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_bool_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_bool_{{$elem.Name}} := ((*C.struct_cdt_openffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_bool_{{$elem.Name}}.val = in_{{$elem.Name}}
+
+		case string:
+			in_{{$elem.Name}}_len := C.openffi_size(C.ulong(len({{$elem.Name}}.(string))))
+			in_{{$elem.Name}} := C.CString({{$elem.Name}}.(string))
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_string8_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_string8_{{$elem.Name}} := ((*C.struct_cdt_openffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_string8_{{$elem.Name}}.val = in_{{$elem.Name}}
+			pcdt_in_string8_{{$elem.Name}}.length = in_{{$elem.Name}}_len
+
+		case []bool:
+			in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+			in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
+			*in_{{$elem.Name}}_dimensions_lengths = C.openffi_size(len({{$elem.Name}}.([]bool)))
+		
+			in_{{$elem.Name}} := (*C.openffi_bool)(C.malloc(C.openffi_size(len({{$elem.Name}}.([]bool)))*C.sizeof_openffi_bool))
+			for i, val := range {{$elem.Name}}.([]bool){
+				var bval C.openffi_bool
+				if val { bval = C.openffi_bool(1) } else { bval = C.openffi_bool(0) }
+				C.set_openffi_bool_element(in_{{$elem.Name}}, C.int(i), C.openffi_bool(bval))
+			}
+		
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_bool_array_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_bool_{{$elem.Name}} := ((*C.struct_cdt_openffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_bool_{{$elem.Name}}.vals = in_{{$elem.Name}}
+			pcdt_in_bool_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+			pcdt_in_bool_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+
+		case []string:
+			in_{{$elem.Name}} := (*C.openffi_string8)(C.malloc(C.ulong(len({{$elem.Name}}.([]string)))*C.sizeof_openffi_string8))
+			in_{{$elem.Name}}_sizes := (*C.openffi_size)(C.malloc(C.ulong(len({{$elem.Name}}.([]string)))*C.sizeof_openffi_size))
+			in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+			in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size * (in_{{$elem.Name}}_dimensions)))
+			*in_{{$elem.Name}}_dimensions_lengths = C.openffi_size(len({{$elem.Name}}.([]string)))
+			
+			for i, val := range {{$elem.Name}}.([]string){
+				C.set_openffi_string8_element(in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.int(i), C.openffi_string8(C.CString(val)), C.openffi_size(len(val)))
+			}
+			
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_string8_array_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_string8_{{$elem.Name}} := ((*C.struct_cdt_openffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_string8_{{$elem.Name}}.vals = in_{{$elem.Name}}
+			pcdt_in_string8_{{$elem.Name}}.vals_sizes = in_{{$elem.Name}}_sizes
+			pcdt_in_string8_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+			pcdt_in_string8_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+			
+		default:
+			err = fmt.Errorf("Parameter %v is not of a supported type", "{{$elem.Name}}")
+			return
+	}
+
 	
-	{{if $elem.IsString}}
+	{{else if $elem.IsString}}
 	{{if gt $elem.Dimensions 0}}
 	// string array
 
@@ -141,11 +275,17 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	
 	in_{{$elem.Name}}_dimensions := C.openffi_size(1)
 	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
-	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
+	*in_{{$elem.Name}}_dimensions_lengths = C.openffi_size(len({{$elem.Name}}))
 
-	in_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
+	in_{{$elem.Name}} := (*C.openffi_{{$elem.Type}})(C.malloc(C.openffi_size(len({{$elem.Name}}))*{{Sizeof $elem}}))
 	for i, val := range {{$elem.Name}}{
+		{{if $elem.IsBool}}
+		var bval C.openffi_bool
+		if val { bval = C.openffi_bool(1) } else { bval = C.openffi_bool(0) }
+		C.set_openffi_bool_element(in_{{$elem.Name}}, C.int(i), C.openffi_bool(bval))
+		{{else}}
 		C.set_openffi_{{$elem.Type}}_element(in_{{$elem.Name}}, C.int(i), C.openffi_{{$elem.Type}}(val))
+		{{end}}
 	}
 
 	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
@@ -196,8 +336,95 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 
 	{{range $index, $elem := $f.ReturnValues}}
 
-	{{if $elem.IsString}}
-	
+	{{if $elem.IsAny}}
+	// any
+	var ret_{{$elem.Name}} interface{}
+	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+	{{$elem.Name}}_type := C.get_cdt_type(out_{{$elem.Name}}_cdt)
+	switch {{$elem.Name}}_type{
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}
+		case {{GetOpenFFIType $numType}}: // {{$numType}}
+			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}} C.openffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.val
+			
+			ret_{{$elem.Name}} = {{$numType}}(out_{{$elem.Name}})
+		{{end}}
+
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}
+		case {{GetOpenFFIArrayType $numType}}: // []{{$numType}}
+			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}} *C.openffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.vals
+			var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_{{$numType}}_{{$elem.Name}}.dimensions_lengths
+			// var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_{{$numType}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+					
+			ret_{{$elem.Name}}_typed := make([]{{$numType}}, 0)
+			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
+				val := C.get_openffi_{{$numType}}_element(out_{{$elem.Name}}, C.int(i))
+				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, {{$numType}}(val))
+			}
+			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
+		{{end}}
+
+		{{range $numTypeEnumIndex, $stringType := GetOpenFFIStringTypes}}
+		case {{GetOpenFFIType $stringType}}: // {{$stringType}}
+			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+			pcdt_out_{{$stringType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$stringType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}}_len C.openffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.length
+			var out_{{$elem.Name}} C.openffi_{{$stringType}} = pcdt_out_{{$stringType}}_{{$elem.Name}}.val
+		
+			ret_{{$elem.Name}} = C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
+		{{end}}
+
+		{{range $numTypeEnumIndex, $stringType := GetOpenFFIStringTypes}}
+		case {{GetOpenFFIArrayType $stringType}}: // []{{$stringType}}
+			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+			pcdt_out_{{$stringType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$stringType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+		
+			var out_{{$elem.Name}} *C.openffi_{{$stringType}} = pcdt_out_{{$stringType}}_{{$elem.Name}}.vals
+			var out_{{$elem.Name}}_sizes *C.openffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.vals_sizes
+			var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.dimensions_lengths
+			//var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+		
+			ret_{{$elem.Name}}_typed := make([]string, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
+			for i:=C.int(0) ; i<C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
+				var str_size C.openffi_size
+				str := C.get_openffi_{{$stringType}}_element(out_{{$elem.Name}}, C.int(i), out_{{$elem.Name}}_sizes, &str_size)
+				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, C.GoStringN(str, C.int(str_size)))
+			}
+			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
+		{{end}}
+
+
+		case {{GetOpenFFIType "bool"}}: // bool
+			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+			pcdt_out_bool_{{$elem.Name}} := ((*C.struct_cdt_openffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}} C.openffi_bool = pcdt_out_bool_{{$elem.Name}}.val
+			
+			ret_{{$elem.Name}} = out_{{$elem.Name}} != C.openffi_bool(0)
+
+		case {{GetOpenFFIArrayType "bool"}}: // []bool
+			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+			pcdt_out_bool_{{$elem.Name}} := ((*C.struct_cdt_openffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}} *C.openffi_bool = pcdt_out_bool_{{$elem.Name}}.vals
+			var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_bool_{{$elem.Name}}.dimensions_lengths
+			// var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_bool_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+					
+			ret_{{$elem.Name}}_typed := make([]bool, 0)
+			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
+				val := C.get_openffi_bool_element(out_{{$elem.Name}}, C.int(i))
+				var bval bool
+				if val != 0 { bval = true } else { bval = false }
+				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, bval)
+			}
+
+			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
+
+		default:
+			err = fmt.Errorf("Return value %v is not of a supported type, but of type: %v", "{{$elem.Name}}", {{$elem.Name}}_type)
+			return
+	}
+
+	{{else if $elem.IsString}}	
 	{{if gt $elem.Dimensions 0}}
 	// string[] // TODO: handle multi-dimensional arrays
 	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
