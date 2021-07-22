@@ -59,8 +59,6 @@ import "C"
 `
 
 const HostHelperFunctions = `
-type handle unsafe.Pointer
-
 func init(){
 	err := C.load_cdt_capi()
 	if err != nil{
@@ -75,6 +73,8 @@ func init(){
 var goRuntimeLib *plugin.Plugin
 var setObjectTable func(interface{})unsafe.Pointer
 var getObjectTable func(unsafe.Pointer) (interface{}, bool)
+
+type handle unsafe.Pointer
 
 func loadObjectsTable(){
 	openffiHome := os.Getenv("OPENFFI_HOME")
@@ -406,9 +406,9 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			var out_{{$elem.Name}} C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
 
 			var found bool
-			ret_{{$elem.Name}}, found = getObject(out_{{$elem.Name}})
+			ret_{{$elem.Name}}, found = getObject(handle(out_{{$elem.Name}}))
 			if !found{ // handle belongs to 
-				ret_{{$elem.Name}} = out_{{$elem.Name}}
+				ret_{{$elem.Name}} = handle(out_{{$elem.Name}})
 			}
 
 		case {{GetOpenFFIArrayType "handle"}}: // []handle
@@ -422,9 +422,9 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 				val := C.get_openffi_handle_element(out_{{$elem.Name}}, C.int(i))
 
 				var found bool
-				val_obj, found := getObject(val)
+				val_obj, found := getObject(handle(val))
 				if !found{ // handle belongs to 
-					val_obj = handle(val)
+					val_obj = val
 				}
 				
 				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, val_obj)

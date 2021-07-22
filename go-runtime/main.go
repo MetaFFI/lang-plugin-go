@@ -10,8 +10,10 @@ void* int_to_vptr(long long i)
 {
 	return (void*)i;
 }
- */
+*/
 import "C"
+
+
 
 var objects map[unsafe.Pointer]interface{}
 var lock sync.RWMutex
