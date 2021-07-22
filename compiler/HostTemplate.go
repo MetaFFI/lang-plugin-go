@@ -13,6 +13,9 @@ const HostPackageTemplate = `package {{.Package}}
 const HostImports = `
 import "fmt"
 import "unsafe"
+import "plugin"
+import "os"
+import "runtime"
 `
 
 const HostCImportTemplate = `
@@ -46,20 +49,68 @@ openffi_type get_cdt_type(struct cdt* p)
 	return p->type;
 }
 
+void set_go_runtime_flag()
+{
+	xllr_set_runtime_flag("go_runtime", 10);
+}
+
 */
 import "C"
 `
 
 const HostHelperFunctions = `
+type handle unsafe.Pointer
+
 func init(){
 	err := C.load_cdt_capi()
 	if err != nil{
 		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
 	}
+
+	C.set_go_runtime_flag();
+
+	loadObjectsTable()
 }
 
-type handle unsafe.Pointer
+var goRuntimeLib *plugin.Plugin
+var setObjectTable func(interface{})unsafe.Pointer
+var getObjectTable func(unsafe.Pointer) (interface{}, bool)
 
+func loadObjectsTable(){
+	openffiHome := os.Getenv("OPENFFI_HOME")
+	if openffiHome == ""{
+		panic("Cannot find OPENFFI_HOME environment variable")
+	}
+
+	var extension string
+	switch runtime.GOOS{
+		case "windows": extension = ".dll"
+		case "darwin": extension = ".dylib"
+		default: extension = ".so"
+	}
+
+	var err error
+	goRuntimeLib, err = plugin.Open(openffiHome+string(os.PathSeparator)+"xllr.go.runtime"+extension)
+	if err != nil{ panic(err) }
+	
+	setFunc, err := goRuntimeLib.Lookup("Set")
+	if err != nil{ panic(err) }
+
+	getFunc, err := goRuntimeLib.Lookup("Get")
+	if err != nil{ panic(err) }
+
+	setObjectTable = setFunc.(func(interface{})unsafe.Pointer)
+	getObjectTable = getFunc.(func(unsafe.Pointer) (interface{}, bool))
+
+}
+
+func setObject(obj interface{}) handle{
+	return handle(setObjectTable(obj))
+}
+
+func getObject(h handle) (interface{}, bool){
+	return getObjectTable(unsafe.Pointer(h))
+}
 `
 
 const HostFunctionStubsTemplate = `
@@ -230,8 +281,15 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			pcdt_in_string8_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
 			
 		default:
-			err = fmt.Errorf("Parameter %v is not of a supported type", "{{$elem.Name}}")
-			return
+			// Turn object to a handle
+			{{$elem.Name}}_handle := setObject({{$elem.Name}})
+			
+			in_{{$elem.Name}} := C.openffi_handle({{$elem.Name}}_handle)
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_handle_{{$elem.Name}}.val = in_{{$elem.Name}}
 	}
 
 	
@@ -342,15 +400,47 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
 	{{$elem.Name}}_type := C.get_cdt_type(out_{{$elem.Name}}_cdt)
 	switch {{$elem.Name}}_type{
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}
+
+		case {{GetOpenFFIType "handle"}}: // handle
+			pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}} C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
+
+			var found bool
+			ret_{{$elem.Name}}, found = getObject(out_{{$elem.Name}})
+			if !found{ // handle belongs to 
+				ret_{{$elem.Name}} = out_{{$elem.Name}}
+			}
+
+		case {{GetOpenFFIArrayType "handle"}}: // []handle
+			pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+			var out_{{$elem.Name}} *C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.vals
+			var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions_lengths
+			// var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+
+			ret_{{$elem.Name}}_typed := make([]interface{}, 0)
+			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
+				val := C.get_openffi_handle_element(out_{{$elem.Name}}, C.int(i))
+
+				var found bool
+				val_obj, found := getObject(val)
+				if !found{ // handle belongs to 
+					val_obj = handle(val)
+				}
+				
+				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, val_obj)
+			}
+			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
+
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "handle"}}
 		case {{GetOpenFFIType $numType}}: // {{$numType}}
 			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 			var out_{{$elem.Name}} C.openffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.val
 			
 			ret_{{$elem.Name}} = {{$numType}}(out_{{$elem.Name}})
-		{{end}}
 
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}
+		{{end}}{{end}}
+
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "handle"}}
 		case {{GetOpenFFIArrayType $numType}}: // []{{$numType}}
 			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 			var out_{{$elem.Name}} *C.openffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.vals
@@ -363,7 +453,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, {{$numType}}(val))
 			}
 			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
-		{{end}}
+		{{end}}{{end}}
 
 		{{range $numTypeEnumIndex, $stringType := GetOpenFFIStringTypes}}
 		case {{GetOpenFFIType $stringType}}: // {{$stringType}}

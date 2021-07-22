@@ -1,7 +1,10 @@
 #include <runtime/runtime_plugin_api.h>
 #include <utils/scope_guard.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
 #include "functions_repository.h"
+#include <utils/xllr_api_wrapper.h>
+#include <utils/library_loader.h>
 
 using namespace openffi::utils;
 
@@ -27,9 +30,31 @@ catch(std::exception& exc) \
 #define TRUE 1
 #define FALSE 0
 
+#define GO_RUNTIME "go_runtime"
+#define GO_RUNTIME_LENGTH 10
+
+boost::mutex runtime_flags_lock;
 
 //--------------------------------------------------------------------
-void load_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime to load */ }
+void load_runtime(char** err, uint32_t* err_len)
+{
+	// load xllr.go.goruntime OR xllr.go.runtime
+	// xllr.go.loader - loads Go runtime
+	
+	// loads the right dynamic library according to GO_RUNTIME flag in XLLR
+	
+	try
+	{
+		xllr_api_wrapper xllr;
+		boost::unique_lock<boost::mutex> l(runtime_flags_lock);
+		if (!xllr.is_runtime_flag_set(GO_RUNTIME, GO_RUNTIME_LENGTH)) // go is NOT loaded
+		{
+			openffi::utils::load_library("xllr.go.loader"); // the dynamic library loads GO runtime
+			xllr.set_runtime_flag(GO_RUNTIME, GO_RUNTIME_LENGTH);
+		}
+	}
+	catch_err(err, err_len, exc.what());
+}
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
 //--------------------------------------------------------------------

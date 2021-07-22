@@ -9,3 +9,5 @@ include(${OPENFFI_SDK}/CMakeLists.txt)
 
 include(compiler/CMakeLists.txt)
 include(runtime/CMakeLists.txt)
+include(go-runtime/CMakeLists.txt)
+include(go-loader/CMakeLists.txt)
