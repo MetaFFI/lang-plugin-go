@@ -25,7 +25,7 @@ func init(){
 func Set(v interface{}) unsafe.Pointer{
 	lock.Lock()
 	defer lock.Unlock()
-	id := C.int_to_vptr(C.longlong(len(objects)))
+	id := C.int_to_vptr(C.longlong(len(objects)+1))
 	objects[id] = v
 	return id
 }
