@@ -49,7 +49,6 @@ void load_runtime(char** err, uint32_t* err_len)
 		boost::unique_lock<boost::mutex> l(runtime_flags_lock);
 		if (!xllr.is_runtime_flag_set(GO_RUNTIME, GO_RUNTIME_LENGTH)) // go is NOT loaded
 		{
-			openffi::utils::load_library("xllr.go.loader"); // the dynamic library loads GO runtime
 			xllr.set_runtime_flag(GO_RUNTIME, GO_RUNTIME_LENGTH);
 		}
 	}

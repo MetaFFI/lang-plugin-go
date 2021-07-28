@@ -1,4 +1,5 @@
 package main
+
 import "C"
 
 const HostHeaderTemplate = `
@@ -13,9 +14,6 @@ const HostPackageTemplate = `package {{.Package}}
 const HostImports = `
 import "fmt"
 import "unsafe"
-import "plugin"
-import "os"
-import "runtime"
 `
 
 const HostCImportTemplate = `
@@ -49,9 +47,70 @@ openffi_type get_cdt_type(struct cdt* p)
 	return p->type;
 }
 
+void* xllr_go_handle;
+openffi_handle(*pset_object)(void*);
+void*(*pget_object)(openffi_handle);
+
+const char* load_xllr_go_lib_api()
+{
+	const char* openffi_home = getenv("OPENFFI_HOME");
+	if(!openffi_home)
+	{
+		return "OPENFFI_HOME is not set";
+	}
+
+	#ifdef _WIN32
+	const char* ext = ".dll";
+#elif __APPLE__
+	const char* ext = ".dylib";
+#else
+	const char* ext = ".so";
+#endif
+	
+	char xllr_go_full_path[300] = {0};
+	sprintf(xllr_go_full_path, "%s/xllr.go%s", openffi_home, ext);
+
+	char* out_err;
+	xllr_go_handle = load_library(xllr_go_full_path, &out_err);
+	if(!xllr_go_handle)
+	{
+		// error has occurred
+		printf("Failed to load XLLR Go: %s\n", out_err);
+		return "Failed to load XLLR Go";
+	}
+
+	pset_object = (openffi_handle(*)(void*))load_symbol(xllr_go_handle, "set_object", &out_err);
+	if(!pset_object)
+	{
+		// error has occurred
+		printf("Failed to load set_object: %s\n", out_err);
+		return "Failed to load set_object";
+	}
+
+	pget_object = (void*(*)(openffi_handle))load_symbol(xllr_go_handle, "get_object", &out_err);
+	if(!pget_object)
+	{
+		// error has occurred
+		printf("Failed to load get_object: %s\n", out_err);
+		return "Failed to load get_object";
+	}
+
+	return 0;
+}
+
 void set_go_runtime_flag()
 {
 	xllr_set_runtime_flag("go_runtime", 10);
+}
+
+openffi_handle set_object(void* obj)
+{
+	return pset_object(obj);
+}
+
+void* get_object(openffi_handle h)
+{
+	return pget_object(h);
 }
 
 */
@@ -67,49 +126,21 @@ func init(){
 
 	C.set_go_runtime_flag();
 
-	loadObjectsTable()
+	createObjectsTable()
 }
-
-var goRuntimeLib *plugin.Plugin
-var setObjectTable func(interface{})unsafe.Pointer
-var getObjectTable func(unsafe.Pointer) (interface{}, bool)
 
 type handle unsafe.Pointer
 
-func loadObjectsTable(){
-	openffiHome := os.Getenv("OPENFFI_HOME")
-	if openffiHome == ""{
-		panic("Cannot find OPENFFI_HOME environment variable")
-	}
+var pointers []unsafe.Pointer
+var objects []interface{}
 
-	var extension string
-	switch runtime.GOOS{
-		case "windows": extension = ".dll"
-		case "darwin": extension = ".dylib"
-		default: extension = ".so"
-	}
-
-	var err error
-	goRuntimeLib, err = plugin.Open(openffiHome+string(os.PathSeparator)+"xllr.go.runtime"+extension)
-	if err != nil{ panic(err) }
+func createObjectsTable(){
+	err := C.load_xllr_go_lib_api()
+	if err != nil{ panic(C.GoString(err)) }
 	
-	setFunc, err := goRuntimeLib.Lookup("Set")
-	if err != nil{ panic(err) }
+	pointers = make([]unsafe.Pointer, 0)
+	objects = make([]interface{}, 0)
 
-	getFunc, err := goRuntimeLib.Lookup("Get")
-	if err != nil{ panic(err) }
-
-	setObjectTable = setFunc.(func(interface{})unsafe.Pointer)
-	getObjectTable = getFunc.(func(unsafe.Pointer) (interface{}, bool))
-
-}
-
-func setObject(obj interface{}) handle{
-	return handle(setObjectTable(obj))
-}
-
-func getObject(h handle) (interface{}, bool){
-	return getObjectTable(unsafe.Pointer(h))
 }
 `
 
@@ -282,9 +313,8 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			
 		default:
 			// Turn object to a handle
-			{{$elem.Name}}_handle := setObject({{$elem.Name}})
+			in_{{$elem.Name}} := C.set_object(unsafe.Pointer(&{{$elem.Name}}))
 			
-			in_{{$elem.Name}} := C.openffi_handle({{$elem.Name}}_handle)
 			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
 			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_type)
 			in_{{$elem.Name}}_cdt.free_required = 1
@@ -364,6 +394,8 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	} else { 
 		in_{{$elem.Name}} = C.openffi_bool(0)
 	}
+	{{else if $elem.IsHandle}}
+	in_{{$elem.Name}} := C.set_object(unsafe.Pointer(&{{$elem.Name}}))
 	{{else}}
 	in_{{$elem.Name}} := C.openffi_{{$elem.Type}}({{$elem.Name}})
 	{{end}}
@@ -405,9 +437,8 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 			var out_{{$elem.Name}} C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
 
-			var found bool
-			ret_{{$elem.Name}}, found = getObject(handle(out_{{$elem.Name}}))
-			if !found{ // handle belongs to 
+			ret_{{$elem.Name}} = C.get_object(C.openffi_handle(out_{{$elem.Name}}))
+			if ret_{{$elem.Name}} == nil{ // handle belongs to 
 				ret_{{$elem.Name}} = handle(out_{{$elem.Name}})
 			}
 
@@ -421,9 +452,9 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
 				val := C.get_openffi_handle_element(out_{{$elem.Name}}, C.int(i))
 
-				var found bool
-				val_obj, found := getObject(handle(val))
-				if !found{ // handle belongs to 
+				var val_obj interface{}
+				val_obj = C.get_object(val)
+				if val_obj == nil{ // handle belongs to 
 					val_obj = val
 				}
 				
