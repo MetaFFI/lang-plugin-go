@@ -53,7 +53,7 @@ func GetObject(h handle) interface{}{
 	defer lock.RUnlock()
 
 	if o, found := handlesToObjects[C.openffi_handle(h)]; found{
-		return o
+		return handle(o)
 	} else {
 		return nil
 	}
