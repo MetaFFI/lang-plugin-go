@@ -13,7 +13,7 @@ openffi_handle int_to_handle(intptr_t i)
 import "C"
 import "sync"
 
-type handle C.openffi_handle
+type Handle C.openffi_handle
 
 var(
 	handlesToObjects map[C.openffi_handle]interface{}
@@ -29,13 +29,13 @@ func init(){
 
 // sets the object and returns a handle
 // if object already set, it returns the existing handle
-func SetObject(obj interface{}) handle{
+func SetObject(obj interface{}) Handle{
 	
 	lock.Lock()
 	defer lock.Unlock()
 
 	if h, found := objectsToHandles[obj]; found{
-		return handle(h)
+		return Handle(h)
 	}
 
 	handleID := C.int_to_handle(C.long(len(handlesToObjects)+1))
@@ -43,11 +43,11 @@ func SetObject(obj interface{}) handle{
 	handlesToObjects[handleID] = obj
 	objectsToHandles[obj] = handleID
 
-	return handle(handleID)
+	return Handle(handleID)
 }
 
 
-func GetObject(h handle) interface{}{
+func GetObject(h Handle) interface{}{
 
 	lock.RLock()
 	defer lock.RUnlock()
