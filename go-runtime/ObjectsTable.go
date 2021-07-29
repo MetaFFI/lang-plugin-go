@@ -35,10 +35,10 @@ func SetObject(obj interface{}) handle{
 	defer lock.Unlock()
 
 	if h, found := objectsToHandles[obj]; found{
-		return h
+		return handle(h)
 	}
 
-	handleID := C.int_to_handle(len(handlesToObjects)+1)
+	handleID := C.int_to_handle(C.long(len(handlesToObjects)+1))
 
 	handlesToObjects[handleID] = obj
 	objectsToHandles[obj] = handleID
@@ -53,7 +53,7 @@ func GetObject(h handle) interface{}{
 	defer lock.RUnlock()
 
 	if o, found := handlesToObjects[C.openffi_handle(h)]; found{
-		return handle(o)
+		return o
 	} else {
 		return nil
 	}
