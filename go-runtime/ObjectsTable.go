@@ -10,9 +10,12 @@ openffi_handle int_to_handle(int i)
 */
 import "C"
 
+import "sync"
+
 var(
 	handlesToObjects map[C.openffi_handle]interface{}
 	objectsToHandles map[interface{}]C.openffi_handle
+	lock sync.RWMutex
 )
 
 
@@ -25,6 +28,9 @@ func init(){
 // if object already set, it returns the existing handle
 func SetObject(obj interface{}) C.openffi_handle{
 	
+	lock.Lock()
+	defer lock.Unlock()
+
 	if h, found := objectsToHandles[obj]; found{
 		return h
 	}
@@ -40,6 +46,9 @@ func SetObject(obj interface{}) C.openffi_handle{
 
 func GetObject(h C.openffi_handle) interface{}{
 
+	lock.RLock()
+	defer lock.RUnlock()
+
 	if o, found := handlesToObjects[h]; found{
 		return o
 	} else {
@@ -50,7 +59,10 @@ func GetObject(h C.openffi_handle) interface{}{
 
 func ContainsObject(obj interface{}) bool{
 
+	lock.RLock()
+	defer lock.RUnlock()
+
 	_, found := objectsToHandles[obj]
 	return found
-	
+
 }
