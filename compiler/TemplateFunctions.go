@@ -3,9 +3,10 @@ package main
 import "C"
 import (
 	"fmt"
-	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
 	"os"
 	"strings"
+
+	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
 )
 
 var templatesFuncMap = map[string]interface{}{
@@ -26,6 +27,33 @@ var templatesFuncMap = map[string]interface{}{
 	"GetOpenFFIType":      getOpenFFIType,
 	"GetOpenFFIArrayType":        getOpenFFIArrayType,
 	"GetOpenFFIStringTypes":      getOpenFFIStringTypes,
+	"MakeOpenFFIType": makeOpenFFIType,
+	"IsOpenFFIGoRuntimeNeeded": isOpenFFIGoRuntimeNeeded,
+}
+//--------------------------------------------------------------------
+func isOpenFFIGoRuntimeNeeded(defs []*compiler.ModuleDefinition) bool{
+
+	isHanleOrAny := func(f *compiler.FieldDefinition) bool{
+		return f.IsHandle() || f.IsAny()
+	}
+
+	for _, def := range defs {
+		for _, f := range def.Functions {
+			for _, p := range f.Parameters {
+				if isHanleOrAny(p) {
+					return true
+				}
+			}
+
+			for _, r := range f.ReturnValues {
+				if isHanleOrAny(r) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 //--------------------------------------------------------------------
 func convertToGoType(def *compiler.FieldDefinition) string{
@@ -38,7 +66,7 @@ func convertToGoType(def *compiler.FieldDefinition) string{
 		case compiler.STRING32:
 			res = "string"
 		case compiler.ANY: return "interface{}"
-		case compiler.HANDLE: return "handle"
+		case compiler.HANDLE: return "interface{}"
 		default:
 			res = string(def.Type)
 	}
@@ -179,7 +207,11 @@ func castIfNeeded(elem string) string{
 }
 //--------------------------------------------------------------------
 func getNumericTypes() (numericTypes []string ){
-	return []string{ "handle", "float64", "float32", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64" }
+	return []string{ "Handle", "float64", "float32", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64" }
+}
+//--------------------------------------------------------------------
+func makeOpenFFIType(t string) string{
+	return "openffi_"+strings.ToLower(t)
 }
 //--------------------------------------------------------------------
 func getOpenFFIStringTypes() (numericTypes []string ){

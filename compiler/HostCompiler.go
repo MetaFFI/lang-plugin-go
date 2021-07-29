@@ -59,11 +59,15 @@ func (this *HostCompiler) parseHeader() (string, error){
 func (this *HostCompiler) parseImports() (string, error){
 
 
-	importsCode := HostImports
+	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
+	if err != nil{
+		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+	}
 
-	// get all imports from the serialization code
+	buf := strings.Builder{}
+	err = tmp.Execute(&buf, this.def)
 
-	return importsCode, nil
+	return buf.String(), err
 }
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseCImports() (string, error){
@@ -93,7 +97,7 @@ func (this *HostCompiler) parseForeignStubs() (string, error){
 }
 //--------------------------------------------------------------------
 func (this *HostCompiler) parsePackage() (string, error){
-	tmp, err := template.New("host").Parse(HostPackageTemplate)
+	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(HostPackageTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
 	}

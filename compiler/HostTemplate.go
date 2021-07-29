@@ -11,9 +11,10 @@ const HostPackageTemplate = `package {{.Package}}
 `
 
 
-const HostImports = `
+const HostImportsTemplate = `
 import "fmt"
 import "unsafe"
+{{if IsOpenFFIGoRuntimeNeeded .Modules}}import . "github.com/OpenFFI/lang-plugin-go/go-runtime"{{end}}
 `
 
 const HostCImportTemplate = `
@@ -46,73 +47,6 @@ openffi_type get_cdt_type(struct cdt* p)
 {
 	return p->type;
 }
-
-void* xllr_go_handle;
-openffi_handle(*pset_object)(void*);
-void*(*pget_object)(openffi_handle);
-
-const char* load_xllr_go_lib_api()
-{
-	const char* openffi_home = getenv("OPENFFI_HOME");
-	if(!openffi_home)
-	{
-		return "OPENFFI_HOME is not set";
-	}
-
-	#ifdef _WIN32
-	const char* ext = ".dll";
-#elif __APPLE__
-	const char* ext = ".dylib";
-#else
-	const char* ext = ".so";
-#endif
-	
-	char xllr_go_full_path[300] = {0};
-	sprintf(xllr_go_full_path, "%s/xllr.go%s", openffi_home, ext);
-
-	char* out_err;
-	xllr_go_handle = load_library(xllr_go_full_path, &out_err);
-	if(!xllr_go_handle)
-	{
-		// error has occurred
-		printf("Failed to load XLLR Go: %s\n", out_err);
-		return "Failed to load XLLR Go";
-	}
-
-	pset_object = (openffi_handle(*)(void*))load_symbol(xllr_go_handle, "set_object", &out_err);
-	if(!pset_object)
-	{
-		// error has occurred
-		printf("Failed to load set_object: %s\n", out_err);
-		return "Failed to load set_object";
-	}
-
-	pget_object = (void*(*)(openffi_handle))load_symbol(xllr_go_handle, "get_object", &out_err);
-	if(!pget_object)
-	{
-		// error has occurred
-		printf("Failed to load get_object: %s\n", out_err);
-		return "Failed to load get_object";
-	}
-
-	return 0;
-}
-
-void set_go_runtime_flag()
-{
-	xllr_set_runtime_flag("go_runtime", 10);
-}
-
-openffi_handle set_object(void* obj)
-{
-	return pset_object(obj);
-}
-
-void* get_object(openffi_handle h)
-{
-	return pget_object(h);
-}
-
 */
 import "C"
 `
@@ -123,24 +57,6 @@ func init(){
 	if err != nil{
 		panic("Failed to load OpenFFI XLLR functions: "+C.GoString(err))
 	}
-
-	C.set_go_runtime_flag();
-
-	createObjectsTable()
-}
-
-type handle unsafe.Pointer
-
-var pointers []unsafe.Pointer
-var objects []interface{}
-
-func createObjectsTable(){
-	err := C.load_xllr_go_lib_api()
-	if err != nil{ panic(C.GoString(err)) }
-	
-	pointers = make([]unsafe.Pointer, 0)
-	objects = make([]interface{}, 0)
-
 }
 `
 
@@ -193,7 +109,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	{{if $elem.IsAny}}
 	// any
 	switch {{$elem.Name}}.(type) {
-		{{ range $numTypeIndex, $numType := GetNumericTypes }}
+		{{ range $numTypeIndex, $numType := GetNumericTypes }}{{if ne $numType "Handle"}}
 		case {{$numType}}:
 			in_{{$elem.Name}} := C.openffi_{{$numType}}({{$elem.Name}}.({{$numType}}))
 			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
@@ -202,10 +118,10 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			pcdt_in_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
 			pcdt_in_{{$numType}}_{{$elem.Name}}.val = in_{{$elem.Name}}
 
-		{{end}}
+		{{end}}{{end}}
 		
 
-		{{ range $index, $numType := GetNumericTypes }}
+		{{ range $index, $numType := GetNumericTypes }}{{if ne $numType "Handle"}}
 		case []{{$numType}}:
 			in_{{$elem.Name}}_dimensions := C.openffi_size(1)
 			in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
@@ -224,7 +140,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			pcdt_in_{{$numType}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
 			pcdt_in_{{$numType}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
 
-		{{end}}
+		{{end}}{{end}}
 
 		case int:
 			in_{{$elem.Name}} := C.openffi_int64(int64({{$elem.Name}}.(int)))
@@ -310,16 +226,44 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			pcdt_in_string8_{{$elem.Name}}.vals_sizes = in_{{$elem.Name}}_sizes
 			pcdt_in_string8_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
 			pcdt_in_string8_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-			
-		default:
+		
+		case []Handle:
+			in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+			in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
+			*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}.([]Handle)))
+		
+			in_{{$elem.Name}} := (*C.openffi_handle)(C.malloc(C.ulong(len({{$elem.Name}}.([]Handle)))*C.sizeof_openffi_handle))
+			for i, val := range {{$elem.Name}}.([]Handle){
+				C.set_openffi_handle_element(in_{{$elem.Name}}, C.int(i), C.openffi_handle(val))
+			}
+		
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_array_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_handle_{{$elem.Name}}.vals = in_{{$elem.Name}}
+			pcdt_in_handle_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+			pcdt_in_handle_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+
+		case Handle:
 			// Turn object to a handle
-			in_{{$elem.Name}} := C.set_object(unsafe.Pointer(&{{$elem.Name}}))
+			in_{{$elem.Name}} := C.openffi_handle({{$elem.Name}}.(Handle))
 			
 			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
 			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_type)
 			in_{{$elem.Name}}_cdt.free_required = 1
 			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
 			pcdt_in_handle_{{$elem.Name}}.val = in_{{$elem.Name}}
+
+		default:
+			// Turn object to a handle
+			in_{{$elem.Name}} := SetObject({{$elem.Name}})
+			
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_handle_{{$elem.Name}}.val = C.openffi_handle(in_{{$elem.Name}})
 	}
 
 	
@@ -358,8 +302,61 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.val = in_{{$elem.Name}}
 	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.length = in_{{$elem.Name}}_len
 
-	{{end}}{{else}}{{if gt $elem.Dimensions 0}}
-	// non-string array
+	{{end}}
+	{{else if $elem.IsHandle}}
+	{{if gt $elem.Dimensions 0}}
+	// []handle
+	in_{{$elem.Name}}_dimensions := C.openffi_size(1)
+	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
+	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
+
+	in_{{$elem.Name}} := (*C.openffi_handle)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_openffi_handle))
+	for i, val := range {{$elem.Name}}{
+
+		switch val.(type){
+			case Handle:
+				C.set_openffi_handle_element(in_{{$elem.Name}}, C.int(i), C.openffi_handle(val))
+
+			default:
+				val_{{$elem.Name}} := SetObject({{$elem.Name}})
+				C.set_openffi_handle_element(in_{{$elem.Name}}, C.int(i), C.openffi_handle(val_{{$elem.Name}}))
+		}		
+	}
+
+	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_array_type)
+	in_{{$elem.Name}}_cdt.free_required = 1
+	pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+	pcdt_in_handle_{{$elem.Name}}.vals = in_{{$elem.Name}}
+	pcdt_in_handle_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
+	pcdt_in_handle_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
+	{{else}}
+	// handle
+	switch {{$elem.Name}}.(type){
+		case Handle:
+			// Turn object to a handle
+			in_{{$elem.Name}} := C.openffi_handle({{$elem.Name}}.(Handle))
+			
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_handle_{{$elem.Name}}.val = in_{{$elem.Name}}
+
+		default:
+			// Turn object to a handle
+			in_{{$elem.Name}} := SetObject({{$elem.Name}})
+			
+			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
+			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_handle_type)
+			in_{{$elem.Name}}_cdt.free_required = 1
+			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
+			pcdt_in_handle_{{$elem.Name}}.val = C.openffi_handle(in_{{$elem.Name}})
+	}
+	{{end}}
+	{{else}}
+	{{if gt $elem.Dimensions 0}}
+	// non-string/handle array
 	
 	in_{{$elem.Name}}_dimensions := C.openffi_size(1)
 	in_{{$elem.Name}}_dimensions_lengths := (*C.openffi_size)(C.malloc(C.sizeof_openffi_size))
@@ -383,9 +380,10 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
 	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
 	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-
+	
 	{{else}}
-	// non-string
+
+	// non-string/handle
 	
 	{{if $elem.IsBool}}
 	var in_{{$elem.Name}} C.openffi_bool
@@ -394,11 +392,11 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	} else { 
 		in_{{$elem.Name}} = C.openffi_bool(0)
 	}
-	{{else if $elem.IsHandle}}
-	in_{{$elem.Name}} := C.set_object(unsafe.Pointer(&{{$elem.Name}}))
+	in_{{$elem.Name}} := C.openffi_{{$elem.Type}}({{$elem.Name}})
 	{{else}}
 	in_{{$elem.Name}} := C.openffi_{{$elem.Type}}({{$elem.Name}})
 	{{end}}
+
 	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
 	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.openffi_{{$elem.Type}}_type)
 	in_{{$elem.Name}}_cdt.free_required = 1
@@ -406,7 +404,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.val = in_{{$elem.Name}}
 	{{end}}
 	{{end}}
-	{{end}}	
+	{{end}}
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
@@ -437,9 +435,9 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 			var out_{{$elem.Name}} C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
 
-			ret_{{$elem.Name}} = C.get_object(C.openffi_handle(out_{{$elem.Name}}))
-			if ret_{{$elem.Name}} == nil{ // handle belongs to 
-				ret_{{$elem.Name}} = handle(out_{{$elem.Name}})
+			ret_{{$elem.Name}} = GetObject(Handle(out_{{$elem.Name}}))
+			if ret_{{$elem.Name}} == nil{ // handle belongs to a different language
+				ret_{{$elem.Name}} = Handle(out_{{$elem.Name}})
 			}
 
 		case {{GetOpenFFIArrayType "handle"}}: // []handle
@@ -453,16 +451,16 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 				val := C.get_openffi_handle_element(out_{{$elem.Name}}, C.int(i))
 
 				var val_obj interface{}
-				val_obj = C.get_object(val)
+				val_obj = GetObject(Handle(val))
 				if val_obj == nil{ // handle belongs to 
-					val_obj = val
+					val_obj = Handle(val)
 				}
 				
 				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, val_obj)
 			}
 			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
 
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "handle"}}
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
 		case {{GetOpenFFIType $numType}}: // {{$numType}}
 			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 			var out_{{$elem.Name}} C.openffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.val
@@ -471,7 +469,7 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 
 		{{end}}{{end}}
 
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "handle"}}
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
 		case {{GetOpenFFIArrayType $numType}}: // []{{$numType}}
 			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_openffi_{{$numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
 			var out_{{$elem.Name}} *C.openffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.vals
@@ -541,11 +539,11 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
 
 		default:
-			err = fmt.Errorf("Return value %v is not of a supported type, but of type: %v", "{{$elem.Name}}", {{$elem.Name}}_type)
+			err = fmt.Errorf("Return value %v is not of an openffi supported type, but of type: %v", "{{$elem.Name}}", {{$elem.Name}}_type)
 			return
 	}
 
-	{{else if $elem.IsString}}	
+	{{else if $elem.IsString}}
 	{{if gt $elem.Dimensions 0}}
 	// string[] // TODO: handle multi-dimensional arrays
 	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
@@ -572,7 +570,43 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 	var out_{{$elem.Name}} C.openffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
 
 	ret_{{$elem.Name}} := C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
-	{{end}}{{else}}{{if $elem.IsArray}}
+	{{end}}
+	{{else if $elem.IsHandle}}
+	{{if $elem.IsArray}}
+	// []handle
+
+	pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+	var out_{{$elem.Name}} *C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.vals
+	var out_{{$elem.Name}}_dimensions_lengths *C.openffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions_lengths
+	// var out_{{$elem.Name}}_dimensions C.openffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
+
+	ret_{{$elem.Name}}_typed := make([]interface{}, 0)
+	for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
+		val := C.get_openffi_handle_element(out_{{$elem.Name}}, C.int(i))
+
+		var val_obj interface{}
+		val_obj = GetObject(Handle(val))
+		if val_obj == nil{ // handle belongs to 
+			val_obj = handle(val)
+		}
+		
+		ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, val_obj)
+	}
+	ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
+
+	{{else}}
+	// handle
+	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
+	pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_openffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
+	var out_{{$elem.Name}} C.openffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
+
+	ret_{{$elem.Name}} := GetObject(Handle(out_{{$elem.Name}}))
+	if ret_{{$elem.Name}} == nil{ // handle belongs to a different language
+		ret_{{$elem.Name}} = Handle(out_{{$elem.Name}})
+	}
+	{{end}}
+	{{else}}
+	{{if $elem.IsArray}}
 
 	// non-string array
 	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
@@ -602,6 +636,8 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 }
 {{end}}
 {{end}}
+
+
 
 `
 

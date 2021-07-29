@@ -48,3 +48,8 @@ void remove_object(openffi_handle handle)
 	objects.erase(it);
 }
 //--------------------------------------------------------------------
+int contains_object(void* obj)
+{
+	return objects_to_handles.find(obj) != objects_to_handles.end();
+}
+//--------------------------------------------------------------------

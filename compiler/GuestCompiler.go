@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"text/template"
+
+	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
 )
 
 //--------------------------------------------------------------------
@@ -73,8 +74,10 @@ func (this *GuestCompiler) parseImports() (string, error){
 	// get all imports from the def file
 	imports := struct {
 		Imports []string
+		Modules []*compiler.ModuleDefinition
 	}{
 		Imports: make([]string, 0),
+		Modules: this.def.Modules,
 	}
 
 	set := make(map[string]bool)
@@ -102,7 +105,7 @@ func (this *GuestCompiler) parseImports() (string, error){
 		imports.Imports = append(imports.Imports, k)
 	}
 
-	tmp, err := template.New("guest").Parse(GuestImportsTemplate)
+	tmp, err := template.New("guest").Funcs(templatesFuncMap).Parse(GuestImportsTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse GuestImportsTemplate: %v", err)
 	}
