@@ -1,16 +1,19 @@
 package openffi
 
 /*
+#include <stdint.h>
+
 typedef void* openffi_handle;
 
-openffi_handle int_to_handle(int i)
+openffi_handle int_to_handle(intptr_t i)
 {
 	return (openffi_handle)i;
 }
 */
 import "C"
-
 import "sync"
+
+type handle C.openffi_handle
 
 var(
 	handlesToObjects map[C.openffi_handle]interface{}
@@ -26,7 +29,7 @@ func init(){
 
 // sets the object and returns a handle
 // if object already set, it returns the existing handle
-func SetObject(obj interface{}) C.openffi_handle{
+func SetObject(obj interface{}) handle{
 	
 	lock.Lock()
 	defer lock.Unlock()
@@ -40,16 +43,16 @@ func SetObject(obj interface{}) C.openffi_handle{
 	handlesToObjects[handleID] = obj
 	objectsToHandles[obj] = handleID
 
-	return handleID
+	return handle(handleID)
 }
 
 
-func GetObject(h C.openffi_handle) interface{}{
+func GetObject(h handle) interface{}{
 
 	lock.RLock()
 	defer lock.RUnlock()
 
-	if o, found := handlesToObjects[h]; found{
+	if o, found := handlesToObjects[C.openffi_handle(h)]; found{
 		return o
 	} else {
 		return nil
