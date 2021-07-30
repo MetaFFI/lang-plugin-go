@@ -34,7 +34,7 @@ By parsing `.proto` file using *ProtoParser* (`CLI/utils/ProtoParser.go`) the pl
 
 Compiles IDL to **C-Shared dynamic library** called from XLLR to the foreign function.
 
-The function assumes Protobuf serialization code is available in the "main" package. OpenFFI makes sure of that using `compile_serialization` function. Notice OpenFFI will not call `compile_serialization` function if `--skip-compile-serialization` option switch is set.
+The function assumes Protobuf serialization code is available in the "main" package. MetaFFI makes sure of that using `compile_serialization` function. Notice MetaFFI will not call `compile_serialization` function if `--skip-compile-serialization` option switch is set.
 
 Steps of the function:
 1. Parse `.proto` modules (i.e. Proto `service`s)
@@ -45,7 +45,7 @@ Steps of the function:
     3. In the case of returned error or Go panic, catch the panic and return error using `out_err`
     4. Serialize the return values
     5. Return result to XLLR
-4. Write the generated code to `[idl filename]OpenFFIGuest.go`
+4. Write the generated code to `[idl filename]MetaFFIGuest.go`
 5. Build Go C-Shared dynamic library
 ```
 compile_to_guest(const char* idl_path, uint32_t idl_path_length, const char* output_path, uint32_t output_path_length, char** out_err, uint32_t* out_err_len)
@@ -66,7 +66,7 @@ Steps of the function:
     3. In case of error, return it using the "error" return value
     4. Deserialize the return values
     5. Return result to the caller
-4. Write the generated code to `[idl filename]OpenFFIHost.go` 
+4. Write the generated code to `[idl filename]MetaFFIHost.go` 
 ```
 compile_from_host(const char* idl_path, uint32_t idl_path_length, const char* output_path, uint32_t output_path_length, char** out_err, uint32_t* out_err_len)
 ```

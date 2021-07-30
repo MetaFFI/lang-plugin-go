@@ -4,7 +4,7 @@
 std::shared_mutex m;
 
 //--------------------------------------------------------------------
-openffi_handle set_object(void* obj)
+metaffi_handle set_object(void* obj)
 {
 	std::unique_lock<std::shared_mutex> l(m);
 	
@@ -14,14 +14,14 @@ openffi_handle set_object(void* obj)
 		return it->second;
 	}
 
-	openffi_handle id = (openffi_handle)(objects.size()+1);
+	metaffi_handle id = (metaffi_handle)(objects.size()+1);
 	objects[id] = obj;
 	objects_to_handles[obj] = id;
 	
 	return id;
 }
 //--------------------------------------------------------------------
-void* get_object(openffi_handle handle)
+void* get_object(metaffi_handle handle)
 {
 	std::shared_lock<std::shared_mutex> l(m);
 	
@@ -34,7 +34,7 @@ void* get_object(openffi_handle handle)
 	return it->second;
 }
 //--------------------------------------------------------------------
-void remove_object(openffi_handle handle)
+void remove_object(metaffi_handle handle)
 {
 	std::unique_lock<std::shared_mutex> l(m);
 	

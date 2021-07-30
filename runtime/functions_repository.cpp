@@ -28,31 +28,31 @@ void functions_repository::free_instance()
 //--------------------------------------------------------------------
 int64_t functions_repository::load_function(const std::string& function_path)
 {
-	openffi::utils::function_path_parser fp(function_path);
+	metaffi::utils::function_path_parser fp(function_path);
 	
-	std::string openffi_guest_lib_name = fp[function_path_entry_openffi_guest_lib];
+	std::string metaffi_guest_lib_name = fp[function_path_entry_metaffi_guest_lib];
 	
-	if(openffi_guest_lib_name.empty()){
+	if(metaffi_guest_lib_name.empty()){
 		throw std::runtime_error("Guest library is not defined");
 	}
 	
-	auto it = this->modules.find(openffi_guest_lib_name);
+	auto it = this->modules.find(metaffi_guest_lib_name);
 	
-	std::shared_ptr<boost::dll::shared_library> openffi_guest_lib;
+	std::shared_ptr<boost::dll::shared_library> metaffi_guest_lib;
 	if(it == this->modules.end())
 	{
 		// if module not found - load it
-		std::shared_ptr<boost::dll::shared_library> mod = openffi::utils::load_library(openffi_guest_lib_name);
-		this->modules[openffi_guest_lib_name] = mod;
-		openffi_guest_lib = mod;
+		std::shared_ptr<boost::dll::shared_library> mod = metaffi::utils::load_library(metaffi_guest_lib_name);
+		this->modules[metaffi_guest_lib_name] = mod;
+		metaffi_guest_lib = mod;
 	}
 	else
 	{
-		openffi_guest_lib = it->second;
+		metaffi_guest_lib = it->second;
 	}
 	
 	// load function (from guest module)
-	auto foreign_function = openffi::utils::load_func<foreign_function_entrypoint_signature>(*openffi_guest_lib, fp[function_path_entry_entrypoint_function]);
+	auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
 	
 	int64_t function_id = (int64_t)this->functions.size();
 	this->functions.push_back(foreign_function);

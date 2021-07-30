@@ -1,30 +1,30 @@
-package openffi
+package metaffi
 
 /*
 #include <stdint.h>
 
-typedef void* openffi_handle;
+typedef void* metaffi_handle;
 
-openffi_handle int_to_handle(intptr_t i)
+metaffi_handle int_to_handle(intptr_t i)
 {
-	return (openffi_handle)i;
+	return (metaffi_handle)i;
 }
 */
 import "C"
 import "sync"
 
-type Handle C.openffi_handle
+type Handle C.metaffi_handle
 
 var(
-	handlesToObjects map[C.openffi_handle]interface{}
-	objectsToHandles map[interface{}]C.openffi_handle
+	handlesToObjects map[C.metaffi_handle]interface{}
+	objectsToHandles map[interface{}]C.metaffi_handle
 	lock sync.RWMutex
 )
 
 
 func init(){
-	handlesToObjects = make(map[C.openffi_handle]interface{})
-	objectsToHandles = make(map[interface{}]C.openffi_handle)
+	handlesToObjects = make(map[C.metaffi_handle]interface{})
+	objectsToHandles = make(map[interface{}]C.metaffi_handle)
 }
 
 // sets the object and returns a handle
@@ -52,7 +52,7 @@ func GetObject(h Handle) interface{}{
 	lock.RLock()
 	defer lock.RUnlock()
 
-	if o, found := handlesToObjects[C.openffi_handle(h)]; found{
+	if o, found := handlesToObjects[C.metaffi_handle(h)]; found{
 		return o
 	} else {
 		return nil

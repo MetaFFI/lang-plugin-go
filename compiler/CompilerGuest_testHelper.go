@@ -1,7 +1,7 @@
 package main
 
 /*
-#cgo !windows LDFLAGS: -L. -ldl -L/home/tcs/src/github.com/OpenFFI/openffi-core/cmake-build-debug
+#cgo !windows LDFLAGS: -L. -ldl -L/home/tcs/src/github.com/MetaFFI/metaffi-core/cmake-build-debug
 
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -10,9 +10,9 @@ package main
 
 int call_guest_test()
 {
-	const char* openffi_home = getenv("OPENFFI_HOME");
+	const char* metaffi_home = getenv("METAFFI_HOME");
 	char lib_dir[100] = {0};
-	sprintf(lib_dir, "%s/xllr.test.so", openffi_home);
+	sprintf(lib_dir, "%s/xllr.test.so", metaffi_home);
 
 	void* lib_handle = dlopen(lib_dir, RTLD_NOW);
 	if(!lib_handle)
@@ -28,7 +28,7 @@ int call_guest_test()
 		return -1;
 	}
 
-	return ((int (*) (const char*, const char*))res)("xllr.go", "module=$PWD/temp,package=GoFuncs,function=F1,openffi_guest_lib=$PWD/temp/test_OpenFFIGuest,entrypoint_function=EntryPoint_F1");
+	return ((int (*) (const char*, const char*))res)("xllr.go", "module=$PWD/temp,package=GoFuncs,function=F1,metaffi_guest_lib=$PWD/temp/test_MetaFFIGuest,entrypoint_function=EntryPoint_F1");
 }
 */
 import "C"

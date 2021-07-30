@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
+	compiler "github.com/MetaFFI/plugin-sdk/compiler/go"
 )
 
 //--------------------------------------------------------------------
@@ -47,7 +47,7 @@ func (this *GuestCompiler) Compile() (outputFileName string, err error){
 	}
 
 	// write to output
-	outputFullFileName := fmt.Sprintf("%v%v%v_OpenFFIGuest%v", this.outputDir, string(os.PathSeparator), this.outputFilename, getDynamicLibSuffix())
+	outputFullFileName := fmt.Sprintf("%v%v%v_MetaFFIGuest%v", this.outputDir, string(os.PathSeparator), this.outputFilename, getDynamicLibSuffix())
 	err = ioutil.WriteFile(outputFullFileName, file, 0700)
 	if err != nil{
 		return "", fmt.Errorf("Failed to write dynamic library to %v. Error: %v", this.outputDir+this.outputFilename, err)
@@ -178,7 +178,7 @@ func (this *GuestCompiler) generateCode() (string, error){
 //--------------------------------------------------------------------
 func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 
-	dir, err := os.MkdirTemp("", "openffi_go_compiler*")
+	dir, err := os.MkdirTemp("", "metaffi_go_compiler*")
 	if err != nil{
 		return nil, fmt.Errorf("Failed to create temp dir to build code: %v", err)
 	}
@@ -186,7 +186,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 
 	dir = dir+string(os.PathSeparator)
 
-	err = ioutil.WriteFile(dir+"openffi_guest.go", []byte(code), 0700)
+	err = ioutil.WriteFile(dir+"metaffi_guest.go", []byte(code), 0700)
 	if err != nil{
 		return nil, fmt.Errorf("Failed to write guest go code: %v", err)
 	}
@@ -197,7 +197,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 		return nil, fmt.Errorf("Failed to generate CGo guest go code: %v", err)
 	}
 
-	err = ioutil.WriteFile(dir+"openffi_guest_cgo.go", []byte(cgoCode), 0700)
+	err = ioutil.WriteFile(dir+"metaffi_guest_cgo.go", []byte(cgoCode), 0700)
 	if err != nil{
 		return nil, fmt.Errorf("Failed to write guest go code: %v", err)
 	}

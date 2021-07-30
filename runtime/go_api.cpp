@@ -6,7 +6,7 @@
 #include <utils/xllr_api_wrapper.h>
 #include <utils/library_loader.h>
 
-using namespace openffi::utils;
+using namespace metaffi::utils;
 
 #define handle_err(err, err_len, desc) \
 	*err_len = strlen( desc ); \

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	compiler "github.com/OpenFFI/plugin-sdk/compiler/go"
+	compiler "github.com/MetaFFI/plugin-sdk/compiler/go"
 )
 
 var templatesFuncMap = map[string]interface{}{
@@ -24,14 +24,14 @@ var templatesFuncMap = map[string]interface{}{
 	"ConvertToCType":             convertToCType,
 	"ConvertToGoType":            convertToGoType,
 	"GetNumericTypes":            getNumericTypes,
-	"GetOpenFFIType":      getOpenFFIType,
-	"GetOpenFFIArrayType":        getOpenFFIArrayType,
-	"GetOpenFFIStringTypes":      getOpenFFIStringTypes,
-	"MakeOpenFFIType": makeOpenFFIType,
-	"IsOpenFFIGoRuntimeNeeded": isOpenFFIGoRuntimeNeeded,
+	"GetMetaFFIType":      getMetaFFIType,
+	"GetMetaFFIArrayType":        getMetaFFIArrayType,
+	"GetMetaFFIStringTypes":      getMetaFFIStringTypes,
+	"MakeMetaFFIType": makeMetaFFIType,
+	"IsMetaFFIGoRuntimeNeeded": isMetaFFIGoRuntimeNeeded,
 }
 //--------------------------------------------------------------------
-func isOpenFFIGoRuntimeNeeded(defs []*compiler.ModuleDefinition) bool{
+func isMetaFFIGoRuntimeNeeded(defs []*compiler.ModuleDefinition) bool{
 
 	isHanleOrAny := func(f *compiler.FieldDefinition) bool{
 		return f.IsHandle() || f.IsAny()
@@ -78,12 +78,12 @@ func convertToGoType(def *compiler.FieldDefinition) string{
 	return res
 }
 //--------------------------------------------------------------------
-func convertToCType(openffiType compiler.OpenFFIType) string{
-	switch openffiType {
+func convertToCType(metaffiType compiler.MetaFFIType) string{
+	switch metaffiType {
 		case "float32": return "float"
 		case "float64": return "double"
 		default:
-			return string("C."+openffiType)
+			return string("C."+metaffiType)
 	}
 }
 //--------------------------------------------------------------------
@@ -128,7 +128,7 @@ func calculateArgsLength(fields []*compiler.FieldDefinition) int{
 }
 //--------------------------------------------------------------------
 func Sizeof(field *compiler.FieldDefinition) string{
-	return fmt.Sprintf("C.sizeof_openffi_%v", field.Type)
+	return fmt.Sprintf("C.sizeof_metaffi_%v", field.Type)
 }
 //--------------------------------------------------------------------
 func getEnvVar(env string) string{
@@ -210,19 +210,19 @@ func getNumericTypes() (numericTypes []string ){
 	return []string{ "Handle", "float64", "float32", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64" }
 }
 //--------------------------------------------------------------------
-func makeOpenFFIType(t string) string{
-	return "openffi_"+strings.ToLower(t)
+func makeMetaFFIType(t string) string{
+	return "metaffi_"+strings.ToLower(t)
 }
 //--------------------------------------------------------------------
-func getOpenFFIStringTypes() (numericTypes []string ){
+func getMetaFFIStringTypes() (numericTypes []string ){
 	return []string{ "string8" }
 }
 //--------------------------------------------------------------------
-func getOpenFFIType(numericType string) (numericTypes uint64){
-	return compiler.TypeStringToTypeEnum[compiler.OpenFFIType(numericType)]
+func getMetaFFIType(numericType string) (numericTypes uint64){
+	return compiler.TypeStringToTypeEnum[compiler.MetaFFIType(numericType)]
 }
 //--------------------------------------------------------------------
-func getOpenFFIArrayType(numericType string) (numericTypes uint64){
-	return compiler.TypeStringToTypeEnum[compiler.OpenFFIType(numericType+"_array")]
+func getMetaFFIArrayType(numericType string) (numericTypes uint64){
+	return compiler.TypeStringToTypeEnum[compiler.MetaFFIType(numericType+"_array")]
 }
 //--------------------------------------------------------------------

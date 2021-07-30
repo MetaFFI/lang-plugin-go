@@ -5,7 +5,7 @@ enable_testing()
 
 set(target_name "xllr.go")
 
-file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp ${CMAKE_CURRENT_LIST_DIR}/*.h ${OPENFFI_SDK}/utils/*.cpp)
+file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp ${CMAKE_CURRENT_LIST_DIR}/*.h ${METAFFI_SDK}/utils/*.cpp)
 # build xllr.go
 add_library(${target_name}
 			SHARED
@@ -20,12 +20,12 @@ SET_TARGET_PROPERTIES(${target_name} PROPERTIES PREFIX "")
 
 target_link_libraries(${target_name} Boost::filesystem)
 
-# Copy to openffi directory
+# Copy to metaffi directory
 add_custom_command(TARGET ${target_name} POST_BUILD
 		COMMAND "${CMAKE_COMMAND}" -E copy
 		"${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-		"$ENV{OPENFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{OPENFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+		"$ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 
 # Unitest go
