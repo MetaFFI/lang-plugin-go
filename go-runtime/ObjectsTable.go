@@ -69,3 +69,12 @@ func ContainsObject(obj interface{}) bool{
 	return found
 
 }
+
+func ReleaseObject(obj interface{}){
+	lock.Lock()
+	defer lock.Unlock()
+
+	h := objectsToHandles[obj]
+	handlesToObjects[h] = nil
+	objectsToHandles[obj] = nil
+}
