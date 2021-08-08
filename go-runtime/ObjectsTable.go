@@ -73,12 +73,13 @@ func ContainsObject(obj interface{}) bool{
 
 }
 
-func ReleaseObject(obj interface{}){
-	fmt.Printf("Going to release %v\n", obj)
+func ReleaseObject(h Handle){
+	fmt.Printf("Going to release %v\n", h)
 	lock.Lock()
 	defer lock.Unlock()
-
+/*
 	h := objectsToHandles[obj]
 	handlesToObjects[h] = nil
 	objectsToHandles[obj] = nil
+ */
 }
