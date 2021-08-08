@@ -77,13 +77,13 @@ func ReleaseObject(h Handle) error{
 	lock.Lock()
 	defer lock.Unlock()
 
-	obj, found := handlesToObjects[h]
+	obj, found := handlesToObjects[C.metaffi_handle(h)]
 	if !found{
 		return fmt.Errorf("Given handle (%v) is not found in MetaFFI Go's object table", h)
 	}
 
 	objectsToHandles[obj] = nil
-	handlesToObjects[h] = nil
+	handlesToObjects[C.metaffi_handle(h)] = nil
 
 	return nil
 }
