@@ -12,6 +12,7 @@ metaffi_handle int_to_handle(intptr_t i)
 */
 import "C"
 import (
+	"fmt"
 	"sync"
 )
 
@@ -72,11 +73,17 @@ func ContainsObject(obj interface{}) bool{
 
 }
 
-func ReleaseObject(obj interface{}){
+func ReleaseObject(h Handle) error{
 	lock.Lock()
 	defer lock.Unlock()
 
-	h := objectsToHandles[obj]
-	handlesToObjects[h] = nil
+	obj, found := handlesToObjects[h]
+	if !found{
+		return fmt.Errorf("Given handle (%v) is not found in MetaFFI Go's object table", h)
+	}
+
 	objectsToHandles[obj] = nil
+	handlesToObjects[h] = nil
+
+	return nil
 }
