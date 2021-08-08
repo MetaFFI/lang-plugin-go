@@ -11,7 +11,10 @@ metaffi_handle int_to_handle(intptr_t i)
 }
 */
 import "C"
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type Handle C.metaffi_handle
 
@@ -71,6 +74,7 @@ func ContainsObject(obj interface{}) bool{
 }
 
 func ReleaseObject(obj interface{}){
+	fmt.Printf("Going to release %v\n", obj)
 	lock.Lock()
 	defer lock.Unlock()
 
