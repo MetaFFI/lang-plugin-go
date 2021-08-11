@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	compiler "github.com/MetaFFI/plugin-sdk/compiler/go"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 var templatesFuncMap = map[string]interface{}{
@@ -29,11 +29,22 @@ var templatesFuncMap = map[string]interface{}{
 	"GetMetaFFIStringTypes":      getMetaFFIStringTypes,
 	"MakeMetaFFIType": makeMetaFFIType,
 	"IsMetaFFIGoRuntimeNeeded": isMetaFFIGoRuntimeNeeded,
+	"MethodNameNotExists": methodNameNotExists,
 }
 //--------------------------------------------------------------------
-func isMetaFFIGoRuntimeNeeded(defs []*compiler.ModuleDefinition) bool{
+func methodNameNotExists(c *IDL.ClassDefinition, fieldName string, prefix string) bool{
+	for _, m := range c.Methods{
+		if m.Name == prefix+fieldName{
+			return false
+		}
+	}
 
-	isHanleOrAny := func(f *compiler.FieldDefinition) bool{
+	return true
+}
+//--------------------------------------------------------------------
+func isMetaFFIGoRuntimeNeeded(defs []*IDL.ModuleDefinition) bool{
+
+	isHanleOrAny := func(f *IDL.ArgDefinition) bool{
 		return f.IsHandle() || f.IsAny()
 	}
 
@@ -56,17 +67,17 @@ func isMetaFFIGoRuntimeNeeded(defs []*compiler.ModuleDefinition) bool{
 	return false
 }
 //--------------------------------------------------------------------
-func convertToGoType(def *compiler.FieldDefinition) string{
+func convertToGoType(def *IDL.ArgDefinition) string{
 
 	var res string
 
 	switch def.Type {
-		case compiler.STRING8: fallthrough
-		case compiler.STRING16: fallthrough
-		case compiler.STRING32:
+		case IDL.STRING8: fallthrough
+		case IDL.STRING16: fallthrough
+		case IDL.STRING32:
 			res = "string"
-		case compiler.ANY: return "interface{}"
-		case compiler.HANDLE: return "interface{}"
+		case IDL.ANY: return "interface{}"
+		case IDL.HANDLE: return "interface{}"
 		default:
 			res = string(def.Type)
 	}
@@ -78,7 +89,7 @@ func convertToGoType(def *compiler.FieldDefinition) string{
 	return res
 }
 //--------------------------------------------------------------------
-func convertToCType(metaffiType compiler.MetaFFIType) string{
+func convertToCType(metaffiType IDL.MetaFFIType) string{
 	switch metaffiType {
 		case "float32": return "float"
 		case "float64": return "double"
@@ -87,7 +98,7 @@ func convertToCType(metaffiType compiler.MetaFFIType) string{
 	}
 }
 //--------------------------------------------------------------------
-func isParametersOrReturnValues(f *compiler.FunctionDefinition) bool{
+func isParametersOrReturnValues(f *IDL.FunctionDefinition) bool{
 	return len(f.Parameters) > 0 || len(f.ReturnValues) > 0
 }
 //--------------------------------------------------------------------
@@ -99,7 +110,7 @@ func add(x int, y int) int{
 	return x + y
 }
 //--------------------------------------------------------------------
-func calculateArgLength(f *compiler.FieldDefinition) int{
+func calculateArgLength(f *IDL.ArgDefinition) int{
 
 	if f.IsString(){
 		if f.IsArray(){
@@ -116,7 +127,7 @@ func calculateArgLength(f *compiler.FieldDefinition) int{
 	}
 }
 //--------------------------------------------------------------------
-func calculateArgsLength(fields []*compiler.FieldDefinition) int{
+func calculateArgsLength(fields []*IDL.ArgDefinition) int{
 
 	length := 0
 
@@ -127,7 +138,7 @@ func calculateArgsLength(fields []*compiler.FieldDefinition) int{
 	return length
 }
 //--------------------------------------------------------------------
-func Sizeof(field *compiler.FieldDefinition) string{
+func Sizeof(field *IDL.ArgDefinition) string{
 	return fmt.Sprintf("C.sizeof_metaffi_%v", field.Type)
 }
 //--------------------------------------------------------------------
@@ -135,7 +146,7 @@ func getEnvVar(env string) string{
 	return os.Getenv(env)
 }
 //--------------------------------------------------------------------
-func paramActual(field *compiler.FieldDefinition, direction string, namePrefix string) string{
+func paramActual(field *IDL.ArgDefinition, direction string, namePrefix string) string{
 
 	var prefix string
 	if namePrefix != ""{
@@ -146,9 +157,9 @@ func paramActual(field *compiler.FieldDefinition, direction string, namePrefix s
 
 
 	switch field.Type {
-		case compiler.STRING8: fallthrough
-		case compiler.STRING16: fallthrough
-		case compiler.STRING32:
+		case IDL.STRING8: fallthrough
+		case IDL.STRING16: fallthrough
+		case IDL.STRING32:
 			if field.IsArray(){
 				if direction == "out"{
 					return fmt.Sprintf("&"+prefix+field.Name+",&"+prefix+field.Name+"_sizes"+",&"+prefix+field.Name+"_len")
@@ -219,10 +230,10 @@ func getMetaFFIStringTypes() (numericTypes []string ){
 }
 //--------------------------------------------------------------------
 func getMetaFFIType(numericType string) (numericTypes uint64){
-	return compiler.TypeStringToTypeEnum[compiler.MetaFFIType(numericType)]
+	return IDL.TypeStringToTypeEnum[IDL.MetaFFIType(numericType)]
 }
 //--------------------------------------------------------------------
 func getMetaFFIArrayType(numericType string) (numericTypes uint64){
-	return compiler.TypeStringToTypeEnum[compiler.MetaFFIType(numericType+"_array")]
+	return IDL.TypeStringToTypeEnum[IDL.MetaFFIType(numericType+"_array")]
 }
 //--------------------------------------------------------------------

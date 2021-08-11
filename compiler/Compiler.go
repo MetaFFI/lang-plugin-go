@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/MetaFFI/plugin-sdk/compiler/go"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 //--------------------------------------------------------------------
 type Compiler struct{
-	def *compiler.IDLDefinition
+	def *IDL.IDLDefinition
 	outputPath string
 }
 //--------------------------------------------------------------------
-func NewCompiler(def *compiler.IDLDefinition, outputPath string) *Compiler {
+func NewCompiler(def *IDL.IDLDefinition, outputPath string) *Compiler {
 	return &Compiler{def: def, outputPath: outputPath}
 }
 //--------------------------------------------------------------------

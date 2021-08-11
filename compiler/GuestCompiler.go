@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	compiler "github.com/MetaFFI/plugin-sdk/compiler/go"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 //--------------------------------------------------------------------
@@ -23,12 +23,12 @@ func getDynamicLibSuffix() string{
 }
 //--------------------------------------------------------------------
 type GuestCompiler struct{
-	def *compiler.IDLDefinition
+	def *IDL.IDLDefinition
 	outputDir string
 	outputFilename string
 }
 //--------------------------------------------------------------------
-func NewGuestCompiler(definition *compiler.IDLDefinition, outputDir string, outputFilename string) *GuestCompiler{
+func NewGuestCompiler(definition *IDL.IDLDefinition, outputDir string, outputFilename string) *GuestCompiler{
 
 	return &GuestCompiler{def: definition, outputDir: outputDir, outputFilename: outputFilename}
 }
@@ -58,7 +58,7 @@ func (this *GuestCompiler) Compile() (outputFileName string, err error){
 }
 //--------------------------------------------------------------------
 func (this *GuestCompiler) parseHeader() (string, error){
-	tmp, err := template.New("guest").Parse(GuestHeaderTemplate)
+	tmp, err := template.New("headers").Parse(GuestHeaderTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse GuestHeaderTemplate: %v", err)
 	}
@@ -74,7 +74,7 @@ func (this *GuestCompiler) parseImports() (string, error){
 	// get all imports from the def file
 	imports := struct {
 		Imports []string
-		Modules []*compiler.ModuleDefinition
+		Modules []*IDL.ModuleDefinition
 	}{
 		Imports: make([]string, 0),
 		Modules: this.def.Modules,
@@ -83,15 +83,16 @@ func (this *GuestCompiler) parseImports() (string, error){
 	set := make(map[string]bool)
 
 	for _, m := range this.def.Modules{
+
 		for _, f := range m.Functions{
-			if pack, found := f.PathToForeignFunction["package"]; found{
+			if pack, found := f.FunctionPath["package"]; found{
 
 				if pack != `main`{
 					set[os.ExpandEnv(pack)] = true
 				}
 			}
 
-			if mod, found := f.PathToForeignFunction["module"]; found{
+			if mod, found := f.FunctionPath["module"]; found{
 
 				mod = os.ExpandEnv(mod)
 				if fi, _ := os.Stat(mod); fi == nil { // ignore if module is local item
@@ -105,7 +106,7 @@ func (this *GuestCompiler) parseImports() (string, error){
 		imports.Imports = append(imports.Imports, k)
 	}
 
-	tmp, err := template.New("guest").Funcs(templatesFuncMap).Parse(GuestImportsTemplate)
+	tmp, err := template.New("imports").Funcs(templatesFuncMap).Parse(GuestImportsTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse GuestImportsTemplate: %v", err)
 	}
@@ -117,9 +118,22 @@ func (this *GuestCompiler) parseImports() (string, error){
 	return importsCode, err
 }
 //--------------------------------------------------------------------
+func (this *GuestCompiler) parseGuestHelperFunctions() (string, error){
+
+	tmpEntryPoint, err := template.New("helper").Funcs(templatesFuncMap).Parse(GuestHelperFunctionsTemplate)
+	if err != nil{
+		return "", fmt.Errorf("Failed to parse GuestFunctionXLLRTemplate: %v", err)
+	}
+
+	bufEntryPoint := strings.Builder{}
+	err = tmpEntryPoint.Execute(&bufEntryPoint, this.def)
+
+	return bufEntryPoint.String(), err
+}
+//--------------------------------------------------------------------
 func (this *GuestCompiler) parseForeignFunctions() (string, error){
 
-	tmpEntryPoint, err := template.New("guest").Funcs(templatesFuncMap).Parse(GuestFunctionXLLRTemplate)
+	tmpEntryPoint, err := template.New("foreignfuncs").Funcs(templatesFuncMap).Parse(GuestFunctionXLLRTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse GuestFunctionXLLRTemplate: %v", err)
 	}
@@ -168,10 +182,13 @@ func (this *GuestCompiler) generateCode() (string, error){
 	cimports, err := this.parseCImports()
 	if err != nil{ return "", err }
 
+	guestHelpers, err := this.parseGuestHelperFunctions()
+	if err != nil{ return "", err }
+
 	functionStubs, err := this.parseForeignFunctions()
 	if err != nil{ return "", err }
 
-	res := header + imports + cimports + functionStubs + GuestHelperFunctions + GuestMainFunction
+	res := header + imports + cimports + functionStubs + guestHelpers + GuestMainFunction
 
 	return res, nil
 }
@@ -218,13 +235,13 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	addedLocalModules := make(map[string]bool)
 	for _, m := range this.def.Modules{
 		for _, f := range m.Functions {
-			for k, v := range f.PathToForeignFunction {
+			for k, v := range f.FunctionPath {
 				if k == "module" {
 					v = os.ExpandEnv(v)
 					if fi, _ := os.Stat(v); fi != nil && fi.IsDir() { // if module is local dir
 						if _, alreadyAdded := addedLocalModules[v]; !alreadyAdded {
 							// point module to
-							getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", os.ExpandEnv(f.PathToForeignFunction["package"]), v))
+							getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", os.ExpandEnv(f.FunctionPath["package"]), v))
 							getCmd.Dir = dir
 							fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
 							output, err = getCmd.CombinedOutput()
