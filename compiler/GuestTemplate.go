@@ -655,11 +655,9 @@ func EntryPoint_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C
 	defer panicHandler(out_err, out_err_len)
 
 	// get object
-	in_handle := fromCDTToGo(parameters, 0).(C.metaffi_handle)
-	obj := GetObject(Handle(in_handle))
-	if obj == nil{ // handle belongs to another language 
-		panic("Object not found")
-	}
+	{{ $elem := index $f.Setter.Parameters 0 }}
+	objAsInterface := fromCDTToGo(parameters, 0)
+	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
 	{{ $receiver_pointer := index $f.Tags "receiver_pointer"}}
 	{{$f.Name}}_res := obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}}
@@ -677,16 +675,18 @@ func EntryPoint_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C
 	defer panicHandler(out_err, out_err_len)
 
 	// get object
-	in_handle := fromCDTToGo(parameters, 0).(C.metaffi_handle)
-	obj := GetObject(Handle(in_handle))
-	if obj == nil{ // handle belongs to another language 
-		panic("Object not found")
-	}
+	{{ $elem := index $f.Setter.Parameters 0 }}
+	objAsInterface := fromCDTToGo(parameters, 0)
+	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+
+	// get val
+	{{ $elem = index $f.Setter.Parameters 1 }}
+	valAsInterface := fromCDTToGo(parameters, 1)
+	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
 	// get new data
-	new_val := fromCDTToGo(parameters, 1){{if not $f.IsAny}}.({{ConvertToGoType $f.ArgDefinition}}){{end}}
 	{{ $receiver_pointer := index $f.Tags "receiver_pointer"}}
-	obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}} = new_val
+	obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}} = val
 	
 }
 {{end}}{{/* end $f.Setter */}}
