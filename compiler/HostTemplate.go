@@ -14,6 +14,7 @@ const HostPackageTemplate = `package {{.Package}}
 const HostImportsTemplate = `
 import "fmt"
 import "unsafe"
+import "reflect"
 {{if IsMetaFFIGoRuntimeNeeded .Modules}}import . "github.com/MetaFFI/lang-plugin-go/go-runtime"{{end}}
 `
 
@@ -27,6 +28,11 @@ const HostCImportTemplate = `
 #include <include/cdt_structs.h>
 #include <include/cdt_capi_loader.h>
 #include <include/cdt_capi_loader.c>
+
+metaffi_handle get_null_handle()
+{
+	return METAFFI_NULL_HANDLE;
+}
 
 metaffi_size get_int_item(metaffi_size* array, int index)
 {
@@ -52,10 +58,474 @@ import "C"
 `
 
 const HostHelperFunctions = `
+var pruntime_plugin *C.char
+var runtime_plugin_length C.uint32_t
+
+// function IDs
+{{range $mindex, $m := .Modules}}
+
+{{range $findex, $f := $m.Globals}}
+{{if $f.Getter}}var {{$f.Getter.Name}}_id C.int64_t = -1{{end}}
+{{if $f.Setter}}var {{$f.Setter.Name}}_id C.int64_t = -1{{end}}
+{{end}}{{/* End globals */}}
+
+{{range $findex, $f := $m.Functions}}
+var {{$f.Name}}_id C.int64_t = -1
+{{end}}{{/* End Functions */}}
+
+{{range $cindex, $c := $m.Classes}}
+{{range $findex, $f := $c.Fields}}
+{{if $f.Getter}}var {{$c.Name}}_{{$f.Getter.Name}}_id C.int64_t = -1{{end}}
+{{if $f.Setter}}var {{$c.Name}}_{{$f.Setter.Name}}_id C.int64_t = -1{{end}}
+{{end}}{{/* End Fields */}}
+{{range $findex, $f := $c.Methods}}
+var {{$c.Name}}_{{$f.Name}}_id C.int64_t = -1
+{{end}}{{/* End Methods */}}
+{{range $findex, $f := $c.Constructors}}
+var {{$c.Name}}_{{$f.Name}}_id C.int64_t = -1
+{{end}}{{/* End Constructor */}}
+{{if $c.Releaser}}
+var {{$c.Name}}_{{$c.Releaser.Name}}_id C.int64_t = -1
+{{end}}{{/* End Releaser */}}
+{{end}}{{/* End Classes */}}
+{{end}}{{/* End modules */}}
+
+
 func init(){
 	err := C.load_cdt_capi()
 	if err != nil{
 		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
+	}
+
+	runtime_plugin := "xllr.{{.TargetLanguage}}"
+	pruntime_plugin = C.CString(runtime_plugin)
+	runtime_plugin_length = C.uint32_t(len(runtime_plugin))
+
+	// load functions
+	loadFF := func(fpath string) C.int64_t{
+		ppath := C.CString(fpath)
+		defer C.free(unsafe.Pointer(ppath))
+	
+		var out_err *C.char
+		var out_err_len C.uint32_t
+		out_err_len = C.uint32_t(0)
+		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), C.int64_t(-1), &out_err, &out_err_len))
+		
+		if id == -1{ // failed
+			panic(fmt.Errorf("Failed to load function %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+		}
+
+		return id
+	}
+
+	{{range $mindex, $m := .Modules}}
+	{{range $findex, $f := $m.Globals}}
+	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}"){{end}}
+	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}"){{end}}
+	{{end}}{{/* End globals */}}
+	
+	{{range $findex, $f := $m.Functions}}
+	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{end}}{{/* End Functions */}}
+
+	{{range $cindex, $c := $m.Classes}}
+	{{range $findex, $f := $c.Fields}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}"){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}"){{end}}
+	{{end}}{{/* End Fields */}}
+	{{range $findex, $f := $c.Methods}}
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{end}}{{/* End Methods */}}
+	{{range $findex, $f := $c.Constructors}}
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{end}}{{/* End Constructor */}}
+	{{if $c.Releaser}}
+	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}")
+	{{end}}{{/* End Releaser */}}
+	{{end}}{{/* End Classes */}}
+	{{end}}{{/* End modules */}}
+}
+
+func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
+	
+	var res interface{}
+	index := C.int(i)
+	in_res_cdt := C.get_cdt(data, index)
+	res_type := C.get_cdt_type(in_res_cdt)
+	switch res_type{
+
+		case {{GetMetaFFIType "handle"}}: // handle
+			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res C.metaffi_handle = pcdt_in_handle_res.val
+			
+			if in_res == C.get_null_handle(){
+				return nil
+			}
+
+			res = GetObject(Handle(in_res))
+			if res == nil{ // handle belongs to another language 
+				res = Handle(in_res)
+			}
+
+		case {{GetMetaFFIArrayType "handle"}}: // []Handle
+			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res *C.metaffi_handle = pcdt_in_handle_res.vals
+			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_handle_res.dimensions_lengths
+			// var in_res_dimensions C.metaffi_size = pcdt_in_handle_res.dimensions - TODO: not used until multi-dimensions support!
+
+			res_typed := make([]interface{}, 0)
+			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
+				val := C.get_metaffi_handle_element(in_res, C.int(i))
+
+				val_obj := GetObject(Handle(val))
+				if val_obj == nil{ // handle belongs to
+					res_typed = append(res_typed, Handle(val))
+				} else {
+					res_typed = append(res_typed, val_obj)
+				}
+			}
+			res = res_typed
+
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
+		case {{GetMetaFFIType $numType}}: // {{$numType}}
+			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.val
+			
+			res = {{$numType}}(in_res)
+
+		{{end}}{{end}}
+
+		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
+		case {{GetMetaFFIArrayType $numType}}: // []{{$numType}}
+			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res *C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.vals
+			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions_lengths
+			// var in_res_dimensions C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions - TODO: not used until multi-dimensions support!
+					
+			res_typed := make([]{{$numType}}, 0)
+			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
+				val := C.get_{{ MakeMetaFFIType $numType}}_element(in_res, C.int(i))
+				res_typed = append(res_typed, {{$numType}}(val))
+			}
+			res = res_typed
+		{{end}}{{end}}
+
+		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
+		case {{GetMetaFFIType $stringType}}: // {{$stringType}}
+			in_res_cdt := C.get_cdt(data, index)
+			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res_len C.metaffi_size = pcdt_in_{{$stringType}}_res.length
+			var in_res C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.val
+		
+			res = C.GoStringN(in_res, C.int(in_res_len))
+		{{end}}
+
+		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
+		case {{GetMetaFFIArrayType $stringType}}: // []{{$stringType}}
+			in_res_cdt := C.get_cdt(data, index)
+			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+		
+			var in_res *C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.vals
+			var in_res_sizes *C.metaffi_size = pcdt_in_{{$stringType}}_res.vals_sizes
+			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions_lengths
+			//var in_res_dimensions C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions - TODO: not used until multi-dimensions support!
+		
+			res_typed := make([]string, 0, int(C.get_int_item(in_res_dimensions_lengths, 0)))
+			for i:=C.int(0) ; i<C.int(C.get_int_item(in_res_dimensions_lengths, 0)) ; i++{
+				var str_size C.metaffi_size
+				str := C.get_metaffi_{{$stringType}}_element(in_res, C.int(i), in_res_sizes, &str_size)
+				res_typed = append(res_typed, C.GoStringN(str, C.int(str_size)))
+			}
+			res = res_typed
+		{{end}}
+
+
+		case {{GetMetaFFIType "bool"}}: // bool
+			in_res_cdt := C.get_cdt(data, index)
+			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res C.metaffi_bool = pcdt_in_bool_res.val
+			
+			res = in_res != C.metaffi_bool(0)
+
+		case {{GetMetaFFIArrayType "bool"}}: // []bool
+			in_res_cdt := C.get_cdt(data, index)
+			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
+			var in_res *C.metaffi_bool = pcdt_in_bool_res.vals
+			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_bool_res.dimensions_lengths
+			// var in_res_dimensions C.metaffi_size = pcdt_in_bool_res.dimensions - TODO: not used until multi-dimensions support!
+					
+			res_typed := make([]bool, 0)
+			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
+				val := C.get_metaffi_bool_element(in_res, C.int(i))
+				var bval bool
+				if val != 0 { bval = true } else { bval = false }
+				res_typed = append(res_typed, bval)
+			}
+
+			res = res_typed
+
+		default:
+			panic(fmt.Errorf("Return value %v is not of a supported type, but of type: %v", "res", res_type))
+	}
+
+	return res
+}
+
+func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
+
+	index := C.int(i)
+	switch input.(type) {
+
+		{{ range $numTypeIndex, $numType := GetNumericTypes }}
+		case {{$numType}}:
+			out_input := C.{{ MakeMetaFFIType $numType}}(input.({{$numType}}))
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_{{$numType}}_input := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_{{$numType}}_input.val = out_input
+
+		{{end}}
+		
+
+		{{ range $numTypeIndex, $numType := GetNumericTypes }}
+		case []{{$numType}}:
+			out_input_dimensions := C.metaffi_size(1)
+			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
+			*out_input_dimensions_lengths = C.ulong(len(input.([]{{$numType}})))
+		
+			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
+			for i, val := range input.([]{{$numType}}){
+				C.set_{{MakeMetaFFIType $numType}}_element(out_input, C.int(i), C.{{ MakeMetaFFIType $numType}}(val))
+			}
+		
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_array_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_{{$numType}}_input := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_{{$numType}}_input.vals = out_input
+			pcdt_out_{{$numType}}_input.dimensions_lengths = out_input_dimensions_lengths
+			pcdt_out_{{$numType}}_input.dimensions = out_input_dimensions
+
+		{{end}}
+
+		case int:
+			out_input := C.metaffi_int64(int64(input.(int)))
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.metaffi_int64_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_int64_input.val = out_input
+
+		case []int:
+			out_input_dimensions := C.metaffi_size(1)
+			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
+			*out_input_dimensions_lengths = C.ulong(len(input.([]int)))
+		
+			out_input := (*C.metaffi_int64)(C.malloc(C.ulong(len(input.([]int)))*C.sizeof_metaffi_int64))
+			for i, val := range input.([]int){
+				C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
+			}
+		
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.metaffi_int64_array_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_int64_input.vals = out_input
+			pcdt_out_int64_input.dimensions_lengths = out_input_dimensions_lengths
+			pcdt_out_int64_input.dimensions = out_input_dimensions
+
+		case bool:
+			var out_input C.metaffi_bool
+			if input.(bool) { out_input = C.metaffi_bool(1) } else { out_input = C.metaffi_bool(0) }
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.metaffi_bool_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_bool_input.val = out_input
+
+		case string:
+			out_input_len := C.metaffi_size(C.ulong(len(input.(string))))
+			out_input := C.CString(input.(string))
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_string8_input.val = out_input
+			pcdt_out_string8_input.length = out_input_len
+
+		case []bool:
+			out_input_dimensions := C.metaffi_size(1)
+			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
+			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]bool)))
+		
+			out_input := (*C.metaffi_bool)(C.malloc(C.metaffi_size(len(input.([]bool)))*C.sizeof_metaffi_bool))
+			for i, val := range input.([]bool){
+				var bval C.metaffi_bool
+				if val { bval = C.metaffi_bool(1) } else { bval = C.metaffi_bool(0) }
+				C.set_metaffi_bool_element(out_input, C.int(i), C.metaffi_bool(bval))
+			}
+		
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.metaffi_bool_array_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_bool_input.vals = out_input
+			pcdt_out_bool_input.dimensions_lengths = out_input_dimensions_lengths
+			pcdt_out_bool_input.dimensions = out_input_dimensions
+
+		case []string:
+			out_input := (*C.metaffi_string8)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_string8))
+			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_size))
+			out_input_dimensions := C.metaffi_size(1)
+			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
+			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))
+			
+			for i, val := range input.([]string){
+				C.set_metaffi_string8_element(out_input, out_input_sizes, C.int(i), C.metaffi_string8(C.CString(val)), C.metaffi_size(len(val)))
+			}
+			
+			out_input_cdt := C.get_cdt(data, index)
+			C.set_cdt_type(out_input_cdt, C.metaffi_string8_array_type)
+			out_input_cdt.free_required = 1
+			pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+			pcdt_out_string8_input.vals = out_input
+			pcdt_out_string8_input.vals_sizes = out_input_sizes
+			pcdt_out_string8_input.dimensions_lengths = out_input_dimensions_lengths
+			pcdt_out_string8_input.dimensions = out_input_dimensions
+			
+		default:
+			
+			if input == nil{ // return handle "0"
+				out_input := C.metaffi_handle(uintptr(0))
+				out_input_cdt := C.get_cdt(data, index)
+				C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
+				out_input_cdt.free_required = 0
+				pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+				pcdt_out_handle_input.val = out_input
+				return
+			}
+
+			// check if the object is type of a primitive
+			inputVal := reflect.ValueOf(input)
+			inputType := reflect.TypeOf(input)
+			switch inputType.Kind(){
+				case reflect.Bool: fromGoToCDT(bool(inputVal.Bool()), data, i); return
+
+				case reflect.Float32: fromGoToCDT(float32(inputVal.Float()), data, i); return
+				case reflect.Float64: fromGoToCDT(float64(inputVal.Float()), data, i); return
+				
+				case reflect.Int8: fromGoToCDT(int8(inputVal.Int()), data, i); return
+				case reflect.Int16: fromGoToCDT(int16(inputVal.Int()), data, i); return
+				case reflect.Int32: fromGoToCDT(int32(inputVal.Int()), data, i); return
+				case reflect.Int: fallthrough
+				case reflect.Int64: fromGoToCDT(int64(inputVal.Int()), data, i); return
+
+				case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i); return
+				case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i); return
+				case reflect.Uint32: fromGoToCDT(uint32(inputVal.Uint()), data, i); return
+				case reflect.Uint: fallthrough
+				case reflect.Uint64: fromGoToCDT(uint64(inputVal.Uint()), data, i); return
+
+				case reflect.Uintptr: fromGoToCDT(uint64(inputVal.UnsafeAddr()), data, i); return
+
+				case reflect.String: fromGoToCDT(string(inputVal.String()), data, i); return
+
+				case reflect.Slice:
+					switch inputType.Elem().Kind(){
+						case reflect.Float32:
+							dstSlice := make([]float32, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float32(inputVal.Index(i).Float()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Float64:
+							dstSlice := make([]float64, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float64(inputVal.Index(i).Float()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Bool:
+							dstSlice := make([]bool, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = inputVal.Index(i).Bool() }
+							fromGoToCDT(dstSlice, data, i)
+							return
+				
+						case reflect.Int8:
+							dstSlice := make([]int8, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int8(inputVal.Index(i).Int()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+							
+						case reflect.Int16:
+							dstSlice := make([]int16, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int16(inputVal.Index(i).Int()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Int32:
+							dstSlice := make([]int32, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int32(inputVal.Index(i).Int()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Int: fallthrough
+						case reflect.Int64:
+							dstSlice := make([]int64, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int64(inputVal.Index(i).Int()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+		
+						case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i)
+							dstSlice := make([]uint8, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint8(inputVal.Index(i).Uint()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i)
+							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Uint32:
+							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+
+						case reflect.Uint: fallthrough
+						case reflect.Uint64:
+							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).Uint()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+		
+						case reflect.Uintptr: 
+							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).UnsafeAddr()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+		
+						case reflect.String:
+							dstSlice := make([]string, inputVal.Len(), inputVal.Cap())
+							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = string(inputVal.Index(i).String()) }
+							fromGoToCDT(dstSlice, data, i)
+							return
+					}
+
+					fallthrough // if no kind matched, treat as handle
+
+				default:
+					input_handle := SetObject(input) // if already in table, return existing handle			
+					
+					out_input := C.metaffi_handle(input_handle)
+					out_input_cdt := C.get_cdt(data, index)
+					C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
+					out_input_cdt.free_required = 1
+					pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+					pcdt_out_handle_input.val = out_input
+			}
 	}
 }
 `
@@ -64,354 +534,28 @@ const HostFunctionStubsTemplate = `
 {{ $pfn := .IDLFilename}}
 {{range $mindex, $m := .Modules}}
 
-// Code to call foreign functions in module {{$m.Name}} via XLLR
-{{range $findex, $f := $m.Functions}}
-// Call to foreign {{$f.PathToForeignFunction.function}}
+{{range $findex, $f := $m.Globals}}
+{{if $f.Getter}}
 {{if $f.Comment}}/*
 {{$f.Comment}}
 */{{end}}
-{{range $index, $elem := $f.Parameters}}
-{{if $elem.Comment}}// {{$elem.Name}} - {{$elem.Comment}}{{end}}{{end}}
-var {{$f.PathToForeignFunction.function}}_id int64 = -1
-func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
-
-	runtime_plugin := "xllr.{{$m.TargetLanguage}}"
-	pruntime_plugin := C.CString(runtime_plugin)
-	defer C.free(unsafe.Pointer(pruntime_plugin))
-
-	if {{$f.PathToForeignFunction.function}}_id == -1{
-
-		// load function (no need to use a lock)
-
-		path := "{{$f.PathToForeignFunctionAsString}}"
-		ppath := C.CString(path)
-		defer C.free(unsafe.Pointer(ppath))
-
-		var out_err *C.char
-		var out_err_len C.uint32_t
-		out_err_len = C.uint32_t(0)
-		{{$f.PathToForeignFunction.function}}_id = int64(C.xllr_load_function(pruntime_plugin, C.uint(len(runtime_plugin)), ppath, C.uint(len(path)), C.int64_t(-1), &out_err, &out_err_len))
-		
-		if {{$f.PathToForeignFunction.function}}_id == -1{ // failed
-			err = fmt.Errorf("Failed to load function %v: %v", "{{$f.PathToForeignFunction.function}}", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-			return
-		}
-	}
-
-	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
+func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinition}}, err error){
+	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
 	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
 	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
-	{{range $index, $elem := $f.Parameters}}
-
-	{{if $elem.IsAny}}
-	// any
-	switch {{$elem.Name}}.(type) {
-		{{ range $numTypeIndex, $numType := GetNumericTypes }}{{if ne $numType "Handle"}}
-		case {{$numType}}:
-			in_{{$elem.Name}} := C.metaffi_{{$numType}}({{$elem.Name}}.({{$numType}}))
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_{{$numType}}_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_{{$numType}}_{{$elem.Name}}.val = in_{{$elem.Name}}
-
-		{{end}}{{end}}
-		
-
-		{{ range $index, $numType := GetNumericTypes }}{{if ne $numType "Handle"}}
-		case []{{$numType}}:
-			in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-			in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}.([]{{$numType}})))
-		
-			in_{{$elem.Name}} := (*C.metaffi_{{$numType}})(C.malloc(C.ulong(len({{$elem.Name}}.([]{{$numType}})))*C.sizeof_metaffi_{{$numType}}))
-			for i, val := range {{$elem.Name}}.([]{{$numType}}){
-				C.set_metaffi_{{$numType}}_element(in_{{$elem.Name}}, C.int(i), C.metaffi_{{$numType}}(val))
-			}
-		
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_{{$numType}}_array_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_{{$numType}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
-			pcdt_in_{{$numType}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-			pcdt_in_{{$numType}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-
-		{{end}}{{end}}
-
-		case int:
-			in_{{$elem.Name}} := C.metaffi_int64(int64({{$elem.Name}}.(int)))
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_int64_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_int64_{{$elem.Name}} := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_int64_{{$elem.Name}}.val = in_{{$elem.Name}}
-
-		case []int:
-			in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-			in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}.([]int)))
-		
-			in_{{$elem.Name}} := (*C.metaffi_int64)(C.malloc(C.ulong(len({{$elem.Name}}.([]int)))*C.sizeof_metaffi_int64))
-			for i, val := range {{$elem.Name}}.([]int){
-				C.set_metaffi_int64_element(in_{{$elem.Name}}, C.int(i), C.metaffi_int64(val))
-			}
-		
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_int64_array_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_int64_{{$elem.Name}} := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_int64_{{$elem.Name}}.vals = in_{{$elem.Name}}
-			pcdt_in_int64_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-			pcdt_in_int64_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-
-		case bool:
-			var in_{{$elem.Name}} C.metaffi_bool
-			if {{$elem.Name}}.(bool) { in_{{$elem.Name}} = C.metaffi_bool(1) } else { in_{{$elem.Name}} = C.metaffi_bool(0) }
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_bool_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_bool_{{$elem.Name}} := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_bool_{{$elem.Name}}.val = in_{{$elem.Name}}
-
-		case string:
-			in_{{$elem.Name}}_len := C.metaffi_size(C.ulong(len({{$elem.Name}}.(string))))
-			in_{{$elem.Name}} := C.CString({{$elem.Name}}.(string))
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_string8_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_string8_{{$elem.Name}} := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_string8_{{$elem.Name}}.val = in_{{$elem.Name}}
-			pcdt_in_string8_{{$elem.Name}}.length = in_{{$elem.Name}}_len
-
-		case []bool:
-			in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-			in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*in_{{$elem.Name}}_dimensions_lengths = C.metaffi_size(len({{$elem.Name}}.([]bool)))
-		
-			in_{{$elem.Name}} := (*C.metaffi_bool)(C.malloc(C.metaffi_size(len({{$elem.Name}}.([]bool)))*C.sizeof_metaffi_bool))
-			for i, val := range {{$elem.Name}}.([]bool){
-				var bval C.metaffi_bool
-				if val { bval = C.metaffi_bool(1) } else { bval = C.metaffi_bool(0) }
-				C.set_metaffi_bool_element(in_{{$elem.Name}}, C.int(i), C.metaffi_bool(bval))
-			}
-		
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_bool_array_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_bool_{{$elem.Name}} := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_bool_{{$elem.Name}}.vals = in_{{$elem.Name}}
-			pcdt_in_bool_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-			pcdt_in_bool_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-
-		case []string:
-			in_{{$elem.Name}} := (*C.metaffi_string8)(C.malloc(C.ulong(len({{$elem.Name}}.([]string)))*C.sizeof_metaffi_string8))
-			in_{{$elem.Name}}_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len({{$elem.Name}}.([]string)))*C.sizeof_metaffi_size))
-			in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-			in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (in_{{$elem.Name}}_dimensions)))
-			*in_{{$elem.Name}}_dimensions_lengths = C.metaffi_size(len({{$elem.Name}}.([]string)))
-			
-			for i, val := range {{$elem.Name}}.([]string){
-				C.set_metaffi_string8_element(in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.int(i), C.metaffi_string8(C.CString(val)), C.metaffi_size(len(val)))
-			}
-			
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_string8_array_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_string8_{{$elem.Name}} := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_string8_{{$elem.Name}}.vals = in_{{$elem.Name}}
-			pcdt_in_string8_{{$elem.Name}}.vals_sizes = in_{{$elem.Name}}_sizes
-			pcdt_in_string8_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-			pcdt_in_string8_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-		
-		case []Handle:
-			in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-			in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}.([]Handle)))
-		
-			in_{{$elem.Name}} := (*C.metaffi_handle)(C.malloc(C.ulong(len({{$elem.Name}}.([]Handle)))*C.sizeof_metaffi_handle))
-			for i, val := range {{$elem.Name}}.([]Handle){
-				C.set_metaffi_handle_element(in_{{$elem.Name}}, C.int(i), C.metaffi_handle(val))
-			}
-		
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_handle_array_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_handle_{{$elem.Name}}.vals = in_{{$elem.Name}}
-			pcdt_in_handle_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-			pcdt_in_handle_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-
-		case Handle:
-			// Turn object to a handle
-			in_{{$elem.Name}} := C.metaffi_handle({{$elem.Name}}.(Handle))
-			
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_handle_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_handle_{{$elem.Name}}.val = in_{{$elem.Name}}
-
-		default:
-			// Turn object to a handle
-			in_{{$elem.Name}} := SetObject({{$elem.Name}})
-			
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_handle_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_handle_{{$elem.Name}}.val = C.metaffi_handle(in_{{$elem.Name}})
-	}
-
-	
-	{{else if $elem.IsString}}
-	{{if gt $elem.Dimensions 0}}
-	// string array
-
-	in_{{$elem.Name}} := (*C.metaffi_{{$elem.Type}})(C.malloc(C.ulong(len({{$elem.Name}}))*{{Sizeof $elem}}))
-	in_{{$elem.Name}}_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_metaffi_size))
-	in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-	in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (in_{{$elem.Name}}_dimensions)))
-	*in_{{$elem.Name}}_dimensions_lengths = C.metaffi_size(len({{$elem.Name}}))
-	
-	for i, val := range {{$elem.Name}}{
-		C.set_metaffi_{{$elem.Type}}_element(in_{{$elem.Name}}, in_{{$elem.Name}}_sizes, C.int(i), C.metaffi_{{$elem.Type}}(C.CString(val)), C.metaffi_size(len(val)))
-	}
-	
-	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_{{$elem.Type}}_array_type)
-	in_{{$elem.Name}}_cdt.free_required = 1
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals_sizes = in_{{$elem.Name}}_sizes
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-
-	{{else}}
-	// string
-	in_{{$elem.Name}}_len := C.metaffi_size(C.ulong(len({{$elem.Name}})))
-	in_{{$elem.Name}} := C.CString({{$elem.Name}})
-	
-	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_{{$elem.Type}}_type)
-	in_{{$elem.Name}}_cdt.free_required = 1
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.val = in_{{$elem.Name}}
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.length = in_{{$elem.Name}}_len
-
-	{{end}}
-	{{else if $elem.IsHandle}}
-	{{if gt $elem.Dimensions 0}}
-	// []handle
-	in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-	in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-	*in_{{$elem.Name}}_dimensions_lengths = C.ulong(len({{$elem.Name}}))
-
-	in_{{$elem.Name}} := (*C.metaffi_handle)(C.malloc(C.ulong(len({{$elem.Name}}))*C.sizeof_metaffi_handle))
-	for i, val := range {{$elem.Name}}{
-
-		switch val.(type){
-			case Handle:
-				C.set_metaffi_handle_element(in_{{$elem.Name}}, C.int(i), C.metaffi_handle(val))
-
-			default:
-				val_{{$elem.Name}} := SetObject({{$elem.Name}})
-				C.set_metaffi_handle_element(in_{{$elem.Name}}, C.int(i), C.metaffi_handle(val_{{$elem.Name}}))
-		}		
-	}
-
-	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_handle_array_type)
-	in_{{$elem.Name}}_cdt.free_required = 1
-	pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-	pcdt_in_handle_{{$elem.Name}}.vals = in_{{$elem.Name}}
-	pcdt_in_handle_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-	pcdt_in_handle_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-	{{else}}
-	// handle
-	switch {{$elem.Name}}.(type){
-		case Handle:
-			// Turn object to a handle
-			in_{{$elem.Name}} := C.metaffi_handle({{$elem.Name}}.(Handle))
-			
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_handle_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_handle_{{$elem.Name}}.val = in_{{$elem.Name}}
-
-		default:
-			// Turn object to a handle
-			in_{{$elem.Name}} := SetObject({{$elem.Name}})
-			
-			in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-			C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_handle_type)
-			in_{{$elem.Name}}_cdt.free_required = 1
-			pcdt_in_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-			pcdt_in_handle_{{$elem.Name}}.val = C.metaffi_handle(in_{{$elem.Name}})
-	}
-	{{end}}
-	{{else}}
-	{{if gt $elem.Dimensions 0}}
-	// non-string/handle array
-	
-	in_{{$elem.Name}}_dimensions := C.metaffi_size(1)
-	in_{{$elem.Name}}_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-	*in_{{$elem.Name}}_dimensions_lengths = C.metaffi_size(len({{$elem.Name}}))
-
-	in_{{$elem.Name}} := (*C.metaffi_{{$elem.Type}})(C.malloc(C.metaffi_size(len({{$elem.Name}}))*{{Sizeof $elem}}))
-	for i, val := range {{$elem.Name}}{
-		{{if $elem.IsBool}}
-		var bval C.metaffi_bool
-		if val { bval = C.metaffi_bool(1) } else { bval = C.metaffi_bool(0) }
-		C.set_metaffi_bool_element(in_{{$elem.Name}}, C.int(i), C.metaffi_bool(bval))
-		{{else}}
-		C.set_metaffi_{{$elem.Type}}_element(in_{{$elem.Name}}, C.int(i), C.metaffi_{{$elem.Type}}(val))
-		{{end}}
-	}
-
-	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_{{$elem.Type}}_array_type)
-	in_{{$elem.Name}}_cdt.free_required = 1
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.vals = in_{{$elem.Name}}
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths = in_{{$elem.Name}}_dimensions_lengths
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.dimensions = in_{{$elem.Name}}_dimensions
-	
-	{{else}}
-
-	// non-string/handle
-	
-	{{if $elem.IsBool}}
-	var in_{{$elem.Name}} C.metaffi_bool
-	if {{$elem.Name}} { 
-		in_{{$elem.Name}} = C.metaffi_bool(1)
-	} else { 
-		in_{{$elem.Name}} = C.metaffi_bool(0)
-	}
-	in_{{$elem.Name}} := C.metaffi_{{$elem.Type}}({{$elem.Name}})
-	{{else}}
-	in_{{$elem.Name}} := C.metaffi_{{$elem.Type}}({{$elem.Name}})
-	{{end}}
-
-	in_{{$elem.Name}}_cdt := C.get_cdt(parameters, {{$index}})
-	C.set_cdt_type(in_{{$elem.Name}}_cdt, C.metaffi_{{$elem.Type}}_type)
-	in_{{$elem.Name}}_cdt.free_required = 1
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&in_{{$elem.Name}}_cdt.cdt_val))))
-	pcdt_in_{{$elem.Type}}_{{$elem.Name}}.val = in_{{$elem.Name}}
-	{{end}}
-	{{end}}
-	{{end}}
+	{{range $index, $elem := $f.Getter.Parameters}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, C.uint(len(runtime_plugin)),
-			C.int64_t({{$f.PathToForeignFunction.function}}_id),
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$f.Getter.Name}}_id),
 			parameters, {{$paramsLength}},
 			return_values, {{$returnLength}},
 			&out_err, &out_err_len)
@@ -421,223 +565,327 @@ func {{AsPublic $f.PathToForeignFunction.function}}({{range $index, $elem := $f.
 		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
 		return
 	}
+	
+	{{range $index, $elem := $f.Getter.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	var {{$elem.Name}} {{ConvertToGoType $elem}}
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
+}
+{{end}}{{/* End Getter */}}
+{{if $f.Setter}}
+func {{ToGoNameConv $f.Setter.Name}}() ({{ConvertToGoType $f.Setter.ArgDefinition}}, error){
+	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
+
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// parameters
+	{{range $index, $elem := $f.Setter.Parameters}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$f.Setter.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	{{range $index, $elem := $f.Setter.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+	
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
+}
+{{end}}{{/* End Setter */}}
+{{end}}{{/* End Global */}}
+
+
+// Code to call foreign functions in module {{$m.Name}} via XLLR
+{{range $findex, $f := $m.Functions}}
+// Call to foreign {{$f.Name}}
+{{if $f.Comment}}/*
+{{$f.Comment}}
+*/{{end}}
+{{range $index, $elem := $f.Parameters}}
+{{if $elem.Comment}}// {{$elem.Name}} - {{$elem.Comment}}{{end}}{{end}}{{/* End Parameters comments */}}
+func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+
+	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
+
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// parameters
+	{{range $index, $elem := $f.Parameters}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$f.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	{{range $index, $elem := $f.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+	
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
+}
+{{end}}{{/* End Function */}}
+
+{{range $cindex, $c := $m.Classes}}
+type {{$c.Name}} struct{
+	h Handle
+}
+{{range $findex, $f := $c.Constructors}}
+func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) (instance *{{$c.Name}}, err error){
+	
+	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
+
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// parameters
+	{{range $index, $elem := $f.Parameters}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	inst := &{{$c.Name}}{}
 
 	{{range $index, $elem := $f.ReturnValues}}
-
-	{{if $elem.IsAny}}
-	// any
-	var ret_{{$elem.Name}} interface{}
-	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-	{{$elem.Name}}_type := C.get_cdt_type(out_{{$elem.Name}}_cdt)
-	switch {{$elem.Name}}_type{
-
-		case {{GetMetaFFIType "handle"}}: // handle
-			pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}} C.metaffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
-
-			ret_{{$elem.Name}} = GetObject(Handle(out_{{$elem.Name}}))
-			if ret_{{$elem.Name}} == nil{ // handle belongs to a different language
-				ret_{{$elem.Name}} = Handle(out_{{$elem.Name}})
-			}
-
-		case {{GetMetaFFIArrayType "handle"}}: // []handle
-			pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}} *C.metaffi_handle = pcdt_out_handle_{{$elem.Name}}.vals
-			var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions_lengths
-			// var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-
-			ret_{{$elem.Name}}_typed := make([]interface{}, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_handle_element(out_{{$elem.Name}}, C.int(i))
-
-				var val_obj interface{}
-				val_obj = GetObject(Handle(val))
-				if val_obj == nil{ // handle belongs to 
-					val_obj = Handle(val)
-				}
-				
-				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, val_obj)
-			}
-			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
-
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
-		case {{GetMetaFFIType $numType}}: // {{$numType}}
-			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}} C.metaffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.val
-			
-			ret_{{$elem.Name}} = {{$numType}}(out_{{$elem.Name}})
-
-		{{end}}{{end}}
-
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
-		case {{GetMetaFFIArrayType $numType}}: // []{{$numType}}
-			pcdt_out_{{$numType}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}} *C.metaffi_{{$numType}} = pcdt_out_{{$numType}}_{{$elem.Name}}.vals
-			var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_{{$numType}}_{{$elem.Name}}.dimensions_lengths
-			// var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_{{$numType}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-					
-			ret_{{$elem.Name}}_typed := make([]{{$numType}}, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_{{$numType}}_element(out_{{$elem.Name}}, C.int(i))
-				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, {{$numType}}(val))
-			}
-			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
-		{{end}}{{end}}
-
-		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
-		case {{GetMetaFFIType $stringType}}: // {{$stringType}}
-			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-			pcdt_out_{{$stringType}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$stringType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}}_len C.metaffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.length
-			var out_{{$elem.Name}} C.metaffi_{{$stringType}} = pcdt_out_{{$stringType}}_{{$elem.Name}}.val
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if eq $elem.Type "handle"}}inst.h = {{$elem.Name}}.(Handle){{end}}
+	} else {
+		return nil, fmt.Errorf("Object creation returned nil")
+	}
 		
-			ret_{{$elem.Name}} = C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
-		{{end}}
+	{{end}}{{/* End return values */}}
 
-		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
-		case {{GetMetaFFIArrayType $stringType}}: // []{{$stringType}}
-			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-			pcdt_out_{{$stringType}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$stringType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-		
-			var out_{{$elem.Name}} *C.metaffi_{{$stringType}} = pcdt_out_{{$stringType}}_{{$elem.Name}}.vals
-			var out_{{$elem.Name}}_sizes *C.metaffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.vals_sizes
-			var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.dimensions_lengths
-			//var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_{{$stringType}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-		
-			ret_{{$elem.Name}}_typed := make([]string, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
-			for i:=C.int(0) ; i<C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
-				var str_size C.metaffi_size
-				str := C.get_metaffi_{{$stringType}}_element(out_{{$elem.Name}}, C.int(i), out_{{$elem.Name}}_sizes, &str_size)
-				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, C.GoStringN(str, C.int(str_size)))
-			}
-			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
-		{{end}}
-
-
-		case {{GetMetaFFIType "bool"}}: // bool
-			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-			pcdt_out_bool_{{$elem.Name}} := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}} C.metaffi_bool = pcdt_out_bool_{{$elem.Name}}.val
-			
-			ret_{{$elem.Name}} = out_{{$elem.Name}} != C.metaffi_bool(0)
-
-		case {{GetMetaFFIArrayType "bool"}}: // []bool
-			out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-			pcdt_out_bool_{{$elem.Name}} := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-			var out_{{$elem.Name}} *C.metaffi_bool = pcdt_out_bool_{{$elem.Name}}.vals
-			var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_bool_{{$elem.Name}}.dimensions_lengths
-			// var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_bool_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-					
-			ret_{{$elem.Name}}_typed := make([]bool, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_bool_element(out_{{$elem.Name}}, C.int(i))
-				var bval bool
-				if val != 0 { bval = true } else { bval = false }
-				ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, bval)
-			}
-
-			ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
-
-		default:
-			err = fmt.Errorf("Return value %v is not of an metaffi supported type, but of type: %v", "{{$elem.Name}}", {{$elem.Name}}_type)
-			return
-	}
-
-	{{else if $elem.IsString}}
-	{{if gt $elem.Dimensions 0}}
-	// string[] // TODO: handle multi-dimensional arrays
-	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-
-	var out_{{$elem.Name}} *C.metaffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals
-	var out_{{$elem.Name}}_sizes *C.metaffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals_sizes
-	var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
-	//var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-
-	ret_{{$elem.Name}} := make([]string, 0, int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)))
-	for i:=C.int(0) ; i<C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0)) ; i++{
-		var str_size C.metaffi_size
-		str := C.get_metaffi_{{$elem.Type}}_element(out_{{$elem.Name}}, C.int(i), out_{{$elem.Name}}_sizes, &str_size)
-		ret_{{$elem.Name}} = append(ret_{{$elem.Name}}, C.GoStringN(str, C.int(str_size)))
-	}
-
-	{{else}}
-
-	// string
-	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-	var out_{{$elem.Name}}_len C.metaffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.length
-	var out_{{$elem.Name}} C.metaffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
-
-	ret_{{$elem.Name}} := C.GoStringN(out_{{$elem.Name}}, C.int(out_{{$elem.Name}}_len))
-	{{end}}
-	{{else if $elem.IsHandle}}
-	{{if $elem.IsArray}}
-	// []handle
-
-	pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-	var out_{{$elem.Name}} *C.metaffi_handle = pcdt_out_handle_{{$elem.Name}}.vals
-	var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions_lengths
-	// var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_handle_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-
-	ret_{{$elem.Name}}_typed := make([]interface{}, 0)
-	for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
-		val := C.get_metaffi_handle_element(out_{{$elem.Name}}, C.int(i))
-
-		var val_obj interface{}
-		val_obj = GetObject(Handle(val))
-		if val_obj == nil{ // handle belongs to 
-			val_obj = handle(val)
-		}
-		
-		ret_{{$elem.Name}}_typed = append(ret_{{$elem.Name}}_typed, val_obj)
-	}
-	ret_{{$elem.Name}} = ret_{{$elem.Name}}_typed
-
-	{{else}}
-	// handle
-	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-	pcdt_out_handle_{{$elem.Name}} := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-	var out_{{$elem.Name}} C.metaffi_handle = pcdt_out_handle_{{$elem.Name}}.val			
-
-	ret_{{$elem.Name}} := GetObject(Handle(out_{{$elem.Name}}))
-	if ret_{{$elem.Name}} == nil{ // handle belongs to a different language
-		ret_{{$elem.Name}} = Handle(out_{{$elem.Name}})
-	}
-	{{end}}
-	{{else}}
-	{{if $elem.IsArray}}
-
-	// non-string array
-	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-	var out_{{$elem.Name}} *C.metaffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.vals
-	var out_{{$elem.Name}}_dimensions_lengths *C.metaffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions_lengths
-	// var out_{{$elem.Name}}_dimensions C.metaffi_size = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.dimensions - TODO: not used until multi-dimensions support!
-			
-	ret_{{$elem.Name}} := make([]{{$elem.Type}}, 0)
-	for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(out_{{$elem.Name}}_dimensions_lengths, 0))) ; i++{
-		val := C.get_metaffi_{{$elem.Type}}_element(out_{{$elem.Name}}, C.int(i))
-		ret_{{$elem.Name}} = append(ret_{{$elem.Name}}, {{$elem.Type}}(val))
-	}
-	{{else}}
-
-	// non-string
-	out_{{$elem.Name}}_cdt := C.get_cdt(return_values, {{$index}})
-	pcdt_out_{{$elem.Type}}_{{$elem.Name}} := ((*C.struct_cdt_metaffi_{{$elem.Type}})(C.convert_union_to_ptr(unsafe.Pointer(&out_{{$elem.Name}}_cdt.cdt_val))))
-	var out_{{$elem.Name}} C.metaffi_{{$elem.Type}} = pcdt_out_{{$elem.Type}}_{{$elem.Name}}.val
-	
-	ret_{{$elem.Name}} := {{if eq $elem.Type "bool"}}out_{{$elem.Name}} != C.metaffi_bool(0){{else}}{{$elem.Type}}(out_{{$elem.Name}}){{end}}
-	{{end}}
-	{{end}}
-	{{end}}
-
-	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}ret_{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
+	return inst, nil	
 }
-{{end}}
-{{end}}
+{{end}}{{/* End Constructor */}}
 
+{{range $findex, $f := $c.Fields}}
+{{if $f.Getter}}
+func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem := $f.Getter.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}) ({{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.Getter.ReturnValues}},{{end}} err error){
+	
+	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// get parameters
+	fromGoToCDT(this.h, parameters, 0)
+	{{range $index, $elem := $f.Getter.Parameters}}{{if gt $index 0}}
+	fromGoToCDT(this.h, parameters, {{$index}})
+	{{end}}{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$c.Name}}_get_{{$f.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	{{range $index, $elem := $f.Getter.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil	
+}
+{{end}}{{/* End Getter */}}
+{{if $f.Setter}}
+func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem := $f.Setter.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}) ({{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.Setter.ReturnValues}},{{end}} err error){
+	
+	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
+
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// parameters
+	fromGoToCDT(this.h, parameters, 0) // object
+	{{range $index, $elem := $f.Setter.Parameters}}{{if gt $index 0}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$c.Name}}_set_{{$f.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	{{range $index, $elem := $f.Setter.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+	
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil	
+}
+{{end}}{{/* End Setter */}}
+{{end}}{{/* End Fields */}}
+{{range $findex, $f := $c.Methods}}
+func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+	
+	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
+
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// parameters
+	fromGoToCDT(this.h, parameters, 0) // object
+	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	{{range $index, $elem := $f.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+	
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
+}
+{{end}}{{/* End Methods */}}
+{{if $c.Releaser}}{{ $f := $c.Releaser}}
+func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+	
+	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
+
+	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	
+	// parameters
+	fromGoToCDT(this.h, parameters, 0) // object
+	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
+	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	{{end}}{{end}}{{/* End Parameters */}}
+
+	var out_err *C.char
+	var out_err_len C.uint64_t
+	out_err_len = C.uint64_t(0)
+
+	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
+			parameters, {{$paramsLength}},
+			return_values, {{$returnLength}},
+			&out_err, &out_err_len)
+
+	// check errors
+	if out_err_len != 0{
+		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		return
+	}
+	
+	{{range $index, $elem := $f.ReturnValues}}
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	if {{$elem.Name}}AsInterface != nil{
+		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	}
+	
+	{{end}}{{/* End return values */}}
+
+	return {{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if gt $returnLength 0}},{{end}} nil
+}
+{{end}}{{/* End Releaser */}}
+{{end}}{{/* End Classes */}}
+{{end}}{{/* End modules */}}
 
 `
 

@@ -45,7 +45,7 @@ func (this *HostCompiler) Compile() (outputFileName string, err error){
 }
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseHeader() (string, error){
-	tmp, err := template.New("host").Parse(HostHeaderTemplate)
+	tmp, err := template.New("HostHeaderTemplate").Parse(HostHeaderTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostHeaderTemplate: %v", err)
 	}
@@ -59,7 +59,7 @@ func (this *HostCompiler) parseHeader() (string, error){
 func (this *HostCompiler) parseImports() (string, error){
 
 
-	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
+	tmp, err := template.New("HostImportsTemplate").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
 	}
@@ -72,7 +72,7 @@ func (this *HostCompiler) parseImports() (string, error){
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseCImports() (string, error){
 
-	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(HostCImportTemplate)
+	tmp, err := template.New("HostCImportTemplate").Funcs(templatesFuncMap).Parse(HostCImportTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
 	}
@@ -85,7 +85,7 @@ func (this *HostCompiler) parseCImports() (string, error){
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseForeignStubs() (string, error){
 
-	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(HostFunctionStubsTemplate)
+	tmp, err := template.New("HostFunctionStubsTemplate").Funcs(templatesFuncMap).Parse(HostFunctionStubsTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
 	}
@@ -97,7 +97,7 @@ func (this *HostCompiler) parseForeignStubs() (string, error){
 }
 //--------------------------------------------------------------------
 func (this *HostCompiler) parsePackage() (string, error){
-	tmp, err := template.New("host").Funcs(templatesFuncMap).Parse(HostPackageTemplate)
+	tmp, err := template.New("HostPackageTemplate").Funcs(templatesFuncMap).Parse(HostPackageTemplate)
 	if err != nil{
 		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
 	}
@@ -118,6 +118,18 @@ func (this *HostCompiler) parsePackage() (string, error){
 	return buf.String(), err
 }
 //--------------------------------------------------------------------
+func (this *HostCompiler) parseHelper() (string, error){
+	tmp, err := template.New("HostHelperFunctions").Funcs(templatesFuncMap).Parse(HostHelperFunctions)
+	if err != nil{
+		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+	}
+
+	buf := strings.Builder{}
+	err = tmp.Execute(&buf, this.def)
+
+	return buf.String(), err
+}
+//--------------------------------------------------------------------
 func (this *HostCompiler) generateCode() (string, error){
 
 	header, err := this.parseHeader()
@@ -134,10 +146,13 @@ func (this *HostCompiler) generateCode() (string, error){
 	cimports, err := this.parseCImports()
 	if err != nil{ return "", err }
 
+	helper, err := this.parseHelper()
+	if err != nil{ return "", err }
+
 	functionStubs, err := this.parseForeignStubs()
 	if err != nil{ return "", err }
 
-	res := header + packageDeclaration + imports + cimports + HostHelperFunctions + functionStubs
+	res := header + packageDeclaration + imports + cimports + helper + functionStubs
 
 	return res, nil
 }

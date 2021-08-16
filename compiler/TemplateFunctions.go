@@ -71,6 +71,10 @@ func convertToGoType(def *IDL.ArgDefinition) string{
 
 	var res string
 
+	if def.IsTypeAlias(){
+		return def.TypeAlias
+	}
+
 	switch def.Type {
 		case IDL.STRING8: fallthrough
 		case IDL.STRING16: fallthrough
