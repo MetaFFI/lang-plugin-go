@@ -71,17 +71,18 @@ func convertToGoType(def *IDL.ArgDefinition) string{
 
 	var res string
 
-	if def.IsTypeAlias(){
-		return def.TypeAlias
-	}
-
 	switch def.Type {
 		case IDL.STRING8: fallthrough
 		case IDL.STRING16: fallthrough
 		case IDL.STRING32:
 			res = "string"
 		case IDL.ANY: return "interface{}"
-		case IDL.HANDLE: return "interface{}"
+		case IDL.HANDLE:
+			if def.IsTypeAlias(){
+				return def.TypeAlias
+			} else {
+				return "interface{}"
+			}
 		default:
 			res = string(def.Type)
 	}

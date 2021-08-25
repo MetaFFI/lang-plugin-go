@@ -564,8 +564,8 @@ func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64
 // constructors
 {{range $i, $f := $c.Constructors}}
 // Call to foreign {{$f.Name}}
-//export EntryPoint_{{$f.Name}}
-func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+//export EntryPoint_{{$c.Name}}_{{$f.Name}}
+func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
 	
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
@@ -594,8 +594,8 @@ func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64
 {{end}} {{/* end range constructors */}}
 
 {{if $c.Releaser}}// releaser
-//export EntryPoint_{{$c.Releaser.Name}}
-func EntryPoint_{{$c.Releaser.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+//export EntryPoint_{{$c.Name}}_{{$c.Releaser.Name}}
+func EntryPoint_{{$c.Name}}_{{$c.Releaser.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
 
 	in_handle_cdt := C.get_cdt(parameters, 0)
 
@@ -614,8 +614,8 @@ func EntryPoint_{{$c.Releaser.Name}}(parameters *C.struct_cdt, parameters_length
 // methods
 {{range $i, $f := $c.Methods}}
 // Call to foreign {{$f.Name}}
-//export EntryPoint_{{$f.Name}}
-func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+//export EntryPoint_{{$c.Name}}_{{$f.Name}}
+func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
 	
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
@@ -648,8 +648,8 @@ func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64
 {{range $i, $f := $c.Fields}}
 {{if $f.Getter}}
 // getter for {{$f.Name}}
-//export EntryPoint_{{$f.Getter.Name}}
-func EntryPoint_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+//export EntryPoint_{{$c.Name}}_{{$f.Getter.Name}}
+func EntryPoint_{{$c.Name}}_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
@@ -659,7 +659,7 @@ func EntryPoint_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C
 	objAsInterface := fromCDTToGo(parameters, 0)
 	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
-	{{ $receiver_pointer := index $f.Tags "receiver_pointer"}}
+	{{ $receiver_pointer := index $f.Getter.Tags "receiver_pointer"}}
 	{{$f.Name}}_res := obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}}
 	
 	fromGoToCDT({{$f.Name}}_res, return_values, 0)
@@ -668,8 +668,8 @@ func EntryPoint_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C
 
 {{if $f.Setter}}
 // setter for {{$f.Name}}
-//export EntryPoint_{{$f.Setter.Name}}
-func EntryPoint_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+//export EntryPoint_{{$c.Name}}_{{$f.Setter.Name}}
+func EntryPoint_{{$c.Name}}_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
@@ -685,7 +685,7 @@ func EntryPoint_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C
 	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
 	// get new data
-	{{ $receiver_pointer := index $f.Tags "receiver_pointer"}}
+	{{ $receiver_pointer := index $f.Setter.Tags "receiver_pointer"}}
 	obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}} = val
 	
 }
