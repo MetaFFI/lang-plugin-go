@@ -8,15 +8,17 @@ import (
 type Compiler struct{
 	def *IDL.IDLDefinition
 	outputPath string
+	blockName string
+	blockCode string
 }
 //--------------------------------------------------------------------
-func NewCompiler(def *IDL.IDLDefinition, outputPath string) *Compiler {
-	return &Compiler{def: def, outputPath: outputPath}
+func NewCompiler(def *IDL.IDLDefinition, outputPath string, blockName string, blockCode string) *Compiler {
+	return &Compiler{def: def, outputPath: outputPath, blockName: blockName, blockCode: blockCode}
 }
 //--------------------------------------------------------------------
 func (this *Compiler) CompileGuest() (outputFileName string, err error){
 
-	cmp := NewGuestCompiler(this.def, this.outputPath, this.def.IDLFilename)
+	cmp := NewGuestCompiler(this.def, this.outputPath, this.def.IDLFilename, this.blockName, this.blockCode)
 	outputFileName, err = cmp.Compile()
 	if err != nil{
 		return

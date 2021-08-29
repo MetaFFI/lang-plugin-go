@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"text/template"
-
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 //--------------------------------------------------------------------
@@ -26,11 +26,20 @@ type GuestCompiler struct{
 	def *IDL.IDLDefinition
 	outputDir string
 	outputFilename string
+	blockName string
+	blockCode string
 }
 //--------------------------------------------------------------------
-func NewGuestCompiler(definition *IDL.IDLDefinition, outputDir string, outputFilename string) *GuestCompiler{
+func NewGuestCompiler(definition *IDL.IDLDefinition, outputDir string, outputFilename string, blockName string, blockCode string) *GuestCompiler{
 
-	return &GuestCompiler{def: definition, outputDir: outputDir, outputFilename: outputFilename}
+	if strings.Contains(outputFilename, "#"){
+		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1:strings.Index(outputFilename, "#")+1]
+		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
+	}
+
+	outputFilename = strings.ReplaceAll(outputFilename, filepath.Ext(outputFilename), "")
+
+	return &GuestCompiler{def: definition, outputDir: outputDir, outputFilename: outputFilename, blockName: blockName, blockCode: blockCode}
 }
 //--------------------------------------------------------------------
 func (this *GuestCompiler) Compile() (outputFileName string, err error){
@@ -223,12 +232,9 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	fmt.Println("Building Go foreign functions")
 
 	// add go.mod
-	modInitCmd := exec.Command("go", "mod", "init", "main")
-	modInitCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(modInitCmd.Args, " "))
-	output, err := modInitCmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+	_, err = this.goModInit(dir, "main")
+	if err != nil{
+		return nil, err
 	}
 
 	// add "replace"s if there are local imports
@@ -240,14 +246,35 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 					v = os.ExpandEnv(v)
 					if fi, _ := os.Stat(v); fi != nil && fi.IsDir() { // if module is local dir
 						if _, alreadyAdded := addedLocalModules[v]; !alreadyAdded {
-							// point module to
-							getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", os.ExpandEnv(f.FunctionPath["package"]), v))
-							getCmd.Dir = dir
-							fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
-							output, err = getCmd.CombinedOutput()
-							if err != nil {
-								println(string(output))
-								return nil, fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+
+							// if embedded code, write the source code into a Package folder and skip "-replace"
+							if this.blockCode != ""{
+
+
+								packageDir := dir+os.ExpandEnv(f.FunctionPath["package"])+string(os.PathSeparator)
+								err = os.Mkdir(packageDir, 0777)
+								if err != nil {
+									return nil, fmt.Errorf("Failed creating directory for embedded code: %v.\nError:\n%v", packageDir, err)
+								}
+
+								err = ioutil.WriteFile(packageDir+f.FunctionPath["package"]+".go", []byte(this.blockCode), 0700)
+								if err != nil{
+									return nil, fmt.Errorf("Failed to embedded block go code: %v", err)
+								}
+
+								_, err := this.goModInit(packageDir, f.FunctionPath["package"])
+								if err != nil{ return nil, err }
+
+								_, err = this.goGet(packageDir)
+								if err != nil{ return nil, err }
+
+								_, err = this.goReplace(dir, os.ExpandEnv(f.FunctionPath["package"]), "./"+f.FunctionPath["package"])
+								if err != nil{ return nil, err }
+
+							} else {
+								// point module to
+								_, err = this.goReplace(dir, os.ExpandEnv(f.FunctionPath["package"]), v)
+								if err != nil{ return nil, err }
 							}
 
 							addedLocalModules[v] = true
@@ -258,37 +285,20 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 		}
 	}
 
-	gomod, err := ioutil.ReadFile(dir+"go.mod")
+	_, err = ioutil.ReadFile(dir+"go.mod")
 	if err != nil{
 		println("Failed to find go.mod in "+dir+"go.mod")
 	}
-	println(string(gomod))
 
 	// build dynamic library
-	getCmd := exec.Command("go", "get", "-v")
-	getCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
-	output, err = getCmd.CombinedOutput()
-	if err != nil{
-		println(string(output))
-		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
-	}
+	_, err = this.goGet(dir)
+	if err != nil{ return nil, err	}
 
-	cleanCmd := exec.Command("go", "clean", "-cache")
-	cleanCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(cleanCmd.Args, " "))
-	output, err = cleanCmd.CombinedOutput()
-	if err != nil{
-		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
-	}
+	_, err = this.goClean(dir)
+	if err != nil{ return nil, err	}
 
-	buildCmd := exec.Command("go", "build", "-v", "-tags=guest" , "-buildmode=c-shared", "-gcflags=-shared", "-o", dir+this.outputFilename+getDynamicLibSuffix())
-	buildCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(buildCmd.Args, " "))
-	output, err = buildCmd.CombinedOutput()
-	if err != nil{
-		return nil, fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
-	}
+	_, err = this.goBuild(dir)
+	if err != nil{ return nil, err	}
 
 	// copy to output dir
 	fileData, err := ioutil.ReadFile(dir+this.outputFilename+getDynamicLibSuffix())
@@ -297,6 +307,67 @@ func (this *GuestCompiler) buildDynamicLibrary(code string)([]byte, error){
 	}
 
 	return fileData, nil
+}
+//--------------------------------------------------------------------
+func (this *GuestCompiler) goModInit(dir string, packageName string) (string, error) {
+	modInitCmd := exec.Command("go", "mod", "init", packageName)
+	modInitCmd.Dir = dir
+	fmt.Printf("%v\n", strings.Join(modInitCmd.Args, " "))
+	output, err := modInitCmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+	}
+
+	return string(output), err
+}
+//--------------------------------------------------------------------
+func (this *GuestCompiler) goGet(dir string) (string, error) {
+	getCmd := exec.Command("go", "get", "-v")
+	getCmd.Dir = dir
+	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
+	output, err := getCmd.CombinedOutput()
+	if err != nil{
+		println(string(output))
+		return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
+	}
+
+	return string(output), err
+}
+//--------------------------------------------------------------------
+func (this *GuestCompiler) goClean(dir string) (string, error) {
+	cleanCmd := exec.Command("go", "clean", "-cache")
+	cleanCmd.Dir = dir
+	fmt.Printf("%v\n", strings.Join(cleanCmd.Args, " "))
+	output, err := cleanCmd.CombinedOutput()
+	if err != nil{
+		return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
+	}
+
+	return string(output), err
+}
+//--------------------------------------------------------------------
+func (this *GuestCompiler) goBuild(dir string) (string, error) {
+	buildCmd := exec.Command("go", "build", "-v", "-tags=guest" , "-buildmode=c-shared", "-gcflags=-shared", "-o", dir+this.outputFilename+getDynamicLibSuffix())
+	buildCmd.Dir = dir
+	fmt.Printf("%v\n", strings.Join(buildCmd.Args, " "))
+	output, err := buildCmd.CombinedOutput()
+	if err != nil{
+		return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
+	}
+
+	return string(output), err
+}
+//--------------------------------------------------------------------
+func (this *GuestCompiler) goReplace(dir string, packageName string, packagePath string) (string, error) {
+	getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", packageName, packagePath))
+	getCmd.Dir = dir
+	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
+	output, err := getCmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+	}
+
+	return string(output), err
 }
 //--------------------------------------------------------------------
 
