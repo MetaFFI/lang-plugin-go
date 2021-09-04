@@ -15,7 +15,7 @@ const HostImportsTemplate = `
 import "fmt"
 import "unsafe"
 import "reflect"
-{{if IsMetaFFIGoRuntimeNeeded .Modules}}import . "github.com/MetaFFI/lang-plugin-go/go-runtime"{{end}}
+import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 `
 
 const HostCImportTemplate = `
@@ -542,12 +542,12 @@ const HostFunctionStubsTemplate = `
 func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinition}}, err error){
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Getter.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -556,8 +556,8 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$f.Getter.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -567,10 +567,44 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 	}
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	var {{$elem.Name}} {{ConvertToGoType $elem}}
+	
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{else}} {{/* Handle */}}		
+		{{/* Go object */}}
+		
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+
+		{{end}}{{/* end handling types */}}
 	}
 
 	{{end}}{{/* End return values */}}
@@ -582,12 +616,12 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 func {{ToGoNameConv $f.Setter.Name}}() ({{ConvertToGoType $f.Setter.ArgDefinition}}, error){
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Setter.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -596,8 +630,8 @@ func {{ToGoNameConv $f.Setter.Name}}() ({{ConvertToGoType $f.Setter.ArgDefinitio
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$f.Setter.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -607,9 +641,42 @@ func {{ToGoNameConv $f.Setter.Name}}() ({{ConvertToGoType $f.Setter.ArgDefinitio
 	}
 	
 	{{range $index, $elem := $f.Setter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{else}} {{/* Handle */}}		
+		{{/* Go object */}}
+		
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+
+		{{end}}{{/* end handling types */}}
 	}
 	
 	{{end}}{{/* End return values */}}
@@ -632,12 +699,12 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -646,8 +713,8 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$f.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -657,9 +724,42 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	}
 	
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{else}} {{/* Handle */}}		
+		{{/* Go object */}}
+		
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+
+		{{end}}{{/* end handling types */}}
 	}
 	
 	{{end}}{{/* End return values */}}
@@ -677,12 +777,12 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -691,8 +791,8 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -704,9 +804,9 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	inst := &{{$c.Name}}{}
 
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{$elem.Name}} := {{if $elem.IsAny}}{{$elem.Name}}AsInterface{{else if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}{{if $elem.IsHandleTypeAlias}}{ h: {{$elem.Name}}AsInterface.(Handle) }{{else}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}})){{end}}
 		{{if eq $elem.Type "handle"}}inst.h = {{$elem.Name}}.(Handle){{end}}
 	} else {
 		return nil, fmt.Errorf("Object creation returned nil")
@@ -724,13 +824,13 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// get parameters
-	fromGoToCDT(this.h, parameters, 0)
+	fromGoToCDT(this.h, parametersCDTS, 0)
 	{{range $index, $elem := $f.Getter.Parameters}}{{if gt $index 0}}
-	fromGoToCDT(this.h, parameters, {{$index}})
+	fromGoToCDT(this.h, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -738,9 +838,9 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	out_err_len = C.uint64_t(0)
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_get_{{$f.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			C.int64_t({{$c.Name}}_{{$f.Getter.Name}}_id),
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -750,9 +850,44 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	}
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		// any
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		// not handle
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		
+		{{else}} {{/* Handle */}}
+		// handle
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+
+		{{end}}{{/* end handling types */}}
 	}
 
 	{{end}}{{/* End return values */}}
@@ -765,13 +900,13 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
-	fromGoToCDT(this.h, parameters, 0) // object
+	fromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Setter.Parameters}}{{if gt $index 0}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -779,9 +914,9 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	out_err_len = C.uint64_t(0)
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_set_{{$f.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			C.int64_t({{$c.Name}}_{{$f.Setter.Name}}_id),
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -791,9 +926,42 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	}
 	
 	{{range $index, $elem := $f.Setter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{else}} {{/* Handle */}}		
+		{{/* Go object */}}
+		
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+		
+		{{end}}{{/* end handling types */}}
 	}
 	
 	{{end}}{{/* End return values */}}
@@ -807,13 +975,13 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
-	fromGoToCDT(this.h, parameters, 0) // object
+	fromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -822,8 +990,8 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -833,9 +1001,42 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	}
 	
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{else}} {{/* Handle */}}		
+		{{/* Go object */}}
+		
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+
+		{{end}}{{/* end handling types */}}
 	}
 	
 	{{end}}{{/* End return values */}}
@@ -848,13 +1049,13 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parameters := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_values := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
-	fromGoToCDT(this.h, parameters, 0) // object
+	fromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
-	fromGoToCDT({{$elem.Name}}, parameters, {{$index}})
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
 	var out_err *C.char
@@ -863,8 +1064,8 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 
 	C.xllr_call(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
-			parameters, {{$paramsLength}},
-			return_values, {{$returnLength}},
+			parametersCDTS, {{$paramsLength}},
+			return_valuesCDTS, {{$returnLength}},
 			&out_err, &out_err_len)
 
 	// check errors
@@ -874,9 +1075,42 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	}
 	
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_values, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} = {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+		{{if $elem.IsAny}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		
+		{{else if not $elem.IsHandle}}
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{else}} {{/* Handle */}}		
+		{{/* Go object */}}
+		
+		{{if not $elem.IsArray}}
+		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
+			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+		} else {
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		}
+		{{else}}
+		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
+		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
+			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
+				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+				}
+			} else {
+				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
+					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+				}
+			}
+		}
+		{{else}}
+		{{$elem.Name}} = {{$elem.Name}}AsInterface
+		{{end}}
+		{{end}}
+
+		{{end}}{{/* end handling types */}}
 	}
 	
 	{{end}}{{/* End return values */}}

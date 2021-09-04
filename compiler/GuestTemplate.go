@@ -11,7 +11,7 @@ const GuestImportsTemplate = `
 import "fmt"
 import "unsafe"
 import "reflect"
-{{if IsMetaFFIGoRuntimeNeeded .Modules}}import . "github.com/MetaFFI/lang-plugin-go/go-runtime"{{end}}
+import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 {{range $mindex, $i := .Imports}}
 import . "{{$i}}"{{end}}
 

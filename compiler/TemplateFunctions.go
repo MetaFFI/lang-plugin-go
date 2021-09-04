@@ -28,7 +28,6 @@ var templatesFuncMap = map[string]interface{}{
 	"GetMetaFFIArrayType":        getMetaFFIArrayType,
 	"GetMetaFFIStringTypes":      getMetaFFIStringTypes,
 	"MakeMetaFFIType": makeMetaFFIType,
-	"IsMetaFFIGoRuntimeNeeded": isMetaFFIGoRuntimeNeeded,
 	"MethodNameNotExists": methodNameNotExists,
 }
 //--------------------------------------------------------------------
@@ -42,46 +41,23 @@ func methodNameNotExists(c *IDL.ClassDefinition, fieldName string, prefix string
 	return true
 }
 //--------------------------------------------------------------------
-func isMetaFFIGoRuntimeNeeded(defs []*IDL.ModuleDefinition) bool{
-
-	isHanleOrAny := func(f *IDL.ArgDefinition) bool{
-		return f.IsHandle() || f.IsAny()
-	}
-
-	for _, def := range defs {
-		for _, f := range def.Functions {
-			for _, p := range f.Parameters {
-				if isHanleOrAny(p) {
-					return true
-				}
-			}
-
-			for _, r := range f.ReturnValues {
-				if isHanleOrAny(r) {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-//--------------------------------------------------------------------
 func convertToGoType(def *IDL.ArgDefinition) string{
 
 	var res string
 
-	switch def.Type {
+	t := IDL.MetaFFIType(strings.ReplaceAll(string(def.Type), "_array", ""))
+
+	switch t {
 		case IDL.STRING8: fallthrough
 		case IDL.STRING16: fallthrough
 		case IDL.STRING32:
 			res = "string"
-		case IDL.ANY: return "interface{}"
+		case IDL.ANY: res = "interface{}"
 		case IDL.HANDLE:
-			if def.IsTypeAlias(){
-				return def.TypeAlias
+			if def.IsTypeAlias() {
+				res = def.TypeAlias
 			} else {
-				return "interface{}"
+				res = "interface{}"
 			}
 		default:
 			res = string(def.Type)

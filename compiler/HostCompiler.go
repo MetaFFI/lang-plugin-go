@@ -35,10 +35,18 @@ func NewHostCompiler(definition *IDL.IDLDefinition, outputDir string, outputFile
 //--------------------------------------------------------------------
 func (this *HostCompiler) Compile() (outputFileName string, err error){
 
+	this.def.ReplaceKeywords(map[string]string{
+		"type": strings.Title("type"),
+		"class": strings.Title("class"),
+		"func": strings.Title("func"),
+		"var": strings.Title("var"),
+		"const": strings.Title("const"),
+	})
+
 	// generate code
 	code, err := this.generateCode()
 	if err != nil{
-		return "", fmt.Errorf("Failed to generate guest code: %v", err)
+		return "", fmt.Errorf("Failed to generate host code: %v", err)
 	}
 
 	// write to output
