@@ -613,7 +613,7 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 }
 {{end}}{{/* End Getter */}}
 {{if $f.Setter}}
-func {{ToGoNameConv $f.Setter.Name}}() ({{ConvertToGoType $f.Setter.ArgDefinition}}, error){
+func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinition}}) (err error){
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
 	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
@@ -806,8 +806,7 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	{{range $index, $elem := $f.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
-		{{$elem.Name}} := {{if $elem.IsAny}}{{$elem.Name}}AsInterface{{else if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}{{if $elem.IsHandleTypeAlias}}{ h: {{$elem.Name}}AsInterface.(Handle) }{{else}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}})){{end}}
-		{{if eq $elem.Type "handle"}}inst.h = {{$elem.Name}}.(Handle){{end}}
+		inst.h = {{$elem.Name}}AsInterface.(Handle)
 	} else {
 		return nil, fmt.Errorf("Object creation returned nil")
 	}
@@ -864,7 +863,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 		// handle
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{ h: obj }{{else}}obj{{end}}			
 		} else {
 			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
 		}
