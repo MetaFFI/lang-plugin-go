@@ -1,11 +1,9 @@
 package metaffi
 
 /*
-#include <stdint.h>
-
 typedef void* metaffi_handle;
 
-metaffi_handle int_to_handle(uint64_t i)
+metaffi_handle int_to_handle(unsigned long long i)
 {
 	return (metaffi_handle)i;
 }
@@ -40,7 +38,7 @@ func SetObject(obj interface{}) Handle {
 		return Handle(h)
 	}
 	
-	handleID := C.int_to_handle(C.longlong(len(handlesToObjects) + 1))
+	handleID := C.int_to_handle(C.ulonglong(len(handlesToObjects) + 1))
 	
 	handlesToObjects[handleID] = obj
 	objectsToHandles[obj] = handleID
