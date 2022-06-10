@@ -36,6 +36,7 @@ int64_t functions_repository::load_function(const std::string& function_path)
 		throw std::runtime_error("Guest library is not defined");
 	}
 	
+	
 	auto it = this->modules.find(metaffi_guest_lib_name);
 	
 	std::shared_ptr<boost::dll::shared_library> metaffi_guest_lib;

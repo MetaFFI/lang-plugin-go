@@ -26,7 +26,7 @@ package main
 
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME"}}
+#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME" true}}
 
 
 #include <include/cdt_structs.h>
@@ -64,7 +64,7 @@ import "C"
 const GuestCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME"}}
+#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME" true}}
 
 #include <include/cdt_structs.h>
 #include <include/cdt_capi_loader.h>
@@ -85,7 +85,6 @@ func init(){
 	if err != nil{
 		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
 	}
-	
 	C.set_go_runtime_flag()
 }
 `
@@ -255,9 +254,9 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 		case []{{$numType}}:
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulong(len(input.([]{{$numType}})))
+			*out_input_dimensions_lengths = C.ulonglong(len(input.([]{{$numType}})))
 		
-			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
+			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulonglong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
 			for i, val := range input.([]{{$numType}}){
 				C.set_{{MakeMetaFFIType $numType}}_element(out_input, C.int(i), C.{{ MakeMetaFFIType $numType}}(val))
 			}
@@ -283,9 +282,9 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 		case []int:
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulong(len(input.([]int)))
+			*out_input_dimensions_lengths = C.ulonglong(len(input.([]int)))
 		
-			out_input := (*C.metaffi_int64)(C.malloc(C.ulong(len(input.([]int)))*C.sizeof_metaffi_int64))
+			out_input := (*C.metaffi_int64)(C.malloc(C.ulonglong(len(input.([]int)))*C.sizeof_metaffi_int64))
 			for i, val := range input.([]int){
 				C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 			}
@@ -308,7 +307,7 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			pcdt_out_bool_input.val = out_input
 
 		case string:
-			out_input_len := C.metaffi_size(C.ulong(len(input.(string))))
+			out_input_len := C.metaffi_size(C.ulonglong(len(input.(string))))
 			out_input := C.CString(input.(string))
 			out_input_cdt := C.get_cdt(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
@@ -338,8 +337,8 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			pcdt_out_bool_input.dimensions = out_input_dimensions
 
 		case []string:
-			out_input := (*C.metaffi_string8)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_string8))
-			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_size))
+			out_input := (*C.metaffi_string8)(C.malloc(C.ulonglong(len(input.([]string)))*C.sizeof_metaffi_string8))
+			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulonglong(len(input.([]string)))*C.sizeof_metaffi_size))
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
 			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))

@@ -10,7 +10,6 @@ const HostHeaderTemplate = `
 const HostPackageTemplate = `package {{.Package}}
 `
 
-
 const HostImportsTemplate = `
 import "fmt"
 import "unsafe"
@@ -21,7 +20,7 @@ import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 const HostCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME"}}
+#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME" true}}
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -101,6 +100,15 @@ func init(){
 	pruntime_plugin = C.CString(runtime_plugin)
 	runtime_plugin_length = C.uint32_t(len(runtime_plugin))
 
+	// load foreign runtime
+	var out_err *C.char
+    var out_err_len C.uint32_t
+    out_err_len = C.uint32_t(0)
+	C.xllr_load_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
+	if out_err_len != C.uint32_t(0){
+		panic(fmt.Errorf("Failed to load runtime %v: %v", runtime_plugin, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+	}
+
 	// load functions
 	loadFF := func(fpath string) C.int64_t{
 		ppath := C.CString(fpath)
@@ -112,7 +120,7 @@ func init(){
 		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), C.int64_t(-1), &out_err, &out_err_len))
 		
 		if id == -1{ // failed
-			panic(fmt.Errorf("Failed to load function %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+			panic(fmt.Errorf("Failed to load foreign entity entrypoint %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
 		}
 
 		return id
@@ -292,9 +300,9 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 		case []{{$numType}}:
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulong(len(input.([]{{$numType}})))
+			*out_input_dimensions_lengths = C.ulonglong(len(input.([]{{$numType}})))
 		
-			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
+			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulonglong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
 			for i, val := range input.([]{{$numType}}){
 				C.set_{{MakeMetaFFIType $numType}}_element(out_input, C.int(i), C.{{ MakeMetaFFIType $numType}}(val))
 			}
@@ -320,9 +328,9 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 		case []int:
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulong(len(input.([]int)))
+			*out_input_dimensions_lengths = C.ulonglong(len(input.([]int)))
 		
-			out_input := (*C.metaffi_int64)(C.malloc(C.ulong(len(input.([]int)))*C.sizeof_metaffi_int64))
+			out_input := (*C.metaffi_int64)(C.malloc(C.ulonglong(len(input.([]int)))*C.sizeof_metaffi_int64))
 			for i, val := range input.([]int){
 				C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 			}
@@ -345,7 +353,7 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			pcdt_out_bool_input.val = out_input
 
 		case string:
-			out_input_len := C.metaffi_size(C.ulong(len(input.(string))))
+			out_input_len := C.metaffi_size(C.ulonglong(len(input.(string))))
 			out_input := C.CString(input.(string))
 			out_input_cdt := C.get_cdt(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
@@ -375,8 +383,8 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			pcdt_out_bool_input.dimensions = out_input_dimensions
 
 		case []string:
-			out_input := (*C.metaffi_string8)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_string8))
-			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_size))
+			out_input := (*C.metaffi_string8)(C.malloc(C.ulonglong(len(input.([]string)))*C.sizeof_metaffi_string8))
+			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulonglong(len(input.([]string)))*C.sizeof_metaffi_size))
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
 			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))
@@ -542,8 +550,8 @@ const HostFunctionStubsTemplate = `
 func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinition}}, err error){
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Getter.Parameters}}
@@ -554,7 +562,7 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$f.Getter.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -616,8 +624,8 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinition}}) (err error){
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Setter.Parameters}}
@@ -628,7 +636,7 @@ func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinit
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$f.Setter.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -699,8 +707,8 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
@@ -711,7 +719,7 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$f.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -777,8 +785,8 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
@@ -789,7 +797,7 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -823,8 +831,8 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// get parameters
 	fromGoToCDT(this.h, parametersCDTS, 0)
@@ -836,7 +844,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Getter.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -899,8 +907,8 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
@@ -912,7 +920,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Setter.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -974,8 +982,8 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
@@ -987,7 +995,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -1048,8 +1056,8 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.alloc_cdts_buffer( {{$returnLength}} )
+	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
+	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
 	
 	// parameters
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
@@ -1061,7 +1069,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_call(pruntime_plugin, runtime_plugin_length,
+	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
 			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
 			parametersCDTS, {{$paramsLength}},
 			return_valuesCDTS, {{$returnLength}},
@@ -1121,4 +1129,3 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 {{end}}{{/* End modules */}}
 
 `
-

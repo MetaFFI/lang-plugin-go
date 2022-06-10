@@ -123,8 +123,12 @@ func Sizeof(field *IDL.ArgDefinition) string{
 	return fmt.Sprintf("C.sizeof_metaffi_%v", field.Type)
 }
 //--------------------------------------------------------------------
-func getEnvVar(env string) string{
-	return os.Getenv(env)
+func getEnvVar(env string, is_path bool) string{
+	res := os.Getenv(env)
+	if is_path{
+		res = strings.ReplaceAll(res, "\\", "/")
+	}
+	return res
 }
 //--------------------------------------------------------------------
 func paramActual(field *IDL.ArgDefinition, direction string, namePrefix string) string{

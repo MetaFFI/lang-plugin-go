@@ -20,6 +20,12 @@ SET_TARGET_PROPERTIES(${target_name} PROPERTIES PREFIX "")
 
 target_link_libraries(${target_name} Boost::filesystem)
 
+if(WIN32)
+	target_link_directories(${target_name} PUBLIC ${BOOST_LIBRARYDIR})
+else()
+	target_link_libraries(${target_name} ${Boost_LIBRARIES})
+endif()
+
 # Copy to metaffi directory
 add_custom_command(TARGET ${target_name} POST_BUILD
 		COMMAND "${CMAKE_COMMAND}" -E copy
