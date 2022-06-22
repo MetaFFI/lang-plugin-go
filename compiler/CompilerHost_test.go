@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"os"
-	"os/exec"
 	"testing"
 )
 
@@ -65,22 +64,32 @@ func TestHostCompiler(t *testing.T){
 }`
 
 //--------------------------------------------------------------------
-func TestHost(t *testing.T) {
-
-	def, err := IDL.NewIDLDefinitionFromJSON(idl_host)
-	if err != nil {
-		t.Fatal(err)
+func TestPyExtractorHost(t *testing.T) {
+	
+	const pathIDLPlugin = "../../idl-plugin-py/"
+	
+	_, err := os.Stat(pathIDLPlugin)
+	if os.IsNotExist(err) {
+		t.Skip("Python IDL plugin is required in the path " + pathIDLPlugin)
 		return
 	}
-
-	_ = os.RemoveAll("temp")
-
+	
+	idlPyExtractor, err := os.ReadFile(pathIDLPlugin + "py_extractor.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	
+	def, err := IDL.NewIDLDefinitionFromJSON(string(idlPyExtractor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	
 	err = os.Mkdir("temp", 0700)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
+	
 	defer func() {
 		err = os.RemoveAll("temp")
 		if err != nil {
@@ -88,28 +97,13 @@ func TestHost(t *testing.T) {
 			return
 		}
 	}()
-
-	cmp := NewCompiler(def, "./temp", "", "")
+	
+	cmp := NewCompiler(def, "temp", "", "")
 	_, err = cmp.CompileHost(nil)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
-	err = os.WriteFile("./temp/CompilerTestCode_test.go", []byte(compilerTestCode), 0700)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
-	buildCmd := exec.Command("go", "test", "-v")
-	buildCmd.Dir = "./temp"
-	output, err := buildCmd.CombinedOutput()
-	if err != nil {
-		println(string(output))
-		t.Fatalf("Failed building Go Host test code with error: %v.\nOutput:\n%v", err, string(output))
-	}
-
 }
 
 //--------------------------------------------------------------------
