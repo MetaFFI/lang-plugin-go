@@ -12,7 +12,7 @@ add_custom_target(${target_name} ALL)
 
 add_custom_command(TARGET ${target_name}
 		WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-		COMMAND ${GOEXEC} build -buildmode=c-shared -gcflags=-shared -o ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}
+		COMMAND ${GOEXEC} get -v && ${GOEXEC} build -buildmode=c-shared -gcflags=-shared -o ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}
 		COMMENT "Building ${target_name} compiler plugin")
 
 

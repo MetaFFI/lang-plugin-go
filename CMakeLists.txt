@@ -20,5 +20,5 @@ endif()
 include(CTest)
 enable_testing()
 
-include(compiler/CMakeLists.txt)
-include(runtime/CMakeLists.txt)
+include(${CMAKE_CURRENT_LIST_DIR}/compiler/CMakeLists.txt)
+include(${CMAKE_CURRENT_LIST_DIR}/runtime/CMakeLists.txt)
