@@ -53,6 +53,15 @@ metaffi_type get_cdt_type(struct cdt* p)
 {
 	return p->type;
 }
+
+#ifdef _WIN32
+metaffi_size len_to_metaffi_size(long long i)
+#else
+metaffi_size len_to_metaffi_size(long long i)
+#endif
+{
+	return (metaffi_size)i;
+}
 */
 import "C"
 `
