@@ -2,6 +2,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utils/foreign_function.h>
+#include <sstream>
 
 //--------------------------------------------------------------------
 class functions_repository
@@ -11,7 +12,10 @@ private: // variable
 
 private: // methods
 	std::unordered_map<std::string, std::shared_ptr<boost::dll::shared_library>> modules;
-	std::vector<std::shared_ptr<foreign_function_entrypoint>> functions;
+	std::vector<std::shared_ptr<foreign_function_params_ret_entrypoint>> functions_params_ret;
+	std::vector<std::shared_ptr<foreign_function_params_no_ret_entrypoint>> functions_params_no_ret;
+	std::vector<std::shared_ptr<foreign_function_no_params_ret_entrypoint>> functions_no_params_ret;
+	std::vector<std::shared_ptr<foreign_function_no_params_no_ret_entrypoint>> functions_no_params_no_ret;
 	
 public: // static functions
 	static functions_repository& get_instance();
@@ -21,7 +25,11 @@ public: // methods
 	functions_repository() = default;
 	~functions_repository() = default;
 	
-	int64_t load_function(const std::string& function_path);
-	std::shared_ptr<foreign_function_entrypoint> get_function(int64_t function_id);
+	int64_t load_function(const std::string& function_path, int params_count, int retval_count);
+	
+	std::shared_ptr<foreign_function_params_ret_entrypoint> get_function_params_ret(int64_t function_id);
+	std::shared_ptr<foreign_function_params_no_ret_entrypoint> get_function_params_no_ret(int64_t function_id);
+	std::shared_ptr<foreign_function_no_params_ret_entrypoint> get_function_no_params_ret(int64_t function_id);
+	std::shared_ptr<foreign_function_no_params_no_ret_entrypoint> get_function_no_params_no_ret(int64_t function_id);
 };
 //--------------------------------------------------------------------

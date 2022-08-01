@@ -146,8 +146,8 @@ func init(){
 
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}"){{end}}
-	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}"){{end}}
+	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End globals */}}
 	
 	{{range $findex, $f := $m.Functions}}
@@ -156,22 +156,22 @@ func init(){
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}"){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}"){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Constructor */}}
 	{{if $c.Releaser}}
-	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}")
+	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
 	{{end}}{{/* End Releaser */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}
 }
-
+{{/* TODO: Make function for each type */}}
 func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 	
 	var res interface{}
@@ -296,7 +296,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 
 	return res
 }
-
+{{/* TODO: Make function for each type */}}
 func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 
 	index := C.int(i)
@@ -610,14 +610,14 @@ func init(){
 	}
 
 	// load functions
-	loadFF := func(fpath string) C.int64_t{
+	loadFF := func(fpath string, params_count int, retval_count int) C.int64_t{
 		ppath := C.CString(fpath)
 		defer C.free(unsafe.Pointer(ppath))
 	
 		var out_err *C.char
 		var out_err_len C.uint32_t
 		out_err_len = C.uint32_t(0)
-		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), C.int64_t(-1), &out_err, &out_err_len))
+		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), C.int64_t(-1), C.schar(params_count), C.schar(params_count), &out_err, &out_err_len))
 		
 		if id == -1{ // failed
 			panic(fmt.Errorf("Failed to load foreign entity entrypoint %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
@@ -628,27 +628,27 @@ func init(){
 
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}"){{end}}
-	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}"){{end}}
+	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}} ){{end}}
+	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}} ){{end}}
 	{{end}}{{/* End globals */}}
 	
 	{{range $findex, $f := $m.Functions}}
-	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Functions */}}
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}"){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}"){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Constructor */}}
 	{{if $c.Releaser}}
-	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}")
+	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
 	{{end}}{{/* End Releaser */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}
@@ -1049,30 +1049,14 @@ const HostFunctionStubsTemplate = `
 */{{end}}
 func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinition}}, err error){
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
+	{{GenerateCodeAllocateCDTS $f.Getter.Parameters $f.Getter.ReturnValues}}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
-	
 	// parameters
 	{{range $index, $elem := $f.Getter.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	fromGoToCDT({{$elem.Name}}, xcall_params, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$f.Getter.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall "" $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1124,29 +1108,14 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinition}}) (err error){
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	// parameters
 	{{range $index, $elem := $f.Setter.Parameters}}
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$f.Setter.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall "" $f.Getter.Name $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Setter.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1207,29 +1176,14 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$f.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall "" $f.Name $f.Parameters $f.ReturnValues}}
 	
 	{{range $index, $elem := $f.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1282,32 +1236,16 @@ type {{$c.Name}} struct{
 }
 {{range $findex, $f := $c.Constructors}}
 func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) (instance *{{$c.Name}}, err error){
-	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall $c.Name $f.Name $f.Parameters $f.ReturnValues}}
 	
 	inst := &{{$c.Name}}{}
 
@@ -1331,8 +1269,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
 	// get parameters
 	fromGoToCDT(this.h, parametersCDTS, 0)
@@ -1340,21 +1277,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 	fromGoToCDT(this.h, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_{{$f.Getter.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall $c.Name $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1407,8 +1330,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	// parameters
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
@@ -1416,21 +1338,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_{{$f.Setter.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall $c.Name $f.Setter.Name $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Setter.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1482,8 +1390,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
 	
 	// parameters
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
@@ -1491,21 +1398,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall $c.Name $f.Name $f.Parameters $f.ReturnValues}}
 	
 	{{range $index, $elem := $f.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1556,8 +1449,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
-	parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-	return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
 	
 	// parameters
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
@@ -1565,21 +1457,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
-	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
-
-	C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-			C.int64_t({{$c.Name}}_{{$f.Name}}_id),
-			parametersCDTS, {{$paramsLength}},
-			return_valuesCDTS, {{$returnLength}},
-			&out_err, &out_err_len)
-
-	// check errors
-	if out_err_len != 0{
-		err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
-		return
-	}
+	{{GenerateCodeXCall $c.Name $f.Name $f.Parameters $f.ReturnValues}}
 	
 	{{range $index, $elem := $f.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})

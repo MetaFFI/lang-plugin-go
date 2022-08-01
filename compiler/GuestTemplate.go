@@ -11,6 +11,7 @@ const GuestImportsTemplate = `
 import "fmt"
 import "unsafe"
 import "reflect"
+import "github.com/pkg/profile"
 import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 {{range $mindex, $i := .Imports}}
 import . "{{$i}}"{{end}}
@@ -32,24 +33,34 @@ package main
 #include <include/cdt_structs.h>
 #include <include/cdt_capi_loader.c>
 
+{{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
 metaffi_size get_int_item(metaffi_size* array, int index)
 {
 	return array[index];
 }
 
+{{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
 void* convert_union_to_ptr(void* p)
 {
 	return p;
 }
 
+{{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
 void set_cdt_type(struct cdt* p, metaffi_type t)
 {
 	p->type = t;
 }
 
+{{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
 metaffi_type get_cdt_type(struct cdt* p)
 {
 	return p->type;
+}
+
+{{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
+struct cdt* get_cdt_element(struct cdts* pdata, int cdts_index)
+{
+	return pdata[cdts_index].pcdt;
 }
 
 void set_go_runtime_flag()
@@ -83,6 +94,7 @@ void* convert_union_to_ptr(void* p);
 void set_cdt_type(struct cdt* p, metaffi_type t);
 metaffi_type get_cdt_type(struct cdt* p);
 void set_go_runtime_flag();
+struct cdt* get_cdt_element(struct cdts* pdata, int cdts_index);
 
 #ifdef _WIN32
 	metaffi_size len_to_metaffi_size(long long i);
@@ -126,9 +138,11 @@ func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
 		*out_err_len = C.uint64_t(len(msg))
 	}
 }
+{{/* TODO: Make function for each type */}}
+func fromCDTToGo(pdata *C.struct_cdts, cdtsIndex int, i int) interface{}{
 
-func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
-	
+    data := C.get_cdt_element(pdata, C.int(cdtsIndex))
+
 	var res interface{}
 	index := C.int(i)
 	in_res_cdt := C.get_cdt(data, index)
@@ -137,7 +151,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 
 		case {{GetMetaFFIType "handle"}}: // handle
 			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.metaffi_handle = pcdt_in_handle_res.val			
+			var in_res C.metaffi_handle = pcdt_in_handle_res.val
 
 			res = GetObject(Handle(in_res))
 			if res == nil{ // handle belongs to another language 
@@ -247,8 +261,10 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 
 	return res
 }
+{{/* TODO: Make function for each type */}}
+func fromGoToCDT(input interface{}, pdata *C.struct_cdts, cdtsIndex int, i int){
 
-func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
+	data := C.get_cdt_element(pdata, C.int(cdtsIndex))
 
 	index := C.int(i)
 	switch input.(type) {
@@ -387,107 +403,107 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			inputVal := reflect.ValueOf(input)
 			inputType := reflect.TypeOf(input)
 			switch inputType.Kind(){
-				case reflect.Bool: fromGoToCDT(bool(inputVal.Bool()), data, i); return
+				case reflect.Bool: fromGoToCDT(bool(inputVal.Bool()), pdata, cdtsIndex, i); return
 
-				case reflect.Float32: fromGoToCDT(float32(inputVal.Float()), data, i); return
-				case reflect.Float64: fromGoToCDT(float64(inputVal.Float()), data, i); return
+				case reflect.Float32: fromGoToCDT(float32(inputVal.Float()), pdata, cdtsIndex, i); return
+				case reflect.Float64: fromGoToCDT(float64(inputVal.Float()), pdata, cdtsIndex, i); return
 				
-				case reflect.Int8: fromGoToCDT(int8(inputVal.Int()), data, i); return
-				case reflect.Int16: fromGoToCDT(int16(inputVal.Int()), data, i); return
-				case reflect.Int32: fromGoToCDT(int32(inputVal.Int()), data, i); return
+				case reflect.Int8: fromGoToCDT(int8(inputVal.Int()), pdata, cdtsIndex, i); return
+				case reflect.Int16: fromGoToCDT(int16(inputVal.Int()), pdata, cdtsIndex, i); return
+				case reflect.Int32: fromGoToCDT(int32(inputVal.Int()), pdata, cdtsIndex, i); return
 				case reflect.Int: fallthrough
-				case reflect.Int64: fromGoToCDT(int64(inputVal.Int()), data, i); return
+				case reflect.Int64: fromGoToCDT(int64(inputVal.Int()), pdata, cdtsIndex, i); return
 
-				case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i); return
-				case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i); return
-				case reflect.Uint32: fromGoToCDT(uint32(inputVal.Uint()), data, i); return
+				case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), pdata, cdtsIndex, i); return
+				case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), pdata, cdtsIndex, i); return
+				case reflect.Uint32: fromGoToCDT(uint32(inputVal.Uint()), pdata, cdtsIndex, i); return
 				case reflect.Uint: fallthrough
-				case reflect.Uint64: fromGoToCDT(uint64(inputVal.Uint()), data, i); return
+				case reflect.Uint64: fromGoToCDT(uint64(inputVal.Uint()), pdata, cdtsIndex, i); return
 
-				case reflect.Uintptr: fromGoToCDT(uint64(inputVal.UnsafeAddr()), data, i); return
+				case reflect.Uintptr: fromGoToCDT(uint64(inputVal.UnsafeAddr()), pdata, cdtsIndex, i); return
 
-				case reflect.String: fromGoToCDT(string(inputVal.String()), data, i); return
+				case reflect.String: fromGoToCDT(string(inputVal.String()), pdata, cdtsIndex, i); return
 
 				case reflect.Slice:
 					switch inputType.Elem().Kind(){
 						case reflect.Float32:
 							dstSlice := make([]float32, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float32(inputVal.Index(i).Float()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
 						case reflect.Float64:
 							dstSlice := make([]float64, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float64(inputVal.Index(i).Float()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
 						case reflect.Bool:
 							dstSlice := make([]bool, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = inputVal.Index(i).Bool() }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 				
 						case reflect.Int8:
 							dstSlice := make([]int8, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int8(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 							
 						case reflect.Int16:
 							dstSlice := make([]int16, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int16(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
 						case reflect.Int32:
 							dstSlice := make([]int32, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int32(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
 						case reflect.Int: fallthrough
 						case reflect.Int64:
 							dstSlice := make([]int64, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int64(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 		
-						case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i)
+						case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), pdata, cdtsIndex, i)
 							dstSlice := make([]uint8, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint8(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
-						case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i)
+						case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), pdata, cdtsIndex, i)
 							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
 						case reflect.Uint32:
 							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 
 						case reflect.Uint: fallthrough
 						case reflect.Uint64:
 							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 		
 						case reflect.Uintptr: 
 							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).UnsafeAddr()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 		
 						case reflect.String:
 							dstSlice := make([]string, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = string(inputVal.Index(i).String()) }
-							fromGoToCDT(dstSlice, data, i)
+							fromGoToCDT(dstSlice, pdata, cdtsIndex, i)
 							return
 					}
 
@@ -515,24 +531,24 @@ const (
 {{if $f.Getter}}
 // getter for {{$f.Name}}
 //export EntryPoint_{{$f.Getter.Name}} 
-func EntryPoint_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}{
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
-	
-	fromGoToCDT({{$f.Name}}, return_values, 0)
+
+	fromGoToCDT({{$f.Name}}, xcall_params, {{GetCDTReturnValueIndex $f.Getter.Parameters $f.Getter.ReturnValues}}, 0)
 }
 {{end}} {{/* end $f.Get */}}
 
 {{if $f.Setter}}
 // setter for {{$f.Name}}
 //export EntryPoint_{{$f.Setter.Name}}
-func EntryPoint_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Setter.Name $f.Setter.Parameters $f.Setter.ReturnValues}}{
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
-	{{$f.Name}} = fromCDTToGo(parameters, 0){{if not $f.IsAny}}.({{ConvertToGoType $f.ArgDefinition}}){{end}}
+	{{$f.Name}} = fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 0){{if not $f.IsAny}}.({{ConvertToGoType $f.ArgDefinition}}){{end}}
 {{end}} {{/* end $f.Set */}}
 
 {{end}} {{/* end range globals */}}
@@ -542,8 +558,7 @@ func EntryPoint_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C
 {{range $findex, $f := $m.Functions}}
 // Call to foreign {{$f.Name}}
 //export EntryPoint_{{$f.Name}}
-func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
-	
+func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.ReturnValues}}{
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
@@ -551,7 +566,7 @@ func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64
 	
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
-	{{$elem.Name}}AsInterface := fromCDTToGo(parameters, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
 	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 	{{end}} {{/* end range params */}}
 	
@@ -564,7 +579,7 @@ func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64
 		errToOutError(out_err, out_err_len, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
-		fromGoToCDT({{$elem.Name}}, return_values, {{$index}})		
+		fromGoToCDT({{$elem.Name}}, xcall_params, {{GetCDTReturnValueIndex $f.Parameters $f.ReturnValues}}, {{$index}})
 	}	
 	{{end}} {{/* end range return vals */}}
 }
@@ -579,8 +594,8 @@ func EntryPoint_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64
 {{range $i, $f := $c.Constructors}}
 // Call to foreign {{$f.Name}}
 //export EntryPoint_{{$c.Name}}_{{$f.Name}}
-func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
-	
+func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters $f.ReturnValues}}{
+	println("EntryPoint_{{$c.Name}}_{{$f.Name}}")
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
@@ -588,7 +603,7 @@ func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_len
 	
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
-	{{$elem.Name}}AsInterface := fromCDTToGo(parameters, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
 	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 	{{end}} {{/* end range params */}}
 	
@@ -598,10 +613,12 @@ func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_len
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
+		println("EntryPoint_{{$c.Name}}_{{$f.Name}} - returning an error")
 		errToOutError(out_err, out_err_len, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
-		fromGoToCDT({{$elem.Name}}, return_values, {{$index}})		
+		println("EntryPoint_{{$c.Name}}_{{$f.Name}} - converting")
+		fromGoToCDT({{$elem.Name}}, xcall_params, {{GetCDTReturnValueIndex $f.Parameters $f.ReturnValues}}, {{$index}})
 	}	
 	{{end}} {{/* end range return vals */}}
 }
@@ -609,9 +626,9 @@ func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_len
 
 {{if $c.Releaser}}// releaser
 //export EntryPoint_{{$c.Name}}_{{$c.Releaser.Name}}
-func EntryPoint_{{$c.Name}}_{{$c.Releaser.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $c.Releaser.Name $c.Releaser.Parameters $c.Releaser.ReturnValues}}{
 
-	in_handle_cdt := C.get_cdt(parameters, 0)
+	in_handle_cdt := C.get_cdt(C.get_cdt_element(xcall_params, C.int({{GetCDTParametersIndex $c.Releaser.Parameters}})), 0)
 
 	// first parameter is expected to be the handle
 	pcdt_in_handle := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_handle_cdt.cdt_val))))
@@ -629,8 +646,7 @@ func EntryPoint_{{$c.Name}}_{{$c.Releaser.Name}}(parameters *C.struct_cdt, param
 {{range $i, $f := $c.Methods}}
 // Call to foreign {{$f.Name}}
 //export EntryPoint_{{$c.Name}}_{{$f.Name}}
-func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
-	
+func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters $f.ReturnValues}}{
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
@@ -638,7 +654,7 @@ func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_len
 	
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
-	{{$elem.Name}}AsInterface := fromCDTToGo(parameters, {{$index}})
+	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
 	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 	{{end}} {{/* end range params */}}
 	
@@ -652,7 +668,7 @@ func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_len
 		errToOutError(out_err, out_err_len, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
-		fromGoToCDT({{$elem.Name}}, return_values, {{$index}})		
+		fromGoToCDT({{$elem.Name}}, xcall_params, {{GetCDTReturnValueIndex $f.Parameters $f.ReturnValues}}, {{$index}})
 	}	
 	{{end}} {{/* end range return values */}}
 }
@@ -663,39 +679,39 @@ func EntryPoint_{{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_len
 {{if $f.Getter}}
 // getter for {{$f.Name}}
 //export EntryPoint_{{$c.Name}}_{{$f.Getter.Name}}
-func EntryPoint_{{$c.Name}}_{{$f.Getter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}{
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
 	// get object
 	{{ $elem := index $f.Setter.Parameters 0 }}
-	objAsInterface := fromCDTToGo(parameters, 0)
+	objAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Getter.Parameters}}, 0)
 	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
 	{{ $receiver_pointer := index $f.Getter.Tags "receiver_pointer"}}
 	{{$f.Name}}_res := obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}}
 	
-	fromGoToCDT({{$f.Name}}_res, return_values, 0)
+	fromGoToCDT({{$f.Name}}_res, xcall_params, {{GetCDTReturnValueIndex $f.Getter.Parameters $f.Getter.ReturnValues}}, 0)
 }
 {{end}} {{/* end $f.Getter */}}
 
 {{if $f.Setter}}
 // setter for {{$f.Name}}
 //export EntryPoint_{{$c.Name}}_{{$f.Setter.Name}}
-func EntryPoint_{{$c.Name}}_{{$f.Setter.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t){
+func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Setter.Name $f.Setter.Parameters $f.Setter.ReturnValues}}{
 
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
 	// get object
 	{{ $elem := index $f.Setter.Parameters 0 }}
-	objAsInterface := fromCDTToGo(parameters, 0)
+	objAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 0)
 	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
 	// get val
 	{{ $elem = index $f.Setter.Parameters 1 }}
-	valAsInterface := fromCDTToGo(parameters, 1)
+	valAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 1)
 	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
 
 	// get new data
@@ -711,5 +727,18 @@ func EntryPoint_{{$c.Name}}_{{$f.Setter.Name}}(parameters *C.struct_cdt, paramet
 {{end}} {{/* end range classes */}}
 
 {{end}} {{/* end range modules */}}
+
+var p *profile.Profile
+
+//export StartProfiler
+func StartProfiler(){
+	p = profile.Start(profile.ProfilePath(".")).(*profile.Profile)
+}
+
+//export EndProfiler
+func EndProfiler(){
+	p.Stop()
+}
+
 `
 )

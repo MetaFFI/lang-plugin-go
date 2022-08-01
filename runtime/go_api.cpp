@@ -35,6 +35,7 @@ catch(std::exception& exc) \
 
 boost::mutex runtime_flags_lock;
 
+
 //--------------------------------------------------------------------
 void load_runtime(char** err, uint32_t* err_len)
 {
@@ -57,14 +58,14 @@ void load_runtime(char** err, uint32_t* err_len)
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-int64_t load_function(const char* function_path, uint32_t function_path_len, char** err, uint32_t* err_len)
+int64_t load_function(const char* function_path, uint32_t function_path_len, int8_t params_count, int8_t retval_count, char** err, uint32_t* err_len)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
 	 */
 	try
 	{
-		return functions_repository::get_instance().load_function(std::string(function_path, function_path_len));
+		return functions_repository::get_instance().load_function(std::string(function_path, function_path_len), params_count, retval_count);
 	}
 	catch(std::exception& exc)
 	{
@@ -81,22 +82,56 @@ void free_function(int64_t function_id, char** /*err*/, uint32_t* /*err_len*/)
 	 */
 }
 //--------------------------------------------------------------------
-void xcall(
-	int64_t function_id,
-	cdt* parameters, uint64_t parameters_len,
-	cdt* return_values, uint64_t return_values_len,
-	char** out_err, uint64_t* out_err_len
+void xcall_params_ret(
+		int64_t function_id,
+		cdts params_ret[2],
+		char** out_err, uint64_t* out_err_len
 )
 {
 	try
 	{
-		// get module
-		std::shared_ptr<foreign_function_entrypoint> func = functions_repository::get_instance().get_function(function_id);
-		
 		// call function
-		(*func)(parameters, parameters_len,
-		        return_values, return_values_len,
-		        out_err, out_err_len);
+		(*(ppforeign_function_entrypoint_signature_params_ret)function_id)(params_ret, out_err, out_err_len);
+	}
+	catch_err((char**)out_err, out_err_len, exc.what());
+}
+//--------------------------------------------------------------------
+void xcall_params_no_ret(
+		int64_t function_id,
+		cdts parameters[1],
+		char** out_err, uint64_t* out_err_len
+)
+{
+	try
+	{
+		// get function
+		(*(ppforeign_function_entrypoint_signature_params_no_ret)function_id)(parameters, out_err, out_err_len);
+	}
+	catch_err((char**)out_err, out_err_len, exc.what());
+}
+//--------------------------------------------------------------------
+void xcall_no_params_ret(
+		int64_t function_id,
+		cdts return_values[1],
+		char** out_err, uint64_t* out_err_len
+)
+{
+	try
+	{
+		// get function
+		(*(ppforeign_function_entrypoint_signature_no_params_ret)function_id)(return_values, out_err, out_err_len);
+	}
+	catch_err((char**)out_err, out_err_len, exc.what());
+}
+//--------------------------------------------------------------------
+void xcall_no_params_no_ret(
+		int64_t function_id,
+		char** out_err, uint64_t* out_err_len
+)
+{
+	try
+	{
+		(*(ppforeign_function_entrypoint_signature_no_params_no_ret)(void*)function_id)(out_err, out_err_len);
 	}
 	catch_err((char**)out_err, out_err_len, exc.what());
 }
