@@ -25,11 +25,7 @@ public: // methods
 	functions_repository() = default;
 	~functions_repository() = default;
 	
-	int64_t load_function(const std::string& function_path, int params_count, int retval_count);
+	void* load_function(const std::string& function_path, int params_count, int retval_count);
 	
-	std::shared_ptr<foreign_function_params_ret_entrypoint> get_function_params_ret(int64_t function_id);
-	std::shared_ptr<foreign_function_params_no_ret_entrypoint> get_function_params_no_ret(int64_t function_id);
-	std::shared_ptr<foreign_function_no_params_ret_entrypoint> get_function_no_params_ret(int64_t function_id);
-	std::shared_ptr<foreign_function_no_params_no_ret_entrypoint> get_function_no_params_no_ret(int64_t function_id);
 };
 //--------------------------------------------------------------------

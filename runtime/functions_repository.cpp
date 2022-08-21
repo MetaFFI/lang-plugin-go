@@ -26,7 +26,7 @@ void functions_repository::free_instance()
 	functions_repository::instance = nullptr;
 }
 //--------------------------------------------------------------------
-int64_t functions_repository::load_function(const std::string& function_path, int params_count, int retval_count)
+void* functions_repository::load_function(const std::string& function_path, int params_count, int retval_count)
 {
 	metaffi::utils::function_path_parser fp(function_path);
 	
@@ -56,77 +56,26 @@ int64_t functions_repository::load_function(const std::string& function_path, in
 	{
 		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_params_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
 		this->functions_params_ret.push_back(foreign_function);
-		return (int64_t)foreign_function.get();
+		return (void*)(pforeign_function_entrypoint_signature_params_ret)(*((ppforeign_function_entrypoint_signature_params_ret)foreign_function.get()));
 	}
 	else if(params_count > 0)
 	{
 		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_params_no_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
 		this->functions_params_no_ret.push_back(foreign_function);
-		return (int64_t)foreign_function.get();
+		return (void*)(pforeign_function_entrypoint_signature_params_no_ret)(*((ppforeign_function_entrypoint_signature_params_no_ret)foreign_function.get()));
 	}
 	else if(retval_count > 0)
 	{
 		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_no_params_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
 		this->functions_no_params_ret.push_back(foreign_function);
-		return (int64_t)foreign_function.get();
+		return (void*)(pforeign_function_entrypoint_signature_no_params_ret)(*((ppforeign_function_entrypoint_signature_no_params_ret)foreign_function.get()));
 	}
 	else
 	{
 		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_no_params_no_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
 		this->functions_no_params_no_ret.push_back(foreign_function);
-		return (int64_t)foreign_function.get();
+		return (void*)(pforeign_function_entrypoint_signature_no_params_no_ret)(*((ppforeign_function_entrypoint_signature_no_params_no_ret)foreign_function.get()));
 	}
 }
 //--------------------------------------------------------------------
-std::shared_ptr<foreign_function_params_ret_entrypoint> functions_repository::get_function_params_ret(int64_t function_id)
-{
-#ifdef _DEBUG
-	if(function_id < 0 || function_id > this->functions_params_ret.size()-1)
-	{
-		std::stringstream ss;
-		ss << "invalid function id " << function_id;
-		throw std::runtime_error(ss.str().c_str());
-	}
-#endif
-	return this->functions_params_ret[function_id];
-}
-//--------------------------------------------------------------------
-std::shared_ptr<foreign_function_params_no_ret_entrypoint> functions_repository::get_function_params_no_ret(int64_t function_id)
-{
-#ifdef _DEBUG
-	if(function_id < 0 || function_id > this->functions_params_ret.size()-1)
-	{
-		std::stringstream ss;
-		ss << "invalid function id " << function_id;
-		throw std::runtime_error(ss.str().c_str());
-	}
-#endif
-	return this->functions_params_no_ret[function_id];
-}
-//--------------------------------------------------------------------
-std::shared_ptr<foreign_function_no_params_ret_entrypoint> functions_repository::get_function_no_params_ret(int64_t function_id)
-{
-#ifdef _DEBUG
-	if(function_id < 0 || function_id > this->functions_params_ret.size()-1)
-	{
-		std::stringstream ss;
-		ss << "invalid function id " << function_id;
-		throw std::runtime_error(ss.str().c_str());
-	}
-#endif
-	return this->functions_no_params_ret[function_id];
-}
-//--------------------------------------------------------------------
-std::shared_ptr<foreign_function_no_params_no_ret_entrypoint> functions_repository::get_function_no_params_no_ret(int64_t function_id)
-{
-#ifdef _DEBUG
-	if(function_id < 0 || function_id > this->functions_params_ret.size()-1)
-	{
-		std::stringstream ss;
-		ss << "invalid function id " << function_id;
-		throw std::runtime_error(ss.str().c_str());
-	}
-#endif
-	return this->functions_no_params_no_ret[function_id];
-}
-//--------------------------------------------------------------------
+

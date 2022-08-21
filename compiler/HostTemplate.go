@@ -54,6 +54,7 @@ metaffi_type get_cdt_type(struct cdt* p)
 	return p->type;
 }
 
+
 #ifdef _WIN32
 metaffi_size len_to_metaffi_size(long long i)
 #else
@@ -82,27 +83,27 @@ var runtime_plugin_length C.uint32_t
 {{range $mindex, $m := .Modules}}
 
 {{range $findex, $f := $m.Globals}}
-{{if $f.Getter}}var {{$f.Getter.Name}}_id C.int64_t = -1{{end}}
-{{if $f.Setter}}var {{$f.Setter.Name}}_id C.int64_t = -1{{end}}
+{{if $f.Getter}}var {{$f.Getter.Name}}_id unsafe.Pointer{{end}}
+{{if $f.Setter}}var {{$f.Setter.Name}}_id unsafe.Pointer{{end}}
 {{end}}{{/* End globals */}}
 
 {{range $findex, $f := $m.Functions}}
-var {{$f.Name}}_id C.int64_t = -1
+var {{$f.Name}}_id unsafe.Pointer
 {{end}}{{/* End Functions */}}
 
 {{range $cindex, $c := $m.Classes}}
 {{range $findex, $f := $c.Fields}}
-{{if $f.Getter}}var {{$c.Name}}_{{$f.Getter.Name}}_id C.int64_t = -1{{end}}
-{{if $f.Setter}}var {{$c.Name}}_{{$f.Setter.Name}}_id C.int64_t = -1{{end}}
+{{if $f.Getter}}var {{$c.Name}}_{{$f.Getter.Name}}_id unsafe.Pointer{{end}}
+{{if $f.Setter}}var {{$c.Name}}_{{$f.Setter.Name}}_id unsafe.Pointer{{end}}
 {{end}}{{/* End Fields */}}
 {{range $findex, $f := $c.Methods}}
-var {{$c.Name}}_{{$f.Name}}_id C.int64_t = -1
+var {{$c.Name}}_{{$f.Name}}_id unsafe.Pointer
 {{end}}{{/* End Methods */}}
 {{range $findex, $f := $c.Constructors}}
-var {{$c.Name}}_{{$f.Name}}_id C.int64_t = -1
+var {{$c.Name}}_{{$f.Name}}_id unsafe.Pointer
 {{end}}{{/* End Constructor */}}
 {{if $c.Releaser}}
-var {{$c.Name}}_{{$c.Releaser.Name}}_id C.int64_t = -1
+var {{$c.Name}}_{{$c.Releaser.Name}}_id unsafe.Pointer
 {{end}}{{/* End Releaser */}}
 {{end}}{{/* End Classes */}}
 {{end}}{{/* End modules */}}
@@ -128,16 +129,16 @@ func init(){
 	}
 
 	// load functions
-	loadFF := func(fpath string) C.int64_t{
+	loadFF := func(fpath string, params_count int, retval_count int) unsafe.Pointer{
 		ppath := C.CString(fpath)
 		defer C.free(unsafe.Pointer(ppath))
-	
+
 		var out_err *C.char
 		var out_err_len C.uint32_t
 		out_err_len = C.uint32_t(0)
-		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), C.int64_t(-1), &out_err, &out_err_len))
-		
-		if id == -1{ // failed
+		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), nil,  C.schar(params_count), C.schar(params_count), &out_err, &out_err_len))
+
+		if id == nill{ // failed
 			panic(fmt.Errorf("Failed to load foreign entity entrypoint %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
 		}
 
@@ -149,7 +150,7 @@ func init(){
 	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
 	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End globals */}}
-	
+
 	{{range $findex, $f := $m.Functions}}
 	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
 	{{end}}{{/* End Functions */}}
@@ -173,7 +174,7 @@ func init(){
 }
 {{/* TODO: Make function for each type */}}
 func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
-	
+
 	var res interface{}
 	index := C.int(i)
 	in_res_cdt := C.get_cdt(data, index)
@@ -183,13 +184,13 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 		case {{GetMetaFFIType "handle"}}: // handle
 			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 			var in_res C.metaffi_handle = pcdt_in_handle_res.val
-			
+
 			if in_res == C.get_null_handle(){
 				return nil
 			}
 
 			res = GetObject(Handle(in_res))
-			if res == nil{ // handle belongs to another language 
+			if res == nil{ // handle belongs to another language
 				res = Handle(in_res)
 			}
 
@@ -216,7 +217,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 		case {{GetMetaFFIType $numType}}: // {{$numType}}
 			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 			var in_res C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.val
-			
+
 			res = {{$numType}}(in_res)
 
 		{{end}}{{end}}
@@ -227,7 +228,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 			var in_res *C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.vals
 			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions_lengths
 			// var in_res_dimensions C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions - TODO: not used until multi-dimensions support!
-					
+
 			res_typed := make([]{{$numType}}, 0)
 			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
 				val := C.get_{{ MakeMetaFFIType $numType}}_element(in_res, C.int(i))
@@ -242,7 +243,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 			var in_res_len C.metaffi_size = pcdt_in_{{$stringType}}_res.length
 			var in_res C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.val
-		
+
 			res = C.GoStringN(in_res, C.int(in_res_len))
 		{{end}}
 
@@ -250,12 +251,12 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 		case {{GetMetaFFIArrayType $stringType}}: // []{{$stringType}}
 			in_res_cdt := C.get_cdt(data, index)
 			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-		
+
 			var in_res *C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.vals
 			var in_res_sizes *C.metaffi_size = pcdt_in_{{$stringType}}_res.vals_sizes
 			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions_lengths
 			//var in_res_dimensions C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions - TODO: not used until multi-dimensions support!
-		
+
 			res_typed := make([]string, 0, int(C.get_int_item(in_res_dimensions_lengths, 0)))
 			for i:=C.int(0) ; i<C.int(C.get_int_item(in_res_dimensions_lengths, 0)) ; i++{
 				var str_size C.metaffi_size
@@ -270,7 +271,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 			in_res_cdt := C.get_cdt(data, index)
 			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 			var in_res C.metaffi_bool = pcdt_in_bool_res.val
-			
+
 			res = in_res != C.metaffi_bool(0)
 
 		case {{GetMetaFFIArrayType "bool"}}: // []bool
@@ -279,7 +280,7 @@ func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 			var in_res *C.metaffi_bool = pcdt_in_bool_res.vals
 			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_bool_res.dimensions_lengths
 			// var in_res_dimensions C.metaffi_size = pcdt_in_bool_res.dimensions - TODO: not used until multi-dimensions support!
-					
+
 			res_typed := make([]bool, 0)
 			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
 				val := C.get_metaffi_bool_element(in_res, C.int(i))
@@ -312,19 +313,19 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			pcdt_out_{{$numType}}_input.val = out_input
 
 		{{end}}
-		
+
 
 		{{ range $numTypeIndex, $numType := GetNumericTypes }}
 		case []{{$numType}}:
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
 			*out_input_dimensions_lengths = C.ulonglong(len(input.([]{{$numType}})))
-		
+
 			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulonglong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
 			for i, val := range input.([]{{$numType}}){
 				C.set_{{MakeMetaFFIType $numType}}_element(out_input, C.int(i), C.{{ MakeMetaFFIType $numType}}(val))
 			}
-		
+
 			out_input_cdt := C.get_cdt(data, index)
 			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_array_type)
 			out_input_cdt.free_required = 1
@@ -347,12 +348,12 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
 			*out_input_dimensions_lengths = C.ulonglong(len(input.([]int)))
-		
+
 			out_input := (*C.metaffi_int64)(C.malloc(C.ulonglong(len(input.([]int)))*C.sizeof_metaffi_int64))
 			for i, val := range input.([]int){
 				C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 			}
-		
+
 			out_input_cdt := C.get_cdt(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_int64_array_type)
 			out_input_cdt.free_required = 1
@@ -384,14 +385,14 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
 			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]bool)))
-		
+
 			out_input := (*C.metaffi_bool)(C.malloc(C.metaffi_size(len(input.([]bool)))*C.sizeof_metaffi_bool))
 			for i, val := range input.([]bool){
 				var bval C.metaffi_bool
 				if val { bval = C.metaffi_bool(1) } else { bval = C.metaffi_bool(0) }
 				C.set_metaffi_bool_element(out_input, C.int(i), C.metaffi_bool(bval))
 			}
-		
+
 			out_input_cdt := C.get_cdt(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_bool_array_type)
 			out_input_cdt.free_required = 1
@@ -406,11 +407,11 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			out_input_dimensions := C.metaffi_size(1)
 			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
 			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))
-			
+
 			for i, val := range input.([]string){
 				C.set_metaffi_string8_element(out_input, out_input_sizes, C.int(i), C.metaffi_string8(C.CString(val)), C.metaffi_size(len(val)))
 			}
-			
+
 			out_input_cdt := C.get_cdt(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_string8_array_type)
 			out_input_cdt.free_required = 1
@@ -419,9 +420,9 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 			pcdt_out_string8_input.vals_sizes = out_input_sizes
 			pcdt_out_string8_input.dimensions_lengths = out_input_dimensions_lengths
 			pcdt_out_string8_input.dimensions = out_input_dimensions
-			
+
 		default:
-			
+
 			if input == nil{ // return handle "0"
 				out_input := C.metaffi_handle(uintptr(0))
 				out_input_cdt := C.get_cdt(data, index)
@@ -440,7 +441,7 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 
 				case reflect.Float32: fromGoToCDT(float32(inputVal.Float()), data, i); return
 				case reflect.Float64: fromGoToCDT(float64(inputVal.Float()), data, i); return
-				
+
 				case reflect.Int8: fromGoToCDT(int8(inputVal.Int()), data, i); return
 				case reflect.Int16: fromGoToCDT(int16(inputVal.Int()), data, i); return
 				case reflect.Int32: fromGoToCDT(int32(inputVal.Int()), data, i); return
@@ -476,13 +477,13 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = inputVal.Index(i).Bool() }
 							fromGoToCDT(dstSlice, data, i)
 							return
-				
+
 						case reflect.Int8:
 							dstSlice := make([]int8, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int8(inputVal.Index(i).Int()) }
 							fromGoToCDT(dstSlice, data, i)
 							return
-							
+
 						case reflect.Int16:
 							dstSlice := make([]int16, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int16(inputVal.Index(i).Int()) }
@@ -501,7 +502,7 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int64(inputVal.Index(i).Int()) }
 							fromGoToCDT(dstSlice, data, i)
 							return
-		
+
 						case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i)
 							dstSlice := make([]uint8, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint8(inputVal.Index(i).Uint()) }
@@ -526,13 +527,13 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).Uint()) }
 							fromGoToCDT(dstSlice, data, i)
 							return
-		
-						case reflect.Uintptr: 
+
+						case reflect.Uintptr:
 							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).UnsafeAddr()) }
 							fromGoToCDT(dstSlice, data, i)
 							return
-		
+
 						case reflect.String:
 							dstSlice := make([]string, inputVal.Len(), inputVal.Cap())
 							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = string(inputVal.Index(i).String()) }
@@ -543,8 +544,8 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 					fallthrough // if no kind matched, treat as handle
 
 				default:
-					input_handle := SetObject(input) // if already in table, return existing handle			
-					
+					input_handle := SetObject(input) // if already in table, return existing handle
+
 					out_input := C.metaffi_handle(input_handle)
 					out_input_cdt := C.get_cdt(data, index)
 					C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
@@ -564,27 +565,27 @@ var runtime_plugin_length C.uint32_t
 {{range $mindex, $m := .Modules}}
 
 {{range $findex, $f := $m.Globals}}
-{{if $f.Getter}}var {{$f.Getter.Name}}_id C.int64_t = -1{{end}}
-{{if $f.Setter}}var {{$f.Setter.Name}}_id C.int64_t = -1{{end}}
+{{if $f.Getter}}var {{$f.Getter.Name}}_id unsafe.Pointer{{end}}
+{{if $f.Setter}}var {{$f.Setter.Name}}_id unsafe.Pointer{{end}}
 {{end}}{{/* End globals */}}
 
 {{range $findex, $f := $m.Functions}}
-var {{$f.Name}}_id C.int64_t = -1
+var {{$f.Name}}_id unsafe.Pointer
 {{end}}{{/* End Functions */}}
 
 {{range $cindex, $c := $m.Classes}}
 {{range $findex, $f := $c.Fields}}
-{{if $f.Getter}}var {{$c.Name}}_{{$f.Getter.Name}}_id C.int64_t = -1{{end}}
-{{if $f.Setter}}var {{$c.Name}}_{{$f.Setter.Name}}_id C.int64_t = -1{{end}}
+{{if $f.Getter}}var {{$c.Name}}_{{$f.Getter.Name}}_id unsafe.Pointer{{end}}
+{{if $f.Setter}}var {{$c.Name}}_{{$f.Setter.Name}}_id unsafe.Pointer{{end}}
 {{end}}{{/* End Fields */}}
 {{range $findex, $f := $c.Methods}}
-var {{$c.Name}}_{{$f.Name}}_id C.int64_t = -1
+var {{$c.Name}}_{{$f.Name}}_id unsafe.Pointer
 {{end}}{{/* End Methods */}}
 {{range $findex, $f := $c.Constructors}}
-var {{$c.Name}}_{{$f.Name}}_id C.int64_t = -1
+var {{$c.Name}}_{{$f.Name}}_id unsafe.Pointer
 {{end}}{{/* End Constructor */}}
 {{if $c.Releaser}}
-var {{$c.Name}}_{{$c.Releaser.Name}}_id C.int64_t = -1
+var {{$c.Name}}_{{$c.Releaser.Name}}_id unsafe.Pointer
 {{end}}{{/* End Releaser */}}
 {{end}}{{/* End Classes */}}
 {{end}}{{/* End modules */}}
@@ -610,16 +611,16 @@ func init(){
 	}
 
 	// load functions
-	loadFF := func(fpath string, params_count int, retval_count int) C.int64_t{
+	loadFF := func(fpath string, params_count int, retval_count int) unsafe.Pointer{
 		ppath := C.CString(fpath)
 		defer C.free(unsafe.Pointer(ppath))
-	
+
 		var out_err *C.char
 		var out_err_len C.uint32_t
 		out_err_len = C.uint32_t(0)
-		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), C.int64_t(-1), C.schar(params_count), C.schar(params_count), &out_err, &out_err_len))
+		id := C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), nil, C.schar(params_count), C.schar(params_count), &out_err, &out_err_len)
 		
-		if id == -1{ // failed
+		if id == nil{ // failed
 			panic(fmt.Errorf("Failed to load foreign entity entrypoint %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
 		}
 

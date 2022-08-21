@@ -104,9 +104,9 @@ func generateCodeXCall(className string, funcName string, params []*IDL.ArgDefin
 	code += "\t\n"
 	
 	if len(params) > 0 || len(retvals) > 0 {
-		code += fmt.Sprintf("\tC.xllr_%v(C.int64_t(%v_id), xcall_params, &out_err, &out_err_len)\n", xcall(params, retvals), name)
+		code += fmt.Sprintf("\tC.xllr_%v(%v_id, xcall_params, &out_err, &out_err_len)  // call function pointer %v_id via XLLR\n", xcall(params, retvals), name, name)
 	} else {
-		code += fmt.Sprintf("\tC.xllr_%v(C.int64_t(%v_id), &out_err, &out_err_len)\n", xcall(params, retvals), name)
+		code += fmt.Sprintf("\tC.xllr_%v(%v_id, &out_err, &out_err_len)  // call function pointer %v_id via XLLR\n", xcall(params, retvals), name, name)
 	}
 	
 	code += "\t\n"
