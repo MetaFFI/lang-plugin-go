@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"text/template"
@@ -34,40 +33,47 @@ type GuestCompiler struct {
 }
 
 //--------------------------------------------------------------------
-func NewGuestCompiler(definition *IDL.IDLDefinition, outputDir string, outputFilename string, blockName string, blockCode string) *GuestCompiler {
-	
+func NewGuestCompiler() *GuestCompiler {
+	return &GuestCompiler{}
+}
+
+//--------------------------------------------------------------------
+func (this *GuestCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, blockName string, blockCode string) (err error) {
+
+	if outputFilename == ""{
+        outputFilename = definition.IDLFilename
+    }
+
 	if strings.Contains(outputFilename, "#") {
 		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1 : strings.Index(outputFilename, "#")+1]
 		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
 	}
 	
-	outputFilename = strings.ReplaceAll(outputFilename, filepath.Ext(outputFilename), "")
-	
-	return &GuestCompiler{def: definition, outputDir: outputDir, outputFilename: outputFilename, blockName: blockName, blockCode: blockCode}
-}
+	this.def = definition
+	this.outputDir = outputDir
+	this.blockName = blockName
+	this.blockCode = blockCode
+	this.outputFilename = outputFilename
 
-//--------------------------------------------------------------------
-func (this *GuestCompiler) Compile() (outputFileName string, err error) {
-	
 	// generate code
 	code, err := this.generateCode()
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate guest code: %v", err)
+		return fmt.Errorf("Failed to generate guest code: %v", err)
 	}
 	
 	file, err := this.buildDynamicLibrary(code)
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate guest code: %v", err)
+		return fmt.Errorf("Failed to generate guest code: %v", err)
 	}
 	
 	// write to output
-	outputFullFileName := fmt.Sprintf("%v%v%v_MetaFFIGuest%v", this.outputDir, string(os.PathSeparator), this.outputFilename, getDynamicLibSuffix())
-	err = ioutil.WriteFile(outputFullFileName, file, 0700)
+	genOutputFullFileName := fmt.Sprintf("%v%v%v_MetaFFIGuest%v", this.outputDir, string(os.PathSeparator), this.outputFilename, getDynamicLibSuffix())
+	err = ioutil.WriteFile(genOutputFullFileName, file, 0700)
 	if err != nil {
-		return "", fmt.Errorf("Failed to write dynamic library to %v. Error: %v", this.outputDir+this.outputFilename, err)
+		return fmt.Errorf("Failed to write dynamic library to %v. Error: %v", this.outputDir+this.outputFilename, err)
 	}
 	
-	return outputFullFileName, nil
+	return nil
 	
 }
 

@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 	IDL "github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -19,47 +20,50 @@ type HostCompiler struct {
 }
 
 //--------------------------------------------------------------------
-func NewHostCompiler(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) *HostCompiler {
-	
+func NewHostCompiler() *HostCompiler {
+	return &HostCompiler{}
+}
+
+//--------------------------------------------------------------------
+func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
+
+	if outputFilename == ""{
+        outputFilename = definition.IDLFilename
+    }
+
 	if strings.Contains(outputFilename, "#") {
 		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1 : strings.Index(outputFilename, "#")+1]
 		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
 	}
 	
-	outputFilename = strings.ReplaceAll(outputFilename, filepath.Ext(outputFilename), "")
-	
-	return &HostCompiler{def: definition,
-		outputDir:      outputDir,
-		outputFilename: outputFilename,
-		hostOptions:    hostOptions}
-}
+	this.def = definition
+	this.outputDir = outputDir
+	this.hostOptions = hostOptions
+	this.outputFilename = outputFilename
 
-//--------------------------------------------------------------------
-func (this *HostCompiler) Compile() (outputFileName string, err error) {
-	
+	caser := cases.Title(language.Und, cases.NoLower)
 	this.def.ReplaceKeywords(map[string]string{
-		"type":  strings.Title("type"),
-		"class": strings.Title("class"),
-		"func":  strings.Title("func"),
-		"var":   strings.Title("var"),
-		"const": strings.Title("const"),
+		"type":  caser.String("type"),
+		"class": caser.String("class"),
+		"func":  caser.String("func"),
+		"var":   caser.String("var"),
+		"const": caser.String("const"),
 	})
 	
 	// generate code
 	code, err := this.generateCode()
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate host code: %v", err)
+		return fmt.Errorf("Failed to generate host code: %v", err)
 	}
-	
+
 	// write to output
-	outputFileName = this.outputDir + string(os.PathSeparator) + this.outputFilename + "_MetaFFIHost.go"
-	err = ioutil.WriteFile(outputFileName, []byte(code), 0600)
+	genOutputFilename := this.outputDir + string(os.PathSeparator) + this.outputFilename + "_MetaFFIHost.go"
+	err = ioutil.WriteFile(genOutputFilename, []byte(code), 0600)
 	if err != nil {
-		return "", fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
+		return fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
 	}
 	
-	return outputFileName, nil
-	
+	return nil
 }
 
 //--------------------------------------------------------------------

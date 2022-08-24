@@ -98,8 +98,8 @@ func TestPyExtractorHost(t *testing.T) {
 		}
 	}()
 	
-	cmp := NewCompiler(def, "temp", "", "")
-	_, err = cmp.CompileHost(nil)
+	cmp := NewHostCompiler()
+	err = cmp.Compile(def, "temp", "", nil)
 	if err != nil {
 		t.Fatal(err)
 		return

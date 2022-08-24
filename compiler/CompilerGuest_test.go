@@ -133,33 +133,33 @@ func F1(p1 float64, p2 float32, p3 int8, p4 int16, p5 int32, p6 int64, p7 uint8,
 
 //--------------------------------------------------------------------
 func TestGuest(t *testing.T) {
-
+	
 	skipMessage := "Cannot execute guest test from Go, as Go->Go is currently unsupported due to Go inability to load Go shared modules.\n"
 	skipMessage += "To run the test, execute the C code in CompilerGuest_testHelper.go from C/C++."
 	t.Skip(skipMessage)
-
+	
 	def, err := compiler.NewIDLDefinitionFromJSON(idl_guest)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
+	
 	_ = os.RemoveAll("temp")
-
+	
 	err = os.Mkdir("temp", 0700)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
+	
 	err = ioutil.WriteFile("./temp/GuestCode.go", []byte(GuestCode), 0600)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
+	
 	err = ioutil.WriteFile("./temp/go.mod", []byte("module GoFuncs"), 0600)
-
+	
 	defer func() {
 		err = os.RemoveAll("temp")
 		if err != nil {
@@ -167,14 +167,14 @@ func TestGuest(t *testing.T) {
 			return
 		}
 	}()
-
-	cmp := NewCompiler(def, "temp", "", "")
-	_, err = cmp.CompileGuest()
+	
+	cmp := NewGuestCompiler()
+	err = cmp.Compile(def, "temp", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
+	
 	if CallHostMock() != 0 {
 		t.Fatal("Failed calling guest")
 	}
