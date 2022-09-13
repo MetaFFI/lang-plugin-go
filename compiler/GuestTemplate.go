@@ -595,7 +595,6 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 // Call to foreign {{$f.Name}}
 //export EntryPoint_{{$c.Name}}_{{$f.Name}}
 func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters $f.ReturnValues}}{
-	println("EntryPoint_{{$c.Name}}_{{$f.Name}}")
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
@@ -613,11 +612,9 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
-		println("EntryPoint_{{$c.Name}}_{{$f.Name}} - returning an error")
 		errToOutError(out_err, out_err_len, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
-		println("EntryPoint_{{$c.Name}}_{{$f.Name}} - converting")
 		fromGoToCDT({{$elem.Name}}, xcall_params, {{GetCDTReturnValueIndex $f.Parameters $f.ReturnValues}}, {{$index}})
 	}	
 	{{end}} {{/* end range return vals */}}
