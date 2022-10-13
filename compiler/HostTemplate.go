@@ -1236,7 +1236,7 @@ type {{$c.Name}} struct{
 	h Handle
 }
 {{range $findex, $f := $c.Constructors}}
-func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) (instance *{{$c.Name}}, err error){
+func New{{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) (instance *{{$c.Name}}, err error){
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
 	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
