@@ -139,7 +139,7 @@ func init(){
 		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), nil,  C.schar(params_count), C.schar(params_count), &out_err, &out_err_len))
 
 		if id == nill{ // failed
-			panic(fmt.Errorf("Failed to load foreign entity entrypoint %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+			panic(fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
 		}
 
 		return id
@@ -621,7 +621,7 @@ func init(){
 		id := C.xllr_load_function(pruntime_plugin, runtime_plugin_length, ppath, C.uint(len(fpath)), nil, C.schar(params_count), C.schar(params_count), &out_err, &out_err_len)
 		
 		if id == nil{ // failed
-			panic(fmt.Errorf("Failed to load foreign entity entrypoint %v: %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+			panic(fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
 		}
 
 		return id

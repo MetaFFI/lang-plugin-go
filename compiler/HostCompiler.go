@@ -84,7 +84,7 @@ func (this *HostCompiler) parseImports() (string, error) {
 	
 	tmp, err := template.New("HostImportsTemplate").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+		return "", fmt.Errorf("Failed to parse Go HostImportsTemplate: %v", err)
 	}
 	
 	buf := strings.Builder{}
@@ -98,7 +98,7 @@ func (this *HostCompiler) parseCImports() (string, error) {
 	
 	tmp, err := template.New("HostCImportTemplate").Funcs(templatesFuncMap).Parse(HostCImportTemplate)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+		return "", fmt.Errorf("Failed to parse Go HostCImportTemplate: %v", err)
 	}
 	
 	buf := strings.Builder{}
@@ -110,9 +110,9 @@ func (this *HostCompiler) parseCImports() (string, error) {
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseForeignStubs() (string, error) {
 	
-	tmp, err := template.New("HostFunctionStubsTemplate").Funcs(templatesFuncMap).Parse(HostFunctionStubsTemplate)
+	tmp, err := template.New("Go HostFunctionStubsTemplate").Funcs(templatesFuncMap).Parse(HostFunctionStubsTemplate)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+		return "", fmt.Errorf("Failed to parse Go HostFunctionStubsTemplate: %v", err)
 	}
 	
 	buf := strings.Builder{}
@@ -125,7 +125,7 @@ func (this *HostCompiler) parseForeignStubs() (string, error) {
 func (this *HostCompiler) parsePackage() (string, error) {
 	tmp, err := template.New("HostPackageTemplate").Funcs(templatesFuncMap).Parse(HostPackageTemplate)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+		return "", fmt.Errorf("Failed to parse Go HostPackageTemplate: %v", err)
 	}
 	
 	PackageName := struct {
@@ -148,7 +148,7 @@ func (this *HostCompiler) parsePackage() (string, error) {
 func (this *HostCompiler) parseHelper() (string, error) {
 	tmp, err := template.New("HostHelperFunctions").Funcs(templatesFuncMap).Parse(GetHostHelperFunctions())
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse HostFunctionStubsTemplate: %v", err)
+		return "", fmt.Errorf("Failed to parse Go HostHelperFunctions: %v", err)
 	}
 	
 	buf := strings.Builder{}
