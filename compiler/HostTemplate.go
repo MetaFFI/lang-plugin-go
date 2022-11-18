@@ -75,7 +75,16 @@ func GetHostHelperFunctions() string {
 	}
 }
 
+func GetHostHelperFunctionsName() string {
+	if runtime.GOOS == "windows" {
+		return "HostHelperFunctionsWindows"
+	} else {
+		return "HostHelperFunctionsNonWindows"
+	}
+}
+
 const HostHelperFunctionsWindows = `
+{{ $idl := . }}
 var pruntime_plugin *C.char
 var runtime_plugin_length C.uint32_t
 
@@ -147,27 +156,27 @@ func init(){
 
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString $idl}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString $idl}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End globals */}}
 
 	{{range $findex, $f := $m.Functions}}
-	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}")
+	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString $idl}}")
 	{{end}}{{/* End Functions */}}
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString $idl}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString $idl}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Constructor */}}
 	{{if $c.Releaser}}
-	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
+	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString $idl}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
 	{{end}}{{/* End Releaser */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}
@@ -627,29 +636,30 @@ func init(){
 		return id
 	}
 
+	{{ $idl := . }}
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}} ){{end}}
-	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}} ){{end}}
+	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString $idl}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}} ){{end}}
+	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString $idl}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}} ){{end}}
 	{{end}}{{/* End globals */}}
 	
 	{{range $findex, $f := $m.Functions}}
-	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Functions */}}
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF("{{$f.Getter.FunctionPathAsString $idl}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF("{{$f.Setter.FunctionPathAsString $idl}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.Name}}_id = loadFF("{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Constructor */}}
 	{{if $c.Releaser}}
-	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
+	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF("{{$c.Releaser.FunctionPathAsString $idl}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
 	{{end}}{{/* End Releaser */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}
@@ -1041,6 +1051,7 @@ func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
 
 const HostFunctionStubsTemplate = `
 {{ $pfn := .IDLFilename}}
+{{ $idl := . }}
 {{range $mindex, $m := .Modules}}
 
 {{range $findex, $f := $m.Globals}}
@@ -1387,17 +1398,23 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 {{end}}{{/* End Setter */}}
 {{end}}{{/* End Fields */}}
 {{range $findex, $f := $c.Methods}}
-func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMethodParams $f}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
 	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
 	
 	// parameters
+	{{if $f.InstanceRequired}}
 	fromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
 	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
-	{{end}}{{end}}{{/* End Parameters */}}
+	{{end}}{{end}}
+	{{else}}
+	{{range $index, $elem := $f.Parameters}}
+	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	{{end}}
+	{{end}}
 
 	{{GenerateCodeXCall $c.Name $f.Name $f.Parameters $f.ReturnValues}}
 	

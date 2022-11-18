@@ -146,9 +146,9 @@ func (this *HostCompiler) parsePackage() (string, error) {
 
 //--------------------------------------------------------------------
 func (this *HostCompiler) parseHelper() (string, error) {
-	tmp, err := template.New("HostHelperFunctions").Funcs(templatesFuncMap).Parse(GetHostHelperFunctions())
+	tmp, err := template.New(GetHostHelperFunctionsName()).Funcs(templatesFuncMap).Parse(GetHostHelperFunctions())
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse Go HostHelperFunctions: %v", err)
+		return "", fmt.Errorf("Failed to parse Go %v: %v", GetHostHelperFunctionsName(), err)
 	}
 	
 	buf := strings.Builder{}

@@ -34,26 +34,69 @@ var templatesFuncMap = map[string]interface{}{
 	"GenerateCodeEntryPointSignature": generateCodeEntrypointSignature,
 	"GetCDTReturnValueIndex":          getCDTReturnValueIndex,
 	"GetCDTParametersIndex":           getCDTParametersIndex,
+	"GenerateMethodReceiverCode":      generateMethodReceiverCode,
+	"GenerateMethodName":              generateMethodName,
+	"GenerateMethodParams":            generateMethodParams,
 }
 
 //--------------------------------------------------------------------
-func getCDTReturnValueIndex(params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) int{
-	if len(params) > 0{
-        return 1
-    } else if len(retvals) > 0{
-        return 0
-    } else{
-        panic("Both parameters and return values are 0 - return values should not be used")
-    }
+func generateMethodParams(meth *IDL.MethodDefinition) string {
+	//{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}
+	
+	res := make([]string, 0)
+	
+	for i, p := range meth.Parameters {
+		if i == 0 {
+			if !meth.InstanceRequired {
+				res = append(res, fmt.Sprintf("%v %v", p.Name, convertToGoType(p)))
+			}
+			continue
+		}
+		
+		res = append(res, fmt.Sprintf("%v %v", p.Name, convertToGoType(p)))
+	}
+	
+	return strings.Join(res, ",")
 }
+
 //--------------------------------------------------------------------
-func getCDTParametersIndex(params []*IDL.ArgDefinition) int{
-	if len(params) > 0{
-        return 0
-    } else {
-        panic("Both parameters and return values are 0 - parameters should not be used")
-    }
+func generateMethodName(meth *IDL.MethodDefinition) string {
+	if meth.InstanceRequired {
+		return toGoNameConv(meth.Name)
+	} else {
+		return fmt.Sprintf("%v_%v", toGoNameConv(meth.GetParent().Name), toGoNameConv(meth.Name))
+	}
 }
+
+//--------------------------------------------------------------------
+func generateMethodReceiverCode(meth *IDL.MethodDefinition) string {
+	if meth.InstanceRequired {
+		return fmt.Sprintf("(this *%v)", meth.GetParent().Name)
+	} else {
+		return "" // No receiver
+	}
+}
+
+//--------------------------------------------------------------------
+func getCDTReturnValueIndex(params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) int {
+	if len(params) > 0 {
+		return 1
+	} else if len(retvals) > 0 {
+		return 0
+	} else {
+		panic("Both parameters and return values are 0 - return values should not be used")
+	}
+}
+
+//--------------------------------------------------------------------
+func getCDTParametersIndex(params []*IDL.ArgDefinition) int {
+	if len(params) > 0 {
+		return 0
+	} else {
+		panic("Both parameters and return values are 0 - parameters should not be used")
+	}
+}
+
 //--------------------------------------------------------------------
 func generateCodeEntrypointSignature(className string, funcName string, params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) string {
 	// {{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t)
