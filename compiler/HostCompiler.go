@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	IDL "github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"golang.org/x/text/cases"
@@ -10,6 +11,9 @@ import (
 	"strings"
 	"text/template"
 )
+
+//go:embed MetaFFIGoHostCommon.gotpl
+var metaFFIGoHostCommon string
 
 //--------------------------------------------------------------------
 type HostCompiler struct {
@@ -25,12 +29,17 @@ func NewHostCompiler() *HostCompiler {
 }
 
 //--------------------------------------------------------------------
+func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) string {
+	return strings.ReplaceAll(metaFFIGoHostCommon, "%PACKAGE%", commonPackageName)
+}
+
+//--------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
-
-	if outputFilename == ""{
-        outputFilename = definition.IDLFilename
-    }
-
+	
+	if outputFilename == "" {
+		outputFilename = definition.IDLFilename
+	}
+	
 	if strings.Contains(outputFilename, "#") {
 		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1 : strings.Index(outputFilename, "#")+1]
 		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
@@ -40,7 +49,7 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	this.outputDir = outputDir
 	this.hostOptions = hostOptions
 	this.outputFilename = outputFilename
-
+	
 	caser := cases.Title(language.Und, cases.NoLower)
 	this.def.ReplaceKeywords(map[string]string{
 		"type":  caser.String("type"),
@@ -51,13 +60,23 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	})
 	
 	// generate code
-	code, err := this.generateCode()
+	code, packageName, err := this.generateCode()
 	if err != nil {
 		return fmt.Errorf("Failed to generate host code: %v", err)
 	}
+	
+	// TODO: handle multiple modules
 
+	_ = os.Mkdir(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name), 0600)
+	
+	// write MetaFFIGoHostCommon
+	err = ioutil.WriteFile(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name)+string(os.PathSeparator)+"MetaFFIGoHostCommon.go", []byte(this.getMetaFFIGoHostCommon(packageName)), 0600)
+	if err != nil {
+		return fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
+	}
+	
 	// write to output
-	genOutputFilename := this.outputDir + string(os.PathSeparator) + this.outputFilename + "_MetaFFIHost.go"
+	genOutputFilename := this.outputDir + string(os.PathSeparator) + strings.ToLower(this.def.Modules[0].Name) + string(os.PathSeparator) + this.outputFilename + "_MetaFFIHost.go"
 	err = ioutil.WriteFile(genOutputFilename, []byte(code), 0600)
 	if err != nil {
 		return fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
@@ -122,16 +141,16 @@ func (this *HostCompiler) parseForeignStubs() (string, error) {
 }
 
 //--------------------------------------------------------------------
-func (this *HostCompiler) parsePackage() (string, error) {
+func (this *HostCompiler) parsePackage() (code string, packageName string, err error) {
 	tmp, err := template.New("HostPackageTemplate").Funcs(templatesFuncMap).Parse(HostPackageTemplate)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse Go HostPackageTemplate: %v", err)
+		return "", "", fmt.Errorf("Failed to parse Go HostPackageTemplate: %v", err)
 	}
 	
 	PackageName := struct {
 		Package string
 	}{
-		Package: "main",
+		Package: this.def.Modules[0].Name, // TODO: support multiple modules
 	}
 	
 	if pckName, found := this.hostOptions["package"]; found {
@@ -141,7 +160,7 @@ func (this *HostCompiler) parsePackage() (string, error) {
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, &PackageName)
 	
-	return buf.String(), err
+	return buf.String(), PackageName.Package, err
 }
 
 //--------------------------------------------------------------------
@@ -158,41 +177,41 @@ func (this *HostCompiler) parseHelper() (string, error) {
 }
 
 //--------------------------------------------------------------------
-func (this *HostCompiler) generateCode() (string, error) {
+func (this *HostCompiler) generateCode() (code string, packageName string, err error) {
 	
 	header, err := this.parseHeader()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	
-	packageDeclaration, err := this.parsePackage()
+	packageDeclaration, packageName, err := this.parsePackage()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	
 	imports, err := this.parseImports()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	
 	cimports, err := this.parseCImports()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	
 	helper, err := this.parseHelper()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	
 	functionStubs, err := this.parseForeignStubs()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	
 	res := header + packageDeclaration + imports + cimports + helper + functionStubs
 	
-	return res, nil
+	return res, packageName, err
 }
 
 //--------------------------------------------------------------------

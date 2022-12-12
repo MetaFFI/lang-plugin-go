@@ -37,10 +37,29 @@ var templatesFuncMap = map[string]interface{}{
 	"GenerateMethodReceiverCode":      generateMethodReceiverCode,
 	"GenerateMethodName":              generateMethodName,
 	"GenerateMethodParams":            generateMethodParams,
+	"GetTypeOrAlias":                  getTypeOrAlias,
+	"HandleNoneGoObject":              handleNoneGoObject,
+}
+
+func handleNoneGoObject(arg *IDL.ArgDefinition, module *IDL.ModuleDefinition) string {
+	if arg.IsTypeAlias() && module.IsContainsClass(arg.TypeAlias) {
+		return asPublic(arg.TypeAlias) + "{ h: obj }" // construct a "wrapper class" for handle
+	} else {
+		return "obj" // just return handle
+	}
 }
 
 //--------------------------------------------------------------------
-func generateMethodParams(meth *IDL.MethodDefinition) string {
+func getTypeOrAlias(arg *IDL.ArgDefinition, module *IDL.ModuleDefinition) string {
+	if arg.IsTypeAlias() && module.IsContainsClass(arg.TypeAlias) {
+		return asPublic(arg.TypeAlias)
+	} else {
+		return asPublic(string(IDL.HANDLE))
+	}
+}
+
+//--------------------------------------------------------------------
+func generateMethodParams(meth *IDL.MethodDefinition, mod *IDL.ModuleDefinition) string {
 	//{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}
 	
 	res := make([]string, 0)
@@ -48,12 +67,12 @@ func generateMethodParams(meth *IDL.MethodDefinition) string {
 	for i, p := range meth.Parameters {
 		if i == 0 {
 			if !meth.InstanceRequired {
-				res = append(res, fmt.Sprintf("%v %v", p.Name, convertToGoType(p)))
+				res = append(res, fmt.Sprintf("%v %v", p.Name, convertToGoType(p, mod)))
 			}
 			continue
 		}
 		
-		res = append(res, fmt.Sprintf("%v %v", p.Name, convertToGoType(p)))
+		res = append(res, fmt.Sprintf("%v %v", p.Name, convertToGoType(p, mod)))
 	}
 	
 	return strings.Join(res, ",")
@@ -71,7 +90,7 @@ func generateMethodName(meth *IDL.MethodDefinition) string {
 //--------------------------------------------------------------------
 func generateMethodReceiverCode(meth *IDL.MethodDefinition) string {
 	if meth.InstanceRequired {
-		return fmt.Sprintf("(this *%v)", meth.GetParent().Name)
+		return fmt.Sprintf("(this *%v)", asPublic(meth.GetParent().Name))
 	} else {
 		return "" // No receiver
 	}
@@ -218,7 +237,7 @@ func methodNameNotExists(c *IDL.ClassDefinition, fieldName string, prefix string
 }
 
 //--------------------------------------------------------------------
-func convertToGoType(def *IDL.ArgDefinition) string {
+func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 	
 	var res string
 	
@@ -234,8 +253,8 @@ func convertToGoType(def *IDL.ArgDefinition) string {
 	case IDL.ANY:
 		res = "interface{}"
 	case IDL.HANDLE:
-		if def.IsTypeAlias() {
-			res = def.TypeAlias
+		if def.IsTypeAlias() && mod.IsContainsClass(def.TypeAlias) {
+			res = asPublic(def.TypeAlias)
 		} else {
 			res = "interface{}"
 		}

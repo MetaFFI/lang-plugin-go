@@ -107,9 +107,11 @@ func (this *GuestCompiler) parseImports() (string, error) {
 	for _, m := range this.def.Modules {
 		
 		handleFunctionPath := func(functionPath map[string]string) error {
+
 			if pack, found := functionPath["package"]; found {
-				
-				if pack != `main` {
+				_, err := os.Stat(functionPath["module"]) // if module does not exist locally (e.g. github.com/...)
+
+				if pack != `main` && err == nil{
 					set[os.ExpandEnv(pack)] = true
 				}
 			}
@@ -320,7 +322,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 	
 	addedLocalModules := make(map[string]bool)
 	
-	handleFunctionPathPackage := func(functionPath map[string]string) error {
+	handleFunctionPathPackage := func(m *IDL.ModuleDefinition, functionPath map[string]string) error {
 		for k, v := range functionPath {
 			if k == "module" {
 				
@@ -372,7 +374,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 							if err != nil {
 								return err
 							}
-							
+
 						} else {
 							// point module to
 							_, err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), v)
@@ -393,7 +395,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 	// add "replace"s if there are local imports
 	for _, m := range this.def.Modules {
 		for _, f := range m.Functions {
-			err = handleFunctionPathPackage(f.FunctionPath)
+			err = handleFunctionPathPackage(m, f.FunctionPath)
 			if err != nil {
 				return nil, err
 			}
@@ -401,21 +403,21 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 		
 		for _, c := range m.Classes {
 			for _, cstr := range c.Constructors {
-				err = handleFunctionPathPackage(cstr.FunctionPath)
+				err = handleFunctionPathPackage(m, cstr.FunctionPath)
 				if err != nil {
 					return nil, err
 				}
 			}
 			
 			if c.Releaser != nil {
-				err = handleFunctionPathPackage(c.Releaser.FunctionPath)
+				err = handleFunctionPathPackage(m, c.Releaser.FunctionPath)
 				if err != nil {
 					return nil, err
 				}
 			}
 			
 			for _, meth := range c.Methods {
-				err = handleFunctionPathPackage(meth.FunctionPath)
+				err = handleFunctionPathPackage(m, meth.FunctionPath)
 				if err != nil {
 					return nil, err
 				}

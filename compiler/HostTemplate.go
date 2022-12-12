@@ -14,7 +14,6 @@ const HostPackageTemplate = `package {{.Package}}
 const HostImportsTemplate = `
 import "fmt"
 import "unsafe"
-import "reflect"
 import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 `
 
@@ -27,42 +26,13 @@ const HostCImportTemplate = `
 #include <stdint.h>
 #include <include/cdt_structs.h>
 #include <include/cdt_capi_loader.h>
-#include <include/cdt_capi_loader.c>
 
-metaffi_handle get_null_handle()
-{
-	return METAFFI_NULL_HANDLE;
-}
-
-metaffi_size get_int_item(metaffi_size* array, int index)
-{
-	return array[index];
-}
-
-void* convert_union_to_ptr(void* p)
-{
-	return p;
-}
-
-void set_cdt_type(struct cdt* p, metaffi_type t)
-{
-	p->type = t;
-}
-
-metaffi_type get_cdt_type(struct cdt* p)
-{
-	return p->type;
-}
-
-
-#ifdef _WIN32
-metaffi_size len_to_metaffi_size(long long i)
-#else
-metaffi_size len_to_metaffi_size(long long i)
-#endif
-{
-	return (metaffi_size)i;
-}
+metaffi_handle get_null_handle();
+metaffi_size get_int_item(metaffi_size* array, int index);
+void* convert_union_to_ptr(void* p);
+void set_cdt_type(struct cdt* p, metaffi_type t);
+metaffi_type get_cdt_type(struct cdt* p);
+metaffi_size len_to_metaffi_size(long long i);
 */
 import "C"
 `
@@ -85,8 +55,6 @@ func GetHostHelperFunctionsName() string {
 
 const HostHelperFunctionsWindows = `
 {{ $idl := . }}
-var pruntime_plugin *C.char
-var runtime_plugin_length C.uint32_t
 
 // function IDs
 {{range $mindex, $m := .Modules}}
@@ -125,8 +93,8 @@ func init(){
 	}
 
 	runtime_plugin := "xllr.{{.TargetLanguage}}"
-	pruntime_plugin = C.CString(runtime_plugin)
-	runtime_plugin_length = C.uint32_t(len(runtime_plugin))
+	pruntime_plugin := C.CString(runtime_plugin)
+	runtime_plugin_length := C.uint32_t(len(runtime_plugin))
 
 	// load foreign runtime
 	var out_err *C.char
@@ -181,394 +149,10 @@ func init(){
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}
 }
-{{/* TODO: Make function for each type */}}
-func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 
-	var res interface{}
-	index := C.int(i)
-	in_res_cdt := C.get_cdt(data, index)
-	res_type := C.get_cdt_type(in_res_cdt)
-	switch res_type{
-
-		case {{GetMetaFFIType "handle"}}: // handle
-			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.metaffi_handle = pcdt_in_handle_res.val
-
-			if in_res == C.get_null_handle(){
-				return nil
-			}
-
-			res = GetObject(Handle(in_res))
-			if res == nil{ // handle belongs to another language
-				res = Handle(in_res)
-			}
-
-		case {{GetMetaFFIArrayType "handle"}}: // []Handle
-			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res *C.metaffi_handle = pcdt_in_handle_res.vals
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_handle_res.dimensions_lengths
-			// var in_res_dimensions C.metaffi_size = pcdt_in_handle_res.dimensions - TODO: not used until multi-dimensions support!
-
-			res_typed := make([]interface{}, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_handle_element(in_res, C.int(i))
-
-				val_obj := GetObject(Handle(val))
-				if val_obj == nil{ // handle belongs to
-					res_typed = append(res_typed, Handle(val))
-				} else {
-					res_typed = append(res_typed, val_obj)
-				}
-			}
-			res = res_typed
-
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
-		case {{GetMetaFFIType $numType}}: // {{$numType}}
-			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.val
-
-			res = {{$numType}}(in_res)
-
-		{{end}}{{end}}
-
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
-		case {{GetMetaFFIArrayType $numType}}: // []{{$numType}}
-			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res *C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.vals
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions_lengths
-			// var in_res_dimensions C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions - TODO: not used until multi-dimensions support!
-
-			res_typed := make([]{{$numType}}, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
-				val := C.get_{{ MakeMetaFFIType $numType}}_element(in_res, C.int(i))
-				res_typed = append(res_typed, {{$numType}}(val))
-			}
-			res = res_typed
-		{{end}}{{end}}
-
-		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
-		case {{GetMetaFFIType $stringType}}: // {{$stringType}}
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res_len C.metaffi_size = pcdt_in_{{$stringType}}_res.length
-			var in_res C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.val
-
-			res = C.GoStringN(in_res, C.int(in_res_len))
-		{{end}}
-
-		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
-		case {{GetMetaFFIArrayType $stringType}}: // []{{$stringType}}
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-
-			var in_res *C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.vals
-			var in_res_sizes *C.metaffi_size = pcdt_in_{{$stringType}}_res.vals_sizes
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions_lengths
-			//var in_res_dimensions C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions - TODO: not used until multi-dimensions support!
-
-			res_typed := make([]string, 0, int(C.get_int_item(in_res_dimensions_lengths, 0)))
-			for i:=C.int(0) ; i<C.int(C.get_int_item(in_res_dimensions_lengths, 0)) ; i++{
-				var str_size C.metaffi_size
-				str := C.get_metaffi_{{$stringType}}_element(in_res, C.int(i), in_res_sizes, &str_size)
-				res_typed = append(res_typed, C.GoStringN(str, C.int(str_size)))
-			}
-			res = res_typed
-		{{end}}
-
-
-		case {{GetMetaFFIType "bool"}}: // bool
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.metaffi_bool = pcdt_in_bool_res.val
-
-			res = in_res != C.metaffi_bool(0)
-
-		case {{GetMetaFFIArrayType "bool"}}: // []bool
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res *C.metaffi_bool = pcdt_in_bool_res.vals
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_bool_res.dimensions_lengths
-			// var in_res_dimensions C.metaffi_size = pcdt_in_bool_res.dimensions - TODO: not used until multi-dimensions support!
-
-			res_typed := make([]bool, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_bool_element(in_res, C.int(i))
-				var bval bool
-				if val != 0 { bval = true } else { bval = false }
-				res_typed = append(res_typed, bval)
-			}
-
-			res = res_typed
-
-		default:
-			panic(fmt.Errorf("Return value %v is not of a supported type, but of type: %v", "res", res_type))
-	}
-
-	return res
-}
-{{/* TODO: Make function for each type */}}
-func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
-
-	index := C.int(i)
-	switch input.(type) {
-
-		{{ range $numTypeIndex, $numType := GetNumericTypes }}
-		case {{$numType}}:
-			out_input := C.{{ MakeMetaFFIType $numType}}(input.({{$numType}}))
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_{{$numType}}_input := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_{{$numType}}_input.val = out_input
-
-		{{end}}
-
-
-		{{ range $numTypeIndex, $numType := GetNumericTypes }}
-		case []{{$numType}}:
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulonglong(len(input.([]{{$numType}})))
-
-			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulonglong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
-			for i, val := range input.([]{{$numType}}){
-				C.set_{{MakeMetaFFIType $numType}}_element(out_input, C.int(i), C.{{ MakeMetaFFIType $numType}}(val))
-			}
-
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_{{$numType}}_input := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_{{$numType}}_input.vals = out_input
-			pcdt_out_{{$numType}}_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_{{$numType}}_input.dimensions = out_input_dimensions
-
-		{{end}}
-
-		case int:
-			out_input := C.metaffi_int64(int64(input.(int)))
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_int64_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_int64_input.val = out_input
-
-		case []int:
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulonglong(len(input.([]int)))
-
-			out_input := (*C.metaffi_int64)(C.malloc(C.ulonglong(len(input.([]int)))*C.sizeof_metaffi_int64))
-			for i, val := range input.([]int){
-				C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
-			}
-
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_int64_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_int64_input.vals = out_input
-			pcdt_out_int64_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_int64_input.dimensions = out_input_dimensions
-
-		case bool:
-			var out_input C.metaffi_bool
-			if input.(bool) { out_input = C.metaffi_bool(1) } else { out_input = C.metaffi_bool(0) }
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_bool_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_bool_input.val = out_input
-
-		case string:
-			out_input_len := C.metaffi_size(C.ulonglong(len(input.(string))))
-			out_input := C.CString(input.(string))
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_string8_input.val = out_input
-			pcdt_out_string8_input.length = out_input_len
-
-		case []bool:
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]bool)))
-
-			out_input := (*C.metaffi_bool)(C.malloc(C.metaffi_size(len(input.([]bool)))*C.sizeof_metaffi_bool))
-			for i, val := range input.([]bool){
-				var bval C.metaffi_bool
-				if val { bval = C.metaffi_bool(1) } else { bval = C.metaffi_bool(0) }
-				C.set_metaffi_bool_element(out_input, C.int(i), C.metaffi_bool(bval))
-			}
-
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_bool_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_bool_input.vals = out_input
-			pcdt_out_bool_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_bool_input.dimensions = out_input_dimensions
-
-		case []string:
-			out_input := (*C.metaffi_string8)(C.malloc(C.ulonglong(len(input.([]string)))*C.sizeof_metaffi_string8))
-			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulonglong(len(input.([]string)))*C.sizeof_metaffi_size))
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
-			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))
-
-			for i, val := range input.([]string){
-				C.set_metaffi_string8_element(out_input, out_input_sizes, C.int(i), C.metaffi_string8(C.CString(val)), C.metaffi_size(len(val)))
-			}
-
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_string8_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_string8_input.vals = out_input
-			pcdt_out_string8_input.vals_sizes = out_input_sizes
-			pcdt_out_string8_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_string8_input.dimensions = out_input_dimensions
-
-		default:
-
-			if input == nil{ // return handle "0"
-				out_input := C.metaffi_handle(uintptr(0))
-				out_input_cdt := C.get_cdt(data, index)
-				C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
-				out_input_cdt.free_required = 0
-				pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-				pcdt_out_handle_input.val = out_input
-				return
-			}
-
-			// check if the object is type of a primitive
-			inputVal := reflect.ValueOf(input)
-			inputType := reflect.TypeOf(input)
-			switch inputType.Kind(){
-				case reflect.Bool: fromGoToCDT(bool(inputVal.Bool()), data, i); return
-
-				case reflect.Float32: fromGoToCDT(float32(inputVal.Float()), data, i); return
-				case reflect.Float64: fromGoToCDT(float64(inputVal.Float()), data, i); return
-
-				case reflect.Int8: fromGoToCDT(int8(inputVal.Int()), data, i); return
-				case reflect.Int16: fromGoToCDT(int16(inputVal.Int()), data, i); return
-				case reflect.Int32: fromGoToCDT(int32(inputVal.Int()), data, i); return
-				case reflect.Int: fallthrough
-				case reflect.Int64: fromGoToCDT(int64(inputVal.Int()), data, i); return
-
-				case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i); return
-				case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i); return
-				case reflect.Uint32: fromGoToCDT(uint32(inputVal.Uint()), data, i); return
-				case reflect.Uint: fallthrough
-				case reflect.Uint64: fromGoToCDT(uint64(inputVal.Uint()), data, i); return
-
-				case reflect.Uintptr: fromGoToCDT(uint64(inputVal.UnsafeAddr()), data, i); return
-
-				case reflect.String: fromGoToCDT(string(inputVal.String()), data, i); return
-
-				case reflect.Slice:
-					switch inputType.Elem().Kind(){
-						case reflect.Float32:
-							dstSlice := make([]float32, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float32(inputVal.Index(i).Float()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Float64:
-							dstSlice := make([]float64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float64(inputVal.Index(i).Float()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Bool:
-							dstSlice := make([]bool, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = inputVal.Index(i).Bool() }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Int8:
-							dstSlice := make([]int8, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int8(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Int16:
-							dstSlice := make([]int16, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int16(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Int32:
-							dstSlice := make([]int32, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int32(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Int: fallthrough
-						case reflect.Int64:
-							dstSlice := make([]int64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int64(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i)
-							dstSlice := make([]uint8, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint8(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i)
-							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint32:
-							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint: fallthrough
-						case reflect.Uint64:
-							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uintptr:
-							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).UnsafeAddr()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.String:
-							dstSlice := make([]string, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = string(inputVal.Index(i).String()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-					}
-
-					fallthrough // if no kind matched, treat as handle
-
-				default:
-					input_handle := SetObject(input) // if already in table, return existing handle
-
-					out_input := C.metaffi_handle(input_handle)
-					out_input_cdt := C.get_cdt(data, index)
-					C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
-					out_input_cdt.free_required = 1
-					pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-					pcdt_out_handle_input.val = out_input
-			}
-	}
-}
 `
 
 const HostHelperFunctionsNonWindows = `
-var pruntime_plugin *C.char
-var runtime_plugin_length C.uint32_t
 
 // function IDs
 {{range $mindex, $m := .Modules}}
@@ -607,8 +191,8 @@ func init(){
 	}
 
 	runtime_plugin := "xllr.{{.TargetLanguage}}"
-	pruntime_plugin = C.CString(runtime_plugin)
-	runtime_plugin_length = C.uint32_t(len(runtime_plugin))
+	pruntime_plugin := C.CString(runtime_plugin)
+	runtime_plugin_length := C.uint32_t(len(runtime_plugin))
 
 	// load foreign runtime
 	var out_err *C.char
@@ -665,388 +249,7 @@ func init(){
 	{{end}}{{/* End modules */}}
 }
 
-func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
-	
-	var res interface{}
-	index := C.int(i)
-	in_res_cdt := C.get_cdt(data, index)
-	res_type := C.get_cdt_type(in_res_cdt)
-	switch res_type{
 
-		case {{GetMetaFFIType "handle"}}: // handle
-			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.metaffi_handle = pcdt_in_handle_res.val
-			
-			if in_res == C.get_null_handle(){
-				return nil
-			}
-
-			res = GetObject(Handle(in_res))
-			if res == nil{ // handle belongs to another language
-				res = Handle(in_res)
-			}
-
-		case {{GetMetaFFIArrayType "handle"}}: // []Handle
-			pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res *C.metaffi_handle = pcdt_in_handle_res.vals
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_handle_res.dimensions_lengths
-			// var in_res_dimensions C.metaffi_size = pcdt_in_handle_res.dimensions - TODO: not used until multi-dimensions support!
-
-			res_typed := make([]interface{}, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_handle_element(in_res, C.int(i))
-
-				val_obj := GetObject(Handle(val))
-				if val_obj == nil{ // handle belongs to
-					res_typed = append(res_typed, Handle(val))
-				} else {
-					res_typed = append(res_typed, val_obj)
-				}
-			}
-			res = res_typed
-
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
-		case {{GetMetaFFIType $numType}}: // {{$numType}}
-			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.val
-			
-			res = {{$numType}}(in_res)
-
-		{{end}}{{end}}
-
-		{{range $numTypeEnumIndex, $numType := GetNumericTypes}}{{if ne $numType "Handle"}}
-		case {{GetMetaFFIArrayType $numType}}: // []{{$numType}}
-			pcdt_in_{{$numType}}_res := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res *C.{{ MakeMetaFFIType $numType}} = pcdt_in_{{$numType}}_res.vals
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions_lengths
-			// var in_res_dimensions C.metaffi_size = pcdt_in_{{$numType}}_res.dimensions - TODO: not used until multi-dimensions support!
-			
-			res_typed := make([]{{$numType}}, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
-				val := C.get_{{ MakeMetaFFIType $numType}}_element(in_res, C.int(i))
-				res_typed = append(res_typed, {{$numType}}(val))
-			}
-			res = res_typed
-		{{end}}{{end}}
-
-		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
-		case {{GetMetaFFIType $stringType}}: // {{$stringType}}
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}})(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res_len C.metaffi_size = pcdt_in_{{$stringType}}_res.length
-			var in_res C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.val
-		
-			res = C.GoStringN(in_res, C.int(in_res_len))
-		{{end}}
-
-		{{range $numTypeEnumIndex, $stringType := GetMetaFFIStringTypes}}
-		case {{GetMetaFFIArrayType $stringType}}: // []{{$stringType}}
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_{{$stringType}}_res := ((*C.struct_cdt_metaffi_{{$stringType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-		
-			var in_res *C.metaffi_{{$stringType}} = pcdt_in_{{$stringType}}_res.vals
-			var in_res_sizes *C.metaffi_size = pcdt_in_{{$stringType}}_res.vals_sizes
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions_lengths
-			//var in_res_dimensions C.metaffi_size = pcdt_in_{{$stringType}}_res.dimensions - TODO: not used until multi-dimensions support!
-		
-			res_typed := make([]string, 0, int(C.get_int_item(in_res_dimensions_lengths, 0)))
-			for i:=C.int(0) ; i<C.int(C.get_int_item(in_res_dimensions_lengths, 0)) ; i++{
-				var str_size C.metaffi_size
-				str := C.get_metaffi_{{$stringType}}_element(in_res, C.int(i), in_res_sizes, &str_size)
-				res_typed = append(res_typed, C.GoStringN(str, C.int(str_size)))
-			}
-			res = res_typed
-		{{end}}
-
-
-		case {{GetMetaFFIType "bool"}}: // bool
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res C.metaffi_bool = pcdt_in_bool_res.val
-			
-			res = in_res != C.metaffi_bool(0)
-
-		case {{GetMetaFFIArrayType "bool"}}: // []bool
-			in_res_cdt := C.get_cdt(data, index)
-			pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-			var in_res *C.metaffi_bool = pcdt_in_bool_res.vals
-			var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_bool_res.dimensions_lengths
-			// var in_res_dimensions C.metaffi_size = pcdt_in_bool_res.dimensions - TODO: not used until multi-dimensions support!
-			
-			res_typed := make([]bool, 0)
-			for i:=C.int(0) ; i<C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))) ; i++{
-				val := C.get_metaffi_bool_element(in_res, C.int(i))
-				var bval bool
-				if val != 0 { bval = true } else { bval = false }
-				res_typed = append(res_typed, bval)
-			}
-
-			res = res_typed
-
-		default:
-			panic(fmt.Errorf("Return value %v is not of a supported type, but of type: %v", "res", res_type))
-	}
-
-	return res
-}
-
-func fromGoToCDT(input interface{}, data *C.struct_cdt, i int){
-
-	index := C.int(i)
-	switch input.(type) {
-
-		{{ range $numTypeIndex, $numType := GetNumericTypes }}
-		case {{$numType}}:
-			out_input := C.{{ MakeMetaFFIType $numType}}(input.({{$numType}}))
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_{{$numType}}_input := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}})(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_{{$numType}}_input.val = out_input
-
-		{{end}}
-		
-
-		{{ range $numTypeIndex, $numType := GetNumericTypes }}
-		case []{{$numType}}:
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulong(len(input.([]{{$numType}})))
-		
-			out_input := (*C.{{MakeMetaFFIType $numType}})(C.malloc(C.ulong(len(input.([]{{$numType}})))*C.sizeof_{{ MakeMetaFFIType $numType}}))
-			for i, val := range input.([]{{$numType}}){
-				C.set_{{MakeMetaFFIType $numType}}_element(out_input, C.int(i), C.{{ MakeMetaFFIType $numType}}(val))
-			}
-		
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.{{MakeMetaFFIType $numType}}_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_{{$numType}}_input := ((*C.struct_cdt_{{ MakeMetaFFIType $numType}}_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_{{$numType}}_input.vals = out_input
-			pcdt_out_{{$numType}}_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_{{$numType}}_input.dimensions = out_input_dimensions
-
-		{{end}}
-
-		case int:
-			out_input := C.metaffi_int64(int64(input.(int)))
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_int64_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_int64_input.val = out_input
-
-		case []int:
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.ulong(len(input.([]int)))
-		
-			out_input := (*C.metaffi_int64)(C.malloc(C.ulong(len(input.([]int)))*C.sizeof_metaffi_int64))
-			for i, val := range input.([]int){
-				C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
-			}
-		
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_int64_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_int64_input.vals = out_input
-			pcdt_out_int64_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_int64_input.dimensions = out_input_dimensions
-
-		case bool:
-			var out_input C.metaffi_bool
-			if input.(bool) { out_input = C.metaffi_bool(1) } else { out_input = C.metaffi_bool(0) }
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_bool_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_bool_input.val = out_input
-
-		case string:
-			out_input_len := C.metaffi_size(C.ulong(len(input.(string))))
-			out_input := C.CString(input.(string))
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_string8_input.val = out_input
-			pcdt_out_string8_input.length = out_input_len
-
-		case []bool:
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]bool)))
-		
-			out_input := (*C.metaffi_bool)(C.malloc(C.metaffi_size(len(input.([]bool)))*C.sizeof_metaffi_bool))
-			for i, val := range input.([]bool){
-				var bval C.metaffi_bool
-				if val { bval = C.metaffi_bool(1) } else { bval = C.metaffi_bool(0) }
-				C.set_metaffi_bool_element(out_input, C.int(i), C.metaffi_bool(bval))
-			}
-		
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_bool_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_bool_input.vals = out_input
-			pcdt_out_bool_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_bool_input.dimensions = out_input_dimensions
-
-		case []string:
-			out_input := (*C.metaffi_string8)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_string8))
-			out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len(input.([]string)))*C.sizeof_metaffi_size))
-			out_input_dimensions := C.metaffi_size(1)
-			out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
-			*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))
-			
-			for i, val := range input.([]string){
-				C.set_metaffi_string8_element(out_input, out_input_sizes, C.int(i), C.metaffi_string8(C.CString(val)), C.metaffi_size(len(val)))
-			}
-			
-			out_input_cdt := C.get_cdt(data, index)
-			C.set_cdt_type(out_input_cdt, C.metaffi_string8_array_type)
-			out_input_cdt.free_required = 1
-			pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-			pcdt_out_string8_input.vals = out_input
-			pcdt_out_string8_input.vals_sizes = out_input_sizes
-			pcdt_out_string8_input.dimensions_lengths = out_input_dimensions_lengths
-			pcdt_out_string8_input.dimensions = out_input_dimensions
-			
-		default:
-			
-			if input == nil{ // return handle "0"
-				out_input := C.metaffi_handle(uintptr(0))
-				out_input_cdt := C.get_cdt(data, index)
-				C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
-				out_input_cdt.free_required = 0
-				pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-				pcdt_out_handle_input.val = out_input
-				return
-			}
-
-			// check if the object is type of a primitive
-			inputVal := reflect.ValueOf(input)
-			inputType := reflect.TypeOf(input)
-			switch inputType.Kind(){
-				case reflect.Bool: fromGoToCDT(bool(inputVal.Bool()), data, i); return
-
-				case reflect.Float32: fromGoToCDT(float32(inputVal.Float()), data, i); return
-				case reflect.Float64: fromGoToCDT(float64(inputVal.Float()), data, i); return
-				
-				case reflect.Int8: fromGoToCDT(int8(inputVal.Int()), data, i); return
-				case reflect.Int16: fromGoToCDT(int16(inputVal.Int()), data, i); return
-				case reflect.Int32: fromGoToCDT(int32(inputVal.Int()), data, i); return
-				case reflect.Int: fallthrough
-				case reflect.Int64: fromGoToCDT(int64(inputVal.Int()), data, i); return
-
-				case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i); return
-				case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i); return
-				case reflect.Uint32: fromGoToCDT(uint32(inputVal.Uint()), data, i); return
-				case reflect.Uint: fallthrough
-				case reflect.Uint64: fromGoToCDT(uint64(inputVal.Uint()), data, i); return
-
-				case reflect.Uintptr: fromGoToCDT(uint64(inputVal.UnsafeAddr()), data, i); return
-
-				case reflect.String: fromGoToCDT(string(inputVal.String()), data, i); return
-
-				case reflect.Slice:
-					switch inputType.Elem().Kind(){
-						case reflect.Float32:
-							dstSlice := make([]float32, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float32(inputVal.Index(i).Float()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Float64:
-							dstSlice := make([]float64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = float64(inputVal.Index(i).Float()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Bool:
-							dstSlice := make([]bool, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = inputVal.Index(i).Bool() }
-							fromGoToCDT(dstSlice, data, i)
-							return
-				
-						case reflect.Int8:
-							dstSlice := make([]int8, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int8(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-							
-						case reflect.Int16:
-							dstSlice := make([]int16, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int16(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Int32:
-							dstSlice := make([]int32, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int32(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Int: fallthrough
-						case reflect.Int64:
-							dstSlice := make([]int64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = int64(inputVal.Index(i).Int()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-		
-						case reflect.Uint8: fromGoToCDT(uint8(inputVal.Uint()), data, i)
-							dstSlice := make([]uint8, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint8(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint16: fromGoToCDT(uint16(inputVal.Uint()), data, i)
-							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint32:
-							dstSlice := make([]uint16, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint16(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-
-						case reflect.Uint: fallthrough
-						case reflect.Uint64:
-							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).Uint()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-		
-						case reflect.Uintptr:
-							dstSlice := make([]uint64, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = uint64(inputVal.Index(i).UnsafeAddr()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-		
-						case reflect.String:
-							dstSlice := make([]string, inputVal.Len(), inputVal.Cap())
-							for i:=0 ; i < inputVal.Len() ; i++{ dstSlice[i] = string(inputVal.Index(i).String()) }
-							fromGoToCDT(dstSlice, data, i)
-							return
-					}
-
-					fallthrough // if no kind matched, treat as handle
-
-				default:
-					input_handle := SetObject(input) // if already in table, return existing handle
-					
-					out_input := C.metaffi_handle(input_handle)
-					out_input_cdt := C.get_cdt(data, index)
-					C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
-					out_input_cdt.free_required = 1
-					pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
-					pcdt_out_handle_input.val = out_input
-			}
-	}
-}
 `
 
 const HostFunctionStubsTemplate = `
@@ -1059,7 +262,7 @@ const HostFunctionStubsTemplate = `
 {{if $f.Comment}}/*
 {{$f.Comment}}
 */{{end}}
-func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinition}}, err error){
+func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinition $m}}, err error){
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 	{{GenerateCodeAllocateCDTS $f.Getter.Parameters $f.Getter.ReturnValues}}
 
@@ -1072,34 +275,34 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
-	var {{$elem.Name}} {{ConvertToGoType $elem}}
+	var {{$elem.Name}} {{ConvertToGoType $elem $m}}
 	
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
 		
 		{{else if not $elem.IsHandle}}
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		{{else}} {{/* Handle */}}		
 		{{/* Go object */}}
 		
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}
@@ -1117,7 +320,7 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 }
 {{end}}{{/* End Getter */}}
 {{if $f.Setter}}
-func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinition}}) (err error){
+func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinition $m}}) (err error){
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
 	{{GenerateCodeAllocateCDTS $f.Setter.Parameters $f.Setter.ReturnValues}}
@@ -1136,27 +339,27 @@ func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinit
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
 		
 		{{else if not $elem.IsHandle}}
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		{{else}} {{/* Handle */}}		
 		{{/* Go object */}}
 		
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}
@@ -1184,7 +387,7 @@ func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinit
 */{{end}}
 {{range $index, $elem := $f.Parameters}}
 {{if $elem.Comment}}// {{$elem.Name}} - {{$elem.Comment}}{{end}}{{end}}{{/* End Parameters comments */}}
-func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
@@ -1204,27 +407,27 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
 		
 		{{else if not $elem.IsHandle}}
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		{{else}} {{/* Handle */}}		
 		{{/* Go object */}}
 		
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}
@@ -1243,11 +446,11 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 {{end}}{{/* End Function */}}
 
 {{range $cindex, $c := $m.Classes}}
-type {{$c.Name}} struct{
+type {{AsPublic $c.Name}} struct{
 	h Handle
 }
 {{range $findex, $f := $c.Constructors}}
-func New{{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) (instance *{{$c.Name}}, err error){
+func New{{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}) (instance *{{AsPublic $c.Name}}, err error){
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
 	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
@@ -1259,7 +462,7 @@ func New{{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $i
 
 	{{GenerateCodeXCall $c.Name $f.Name $f.Parameters $f.ReturnValues}}
 	
-	inst := &{{$c.Name}}{}
+	inst := &{{AsPublic $c.Name}}{}
 
 	{{range $index, $elem := $f.ReturnValues}}
 	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
@@ -1277,17 +480,24 @@ func New{{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $i
 
 {{range $findex, $f := $c.Fields}}
 {{if $f.Getter}}
-func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem := $f.Getter.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}) ({{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.Getter.ReturnValues}},{{end}} err error){
+func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({{GenerateMethodParams $f.Getter $m}}) ({{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Getter.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
 	{{GenerateCodeAllocateCDTS $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
 	// get parameters
+	{{if $f.Getter.InstanceRequired}}
 	fromGoToCDT(this.h, parametersCDTS, 0)
 	{{range $index, $elem := $f.Getter.Parameters}}{{if gt $index 0}}
 	fromGoToCDT(this.h, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
+	{{else}}
+	{{range $index, $elem := $f.Getter.Parameters}}
+	fromGoToCDT(this.h, parametersCDTS, {{$index}})
+	{{end}} {{/* End Parameters */}}
+	{{end}} {{/* End InstanceRequired */}}
+
 
 	{{GenerateCodeXCall $c.Name $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
@@ -1300,27 +510,27 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 		
 		{{else if not $elem.IsHandle}}
 		// not handle
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		
 		{{else}} {{/* Handle */}}
 		// handle
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{ h: obj }{{else}}obj{{end}}			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}
@@ -1338,7 +548,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Getter.Name}}({{range $index, $elem :
 }
 {{end}}{{/* End Getter */}}
 {{if $f.Setter}}
-func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem := $f.Setter.Parameters}}{{if gt $index 0}}{{if gt $index 1}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{end}}) ({{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.Setter.ReturnValues}},{{end}} err error){
+func {{GenerateMethodReceiverCode $f.Setter}} {{GenerateMethodName $f.Setter}}({{GenerateMethodParams $f.Setter $m}}) ({{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Setter.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
@@ -1359,27 +569,27 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
 		
 		{{else if not $elem.IsHandle}}
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		{{else}} {{/* Handle */}}		
 		{{/* Go object */}}
 		
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}
@@ -1398,7 +608,7 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Setter.Name}}({{range $index, $elem :
 {{end}}{{/* End Setter */}}
 {{end}}{{/* End Fields */}}
 {{range $findex, $f := $c.Methods}}
-func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMethodParams $f}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMethodParams $f $m}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
@@ -1425,27 +635,27 @@ func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMetho
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
 		
 		{{else if not $elem.IsHandle}}
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		{{else}} {{/* Handle */}}		
 		{{/* Go object */}}
 		
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}
@@ -1463,7 +673,7 @@ func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMetho
 }
 {{end}}{{/* End Methods */}}
 {{if $c.Releaser}}{{ $f := $c.Releaser}}
-func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
+func (this *{{AsPublic $c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
@@ -1484,27 +694,27 @@ func (this *{{$c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Pa
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
 		
 		{{else if not $elem.IsHandle}}
-		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+		{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		{{else}} {{/* Handle */}}		
 		{{/* Go object */}}
 		
 		{{if not $elem.IsArray}}
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
-			{{$elem.Name}} = {{$elem.GetTypeOrAlias}}{ h: obj }			
+			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem}}))
+			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
 		if len({{$elem.Name}}AsInterface.([]interface{})) > 0{
-			{{$elem.Name}} = make([]{{$elem.GetTypeOrAlias}}, len({{$elem.Name}}AsInterface.([]interface{})))
+			{{$elem.Name}} = make([]{{GetTypeOrAlias $elem $m}}, len({{$elem.Name}}AsInterface.([]interface{})))
 			if _, ok := {{$elem.Name}}AsInterface.([]interface{})[0].(Handle); ok{
 				for i, h := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = {{$elem.GetTypeOrAlias}}{ h: h.(Handle) }
+					{{$elem.Name}}[i] = {{GetTypeOrAlias $elem $m}}{ h: h.(Handle) }
 				}
 			} else {
 				for i, obj := range {{$elem.Name}}AsInterface.([]interface{}){
-					{{$elem.Name}}[i] = obj.({{$elem.GetTypeOrAlias}})
+					{{$elem.Name}}[i] = obj.({{GetTypeOrAlias $elem $m}})
 				}
 			}
 		}

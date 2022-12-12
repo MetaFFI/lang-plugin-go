@@ -548,7 +548,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Setter.Name $f.Setter.Pa
 	// catch panics and return them as errors
 	defer panicHandler(out_err, out_err_len)
 
-	{{$f.Name}} = fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 0){{if not $f.IsAny}}.({{ConvertToGoType $f.ArgDefinition}}){{end}}
+	{{$f.Name}} = fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 0){{if not $f.IsAny}}.({{ConvertToGoType $f.ArgDefinition $m}}){{end}}
 {{end}} {{/* end $f.Set */}}
 
 {{end}} {{/* end range globals */}}
@@ -567,7 +567,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
@@ -603,7 +603,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
@@ -652,7 +652,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
@@ -684,7 +684,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Gett
 	// get object
 	{{ $elem := index $f.Setter.Parameters 0 }}
 	objAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Getter.Parameters}}, 0)
-	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 
 	{{ $receiver_pointer := index $f.Getter.Tags "receiver_pointer"}}
 	{{$f.Name}}_res := obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}}
@@ -704,12 +704,12 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Setter.Name $f.Sett
 	// get object
 	{{ $elem := index $f.Setter.Parameters 0 }}
 	objAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 0)
-	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 
 	// get val
 	{{ $elem = index $f.Setter.Parameters 1 }}
 	valAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 1)
-	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem}})){{end}}
+	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 
 	// get new data
 	{{ $receiver_pointer := index $f.Setter.Tags "receiver_pointer"}}
