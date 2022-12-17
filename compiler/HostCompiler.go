@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"runtime"
 )
 
 //go:embed MetaFFIGoHostCommon.gotpl
@@ -30,16 +31,53 @@ func NewHostCompiler() *HostCompiler {
 
 //--------------------------------------------------------------------
 func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) string {
-	return strings.ReplaceAll(metaFFIGoHostCommon, "%PACKAGE%", commonPackageName)
+
+	metaffiHome := os.Getenv("METAFFI_HOME")
+	if metaffiHome == ""{
+		panic("METAFFI_HOME environment variable is not set")
+	}
+
+	os := runtime.GOOS
+	var longtype string
+	switch os {
+        case "windows":
+            longtype = "ulonglong"
+        default:
+            longtype = "ulong"
+    }
+
+	p := struct {
+        Package string
+        MetaFFIHome string
+        LongType string
+    }{
+        Package: commonPackageName,
+        MetaFFIHome: metaffiHome,
+        LongType: longtype,
+    }
+
+	tmp, err := template.New("metaFFIGoHostCommon").Parse(metaFFIGoHostCommon)
+    if err != nil {
+        panic(fmt.Errorf("Failed to parse HostHeaderTemplate: %v", err))
+    }
+
+    buf := strings.Builder{}
+    err = tmp.Execute(&buf, p)
+    if err != nil{
+        panic(err)
+    }
+
+    return buf.String()
+
 }
 
 //--------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
-	
+
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
 	}
-	
+
 	if strings.Contains(outputFilename, "#") {
 		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1 : strings.Index(outputFilename, "#")+1]
 		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
@@ -49,7 +87,6 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	this.outputDir = outputDir
 	this.hostOptions = hostOptions
 	this.outputFilename = outputFilename
-	
 	caser := cases.Title(language.Und, cases.NoLower)
 	this.def.ReplaceKeywords(map[string]string{
 		"type":  caser.String("type"),
@@ -58,7 +95,7 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 		"var":   caser.String("var"),
 		"const": caser.String("const"),
 	})
-	
+
 	// generate code
 	code, packageName, err := this.generateCode()
 	if err != nil {
@@ -68,13 +105,13 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	// TODO: handle multiple modules
 
 	_ = os.Mkdir(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name), 0600)
-	
+
 	// write MetaFFIGoHostCommon
 	err = ioutil.WriteFile(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name)+string(os.PathSeparator)+"MetaFFIGoHostCommon.go", []byte(this.getMetaFFIGoHostCommon(packageName)), 0600)
 	if err != nil {
 		return fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
 	}
-	
+
 	// write to output
 	genOutputFilename := this.outputDir + string(os.PathSeparator) + strings.ToLower(this.def.Modules[0].Name) + string(os.PathSeparator) + this.outputFilename + "_MetaFFIHost.go"
 	err = ioutil.WriteFile(genOutputFilename, []byte(code), 0600)
