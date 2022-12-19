@@ -5,8 +5,6 @@ if(NOT GOEXEC)
 	message(FATAL "Go not found")
 endif()
 
-message("${target_name}")
-
 # build
 add_custom_target(${target_name} ALL)
 
@@ -27,3 +25,7 @@ add_custom_command(TARGET ${target_name} POST_BUILD
 		"${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
 		"$ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
 		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
+# install
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}
+		DESTINATION "lib")

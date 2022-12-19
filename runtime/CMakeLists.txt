@@ -34,12 +34,6 @@ add_custom_command(TARGET ${target_name} POST_BUILD
 		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 
-# Unitest go
-#add_executable(xllr_go_test ${CMAKE_CURRENT_LIST_DIR}/xllr_go_test.cpp)
-#target_link_libraries(xllr_go_test Boost::filesystem dl)
-#add_test(NAME test_go_module_success COMMAND xllr_go_test 1)
-#add_test(NAME test_go_module_free_module_via_free_runtime_success COMMAND xllr_go_test 2)
-#add_test(NAME test_go_module_lazy_runtime_success COMMAND xllr_go_test 3)
-#add_test(NAME test_go_module_module_not_exist_fail COMMAND xllr_go_test 4)
-#add_test(NAME test_go_call_success COMMAND xllr_go_test 5)
-#add_test(NAME test_go_call_fail COMMAND xllr_go_test 6)
+# install
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}
+		DESTINATION "lib")
