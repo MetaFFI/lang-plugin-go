@@ -58,14 +58,14 @@ void load_runtime(char** err, uint32_t* err_len)
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-void* load_function(const char* function_path, uint32_t function_path_len, int8_t params_count, int8_t retval_count, char** err, uint32_t* err_len)
+void* load_function(const char* module_path, uint32_t module_path_len, const char* function_path, uint32_t function_path_len, int8_t params_count, int8_t retval_count, char** err, uint32_t* err_len)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
 	 */
 	try
 	{
-		return functions_repository::get_instance().load_function(std::string(function_path, function_path_len), params_count, retval_count);
+		return functions_repository::get_instance().load_function(std::string(module_path, module_path_len), std::string(function_path, function_path_len), params_count, retval_count);
 	}
 	catch(std::exception& exc)
 	{

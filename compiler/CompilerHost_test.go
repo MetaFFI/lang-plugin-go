@@ -84,14 +84,14 @@ func TestPyExtractorHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	
-	err = os.Mkdir("temp", 0700)
+	err = os.Mkdir("temp_host", 0700)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 	
 	defer func() {
-		err = os.RemoveAll("temp")
+		err = os.RemoveAll("temp_host")
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -99,7 +99,7 @@ func TestPyExtractorHost(t *testing.T) {
 	}()
 	
 	cmp := NewHostCompiler()
-	err = cmp.Compile(def, "temp", "", nil)
+	err = cmp.Compile(def, "temp_host", "", nil)
 	if err != nil {
 		t.Fatal(err)
 		return

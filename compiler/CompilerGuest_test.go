@@ -144,24 +144,24 @@ func TestGuest(t *testing.T) {
 		return
 	}
 	
-	_ = os.RemoveAll("temp")
+	_ = os.RemoveAll("temp_guest")
 	
-	err = os.Mkdir("temp", 0700)
+	err = os.Mkdir("temp_guest", 0700)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 	
-	err = ioutil.WriteFile("./temp/GuestCode.go", []byte(GuestCode), 0600)
+	err = ioutil.WriteFile("./temp_guest/GuestCode.go", []byte(GuestCode), 0600)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 	
-	err = ioutil.WriteFile("./temp/go.mod", []byte("module GoFuncs"), 0600)
+	err = ioutil.WriteFile("./temp_guest/go.mod", []byte("module GoFuncs"), 0600)
 	
 	defer func() {
-		err = os.RemoveAll("temp")
+		err = os.RemoveAll("temp_guest")
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -169,7 +169,7 @@ func TestGuest(t *testing.T) {
 	}()
 	
 	cmp := NewGuestCompiler()
-	err = cmp.Compile(def, "temp", "", "", "")
+	err = cmp.Compile(def, "temp_guest", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 		return

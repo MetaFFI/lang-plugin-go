@@ -26,25 +26,22 @@ void functions_repository::free_instance()
 	functions_repository::instance = nullptr;
 }
 //--------------------------------------------------------------------
-void* functions_repository::load_function(const std::string& function_path, int params_count, int retval_count)
+void* functions_repository::load_function(const std::string& module_path, const std::string& function_path, int params_count, int retval_count)
 {
 	metaffi::utils::function_path_parser fp(function_path);
 	
-	std::string metaffi_guest_lib_name = fp[function_path_entry_metaffi_guest_lib];
-	
-	if(metaffi_guest_lib_name.empty()){
+	if(module_path.empty()){
 		throw std::runtime_error("Guest library is not defined");
 	}
 	
-	
-	auto it = this->modules.find(metaffi_guest_lib_name);
+	auto it = this->modules.find(module_path);
 	
 	std::shared_ptr<boost::dll::shared_library> metaffi_guest_lib;
 	if(it == this->modules.end())
 	{
 		// if module not found - load it
-		std::shared_ptr<boost::dll::shared_library> mod = metaffi::utils::load_library(metaffi_guest_lib_name);
-		this->modules[metaffi_guest_lib_name] = mod;
+		std::shared_ptr<boost::dll::shared_library> mod = metaffi::utils::load_library(module_path);
+		this->modules[module_path] = mod;
 		metaffi_guest_lib = mod;
 	}
 	else
