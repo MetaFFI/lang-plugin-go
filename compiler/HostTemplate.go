@@ -86,10 +86,7 @@ var {{$c.Name}}_{{$c.Releaser.Name}}_id unsafe.Pointer
 {{end}}{{/* End modules */}}
 
 func Load(modulePath string){
-	err := C.load_cdt_capi()
-	if err != nil{
-		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
-	}
+	loadCDTCAPI()
 
 	runtime_plugin := "xllr.{{.TargetLanguage}}"
 	pruntime_plugin := C.CString(runtime_plugin)
@@ -115,9 +112,9 @@ func Load(modulePath string){
 		var out_err *C.char
 		var out_err_len C.uint32_t
 		out_err_len = C.uint32_t(0)
-		id := C.int64_t(C.xllr_load_function(pruntime_plugin, runtime_plugin_length, pmodulePath, C.uint(len(modulePath)), ppath, C.uint(len(fpath)), nil,  C.schar(params_count), C.schar(params_count), &out_err, &out_err_len))
+		id := C.xllr_load_function(pruntime_plugin, runtime_plugin_length, pmodulePath, C.uint(len(modulePath)), ppath, C.uint(len(fpath)), nil,  C.schar(params_count), C.schar(params_count), &out_err, &out_err_len)
 
-		if id == nill{ // failed
+		if id == nil{ // failed
 			panic(fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
 		}
 
@@ -126,27 +123,27 @@ func Load(modulePath string){
 
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF(modulePath, "{{$f.Getter.FunctionPathAsString $idl}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF(modulePath, "{{$f.Setter.FunctionPathAsString $idl}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$f.Getter.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.Getter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$f.Setter.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.Setter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End globals */}}
 
 	{{range $findex, $f := $m.Functions}}
-	{{$f.Name}}_id = loadFF(modulePath, "{{$f.FunctionPathAsString $idl}}")
+	{{$f.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Functions */}}
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF(modulePath, "{{$f.Getter.FunctionPathAsString $idl}}", {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF(modulePath, "{{$f.Setter.FunctionPathAsString $idl}}", {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.Getter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.Setter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF(modulePath, "{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.Name}}_id = loadFF(modulePath, "{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.Name}}_id = loadFF(modulePath, `+"`"+`{{$f.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Constructor */}}
 	{{if $c.Releaser}}
-	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF(modulePath, "{{$c.Releaser.FunctionPathAsString $idl}}", {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
+	{{$c.Name}}_{{$c.Releaser.Name}}_id = loadFF(modulePath, `+"`"+`{{$c.Releaser.FunctionPathAsString $idl}}`+"`"+`, {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
 	{{end}}{{/* End Releaser */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}

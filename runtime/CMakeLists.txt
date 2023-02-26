@@ -1,39 +1,24 @@
-find_package(Boost REQUIRED COMPONENTS filesystem) # Boost library
 
-include(CTest)
-enable_testing()
+#------------------------------- Go Language Support - Runtime Plugin ------------------------------------------
+project(lang-plugin-go-runtime VERSION 0.0.1)
+
+add_boost(filesystem)
 
 set(target_name "xllr.go")
 
-file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp ${CMAKE_CURRENT_LIST_DIR}/*.h ${METAFFI_SDK}/utils/*.cpp)
 # build xllr.go
-add_library(${target_name}
-			SHARED
-			${SRC_FILES}
-)
-target_include_directories(${target_name} PUBLIC ${CMAKE_CURRENT_LIST_DIR} ${Boost_INCLUDE_DIRS})
+get_dir_sources(${CMAKE_CURRENT_LIST_DIR} ${target_name}_sources)
+get_sdk_utils_sources(utils_srcs)
+get_sdk_runtime_sources(runtime_srcs)
 
-set_property(TARGET ${target_name} PROPERTY POSITION_INDEPENDENT_CODE ON)
-
-# remove the "lib" prefix in linux to get the expected filename "xllr.go.[ext]"
-SET_TARGET_PROPERTIES(${target_name} PROPERTIES PREFIX "")
-
-target_link_libraries(${target_name} Boost::filesystem)
-
-if(WIN32)
-	target_link_directories(${target_name} PUBLIC ${BOOST_LIBRARYDIR})
-else()
-	target_link_libraries(${target_name} ${Boost_LIBRARIES})
-endif()
+add_library(${target_name} SHARED ${${target_name}_sources} ${utils_srcs} ${runtime_srcs})
+target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${Boost_INCLUDE_DIRS} ${METAFFI_SDK})
+set_target_properties(${target_name} PROPERTIES PREFIX "" POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(${target_name} PRIVATE Boost::filesystem)
+link_to_dl_for_non_windows(${target_name})
 
 # Copy to metaffi directory
-add_custom_command(TARGET ${target_name} POST_BUILD
-		COMMAND "${CMAKE_COMMAND}" -E copy
-		"${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-		"$ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-		COMMENT "Copy ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX} -> $ENV{METAFFI_HOME}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
+copy_file_from_project_binary_to_metaffi_home(${target_name} "${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 # install
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX}
-		DESTINATION .)
+install_target(${target_name} .)

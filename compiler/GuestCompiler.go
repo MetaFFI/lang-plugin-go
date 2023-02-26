@@ -290,7 +290,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 	}
 	defer func() {
 		if err == nil {
-			_ = os.RemoveAll(dir)
+			//_ = os.RemoveAll(dir)
 		}
 	}()
 	

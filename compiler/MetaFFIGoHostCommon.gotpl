@@ -1,7 +1,6 @@
 package {{.Package}}
 
 import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
-
 /*
 #cgo !windows LDFLAGS: -L. -ldl
 #cgo CFLAGS: -I{{.MetaFFIHome}}
@@ -54,6 +53,13 @@ import (
 	"reflect"
 	"unsafe"
 )
+
+func loadCDTCAPI(){
+	err := C.load_cdt_capi()
+	if err != nil{
+		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
+	}
+}
 
 func fromCDTToGo(data *C.struct_cdt, i int) interface{}{
 

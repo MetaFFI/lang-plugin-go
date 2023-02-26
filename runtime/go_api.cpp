@@ -1,10 +1,8 @@
 #include <runtime/runtime_plugin_api.h>
 #include <utils/scope_guard.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 #include "functions_repository.h"
 #include <utils/xllr_api_wrapper.h>
-#include <utils/library_loader.h>
 
 using namespace metaffi::utils;
 
