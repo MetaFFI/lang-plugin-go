@@ -8,6 +8,5 @@ require (
 	golang.org/x/text v0.4.0
 )
 
-replace github.com/MetaFFI/plugin-sdk => ../../plugin-sdk
-
+replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk
 replace github.com/MetaFFI/lang-plugin-go/go-runtime => ../go-runtime
