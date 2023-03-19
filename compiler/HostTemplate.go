@@ -149,6 +149,17 @@ func Load(modulePath string){
 	{{end}}{{/* End modules */}}
 }
 
+func Free(){
+	runtime_plugin := "xllr.{{.TargetLanguage}}"
+    pruntime_plugin := C.CString(runtime_plugin)
+    runtime_plugin_length := C.uint32_t(len(runtime_plugin))
+
+    var out_err *C.char
+    var out_err_len C.uint32_t
+    out_err_len = C.uint32_t(0)
+    C.xllr_free_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
+}
+
 `
 
 const HostHelperFunctionsNonWindows = `
@@ -183,10 +194,7 @@ var {{$c.Name}}_{{$c.Releaser.Name}}_id unsafe.Pointer
 {{end}}{{/* End modules */}}
 
 func Load(modulePath string){
-	err := C.load_cdt_capi()
-	if err != nil{
-		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
-	}
+	loadCDTCAPI()
 
 	runtime_plugin := "xllr.{{.TargetLanguage}}"
 	pruntime_plugin := C.CString(runtime_plugin)
@@ -250,6 +258,16 @@ func Load(modulePath string){
 	{{end}}{{/* End modules */}}
 }
 
+func Free(){
+	runtime_plugin := "xllr.{{.TargetLanguage}}"
+    pruntime_plugin := C.CString(runtime_plugin)
+    runtime_plugin_length := C.uint32_t(len(runtime_plugin))
+
+    var out_err *C.char
+    var out_err_len C.uint32_t
+    out_err_len = C.uint32_t(0)
+    C.xllr_free_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
+}
 
 `
 

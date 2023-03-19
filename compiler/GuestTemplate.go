@@ -134,8 +134,6 @@ func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
 			default: msg += fmt.Sprintf("Panic with type: %v - %v", recType, rec)
 		}
 
-		fmt.Printf("+++++++++++ In panicHandler - recovered error: %v\n", msg)
-
 		*out_err = C.CString(msg)
 		*out_err_len = C.uint64_t(len(msg))
 	}
