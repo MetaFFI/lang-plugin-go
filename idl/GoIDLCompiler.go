@@ -75,8 +75,7 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string, isEm
 	
 	this.idl.FinalizeConstruction()
 
-	s, _ := this.idl.ToJSON()
-	println(s)
+	_, _ = this.idl.ToJSON()
 
 	return this.idl, true, nil
 }

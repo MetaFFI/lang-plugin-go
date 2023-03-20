@@ -33,13 +33,9 @@ project(lang-plugin-go VERSION 0.0.1)
 hunter_add_package(Catch)
 add_ctest_and_catch2_packages()
 
-set(plugin_dir "go")
-
 # set RPATH
 set(CMAKE_MACOSX_RPATH 1) # tell MacOS RPATH is in use
-list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN")
-list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN/lib")
-list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN/${plugin_dir}")
+list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN;$ORIGIN/lib")
 
 # add targets
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/compiler/)
