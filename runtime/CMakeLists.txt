@@ -16,5 +16,13 @@ set_target_properties(${target_name} PROPERTIES PREFIX "" POSITION_INDEPENDENT_C
 target_link_libraries(${target_name} PRIVATE Boost::filesystem)
 link_to_dl_for_non_windows(${target_name})
 
+set_target_properties( ${target_name}
+		PROPERTIES
+		ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+		LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+		)
+
+
 # install
 install_target(${target_name} .)
