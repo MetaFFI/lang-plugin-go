@@ -20,7 +20,7 @@ import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 const HostCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME" true}}
+#cgo CFLAGS: -I"{{GetEnvVar "METAFFI_HOME" true}}"
 
 #include <stdlib.h>
 #include <stdint.h>

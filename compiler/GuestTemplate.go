@@ -27,7 +27,7 @@ package main
 
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME" true}}
+#cgo CFLAGS: -I"{{GetEnvVar "METAFFI_HOME" true}}"
 
 
 #include <include/cdt_structs.h>
@@ -84,7 +84,7 @@ import "C"
 const GuestCImportTemplate = `
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{GetEnvVar "METAFFI_HOME" true}}
+#cgo CFLAGS: -I"{{GetEnvVar "METAFFI_HOME" true}}"
 
 #include <include/cdt_structs.h>
 #include <include/cdt_capi_loader.h>

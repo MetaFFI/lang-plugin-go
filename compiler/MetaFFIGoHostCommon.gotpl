@@ -3,7 +3,7 @@ package {{.Package}}
 import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 /*
 #cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I{{.MetaFFIHome}}
+#cgo CFLAGS: -I"{{.MetaFFIHome}}"
 #cgo LDFLAGS: -Wl,--allow-multiple-definition
 
 #include <stdlib.h>

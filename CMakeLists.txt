@@ -36,6 +36,7 @@ add_ctest_and_catch2_packages()
 # set RPATH
 set(CMAKE_MACOSX_RPATH 1) # tell MacOS RPATH is in use
 list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN;$ORIGIN/lib")
+list(APPEND CMAKE_BUILD_RPATH "$ORIGIN;$ORIGIN/lib")
 
 # add targets
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/compiler/)
@@ -46,6 +47,16 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/idl/)
 set(CMAKE_INSTALL_PREFIX [[$ENV{METAFFI_HOME}]])
 set(CMAKE_SKIP_INSTALL_RPATH ON)
 
+# package notes
+set(INSTALL_NOTES "Go must be installed to use plugin.
+Make sure:
+1. GOPATH and GOROOT environment variables are set correctly
+2. CGO_ENABLED=1 (using the command \"go env -w CGO_ENABLED=1\")
+3. gcc installed for CGo
+4. GIT installed and configured to use go package management (go get)")
+
+file(WRITE ${PROJECT_BINARY_DIR}/notes.txt ${INSTALL_NOTES})
+
 #-----------------------------------------------------------------------------------------------
 
 install(CODE "set(CMAKE_SCRIPTS_DIR ${CMAKE_CURRENT_LIST_DIR}/plugin-sdk/cmake)")
@@ -55,25 +66,7 @@ install(CODE
 		[[
 		include(${CMAKE_SCRIPTS_DIR}/MetaFFI.cmake)
 
-		macro(metaffi_pack ROOT FILES)
-			cmake_parse_arguments("metaffi_pack"
-					"" # bool vals
-					"WORKING_DIRECTORY" # single val
-					"" # multi-vals
-					${ARGN})
-
-			if("${metaffi_pack_WORKING_DIRECTORY}" STREQUAL "")
-				set(metaffi_pack_WORKING_DIRECTORY .)
-			endif()
-
-			execute_process(
-					WORKING_DIRECTORY ${metaffi_pack_WORKING_DIRECTORY}
-					COMMAND ${METAFFI_EXEC} --plugin --pack --root ${ROOT} --files ${FILES}
-					COMMAND_ECHO STDOUT
-					COMMAND_ERROR_IS_FATAL ANY
-					)
-		endmacro()
-
+		list(APPEND package_files notes.txt)
 		list(APPEND package_files metaffi.idl.go${dylib_ext})
 		list(APPEND package_files metaffi.compiler.go${dylib_ext})
 		list(APPEND package_files xllr.go${dylib_ext})

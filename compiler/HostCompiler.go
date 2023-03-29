@@ -36,6 +36,7 @@ func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) strin
 	if metaffiHome == ""{
 		panic("METAFFI_HOME environment variable is not set")
 	}
+	metaffiHome = strings.ReplaceAll(metaffiHome, "\\", "/")
 
 	os := runtime.GOOS
 	var longtype string
