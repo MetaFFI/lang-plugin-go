@@ -14,7 +14,7 @@ const HostPackageTemplate = `package {{.Package}}
 const HostImportsTemplate = `
 import "fmt"
 import "unsafe"
-import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
+{{if IsGoRuntimePackNeeded .}}import . "github.com/MetaFFI/lang-plugin-go/go-runtime"{{end}}
 `
 
 const HostCImportTemplate = `
@@ -54,8 +54,6 @@ func GetHostHelperFunctionsName() string {
 }
 
 const HostHelperFunctionsWindows = `
-DummyToIgnoreImportedAndNotUsedError = true
-
 {{ $idl := . }}
 
 // function IDs
@@ -165,8 +163,6 @@ func Free(){
 `
 
 const HostHelperFunctionsNonWindows = `
-DummyToIgnoreImportedAndNotUsedError = true
-
 // function IDs
 {{range $mindex, $m := .Modules}}
 

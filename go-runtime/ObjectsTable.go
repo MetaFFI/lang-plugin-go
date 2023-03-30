@@ -20,7 +20,6 @@ var (
 	handlesToObjects map[C.metaffi_handle]interface{}
 	objectsToHandles map[interface{}]C.metaffi_handle
 	lock             sync.RWMutex
-	DummyToIgnoreImportedAndNotUsedError bool
 )
 
 func init() {
