@@ -49,11 +49,12 @@ set(CMAKE_SKIP_INSTALL_RPATH ON)
 
 # package notes
 set(INSTALL_NOTES "Go must be installed to use plugin.
-Make sure:
-1. GOPATH and GOROOT environment variables are set correctly
-2. CGO_ENABLED=1 (using the command \"go env -w CGO_ENABLED=1\")
-3. gcc installed for CGo
-4. GIT installed and configured to use go package management (go get)")
+Also:
+1. GOPATH environment variables is set and correct (to find modules)
+2. CGO_ENABLED=1 (enable using the command \"go env -w CGO_ENABLED=1\")
+3. gcc installed and available for CGo (in windows, tested with TDM-GCC-64)
+4. GIT installed and configured correctly for go package management (go get)
+5. On windows, update "testingWER" to "TestingWER" in runtime/signal_windows.go")
 
 file(WRITE ${PROJECT_BINARY_DIR}/notes.txt ${INSTALL_NOTES})
 

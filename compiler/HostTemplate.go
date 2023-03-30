@@ -54,6 +54,8 @@ func GetHostHelperFunctionsName() string {
 }
 
 const HostHelperFunctionsWindows = `
+DummyToIgnoreImportedAndNotUsedError = true
+
 {{ $idl := . }}
 
 // function IDs
@@ -163,6 +165,7 @@ func Free(){
 `
 
 const HostHelperFunctionsNonWindows = `
+DummyToIgnoreImportedAndNotUsedError = true
 
 // function IDs
 {{range $mindex, $m := .Modules}}
