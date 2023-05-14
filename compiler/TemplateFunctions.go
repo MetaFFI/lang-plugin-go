@@ -66,43 +66,8 @@ func isGoRuntimePackNeeded(idl *IDL.IDLDefinition) bool {
 			}
 		}
 
-		for _, c := range m.Classes {
-
-			for _, f := range c.Fields {
-				if f.IsHandle() {
-					return true
-				}
-
-				if f.Getter != nil && f.Getter.InstanceRequired {
-					return true
-				}
-
-				if f.Setter != nil && f.Setter.InstanceRequired {
-					return true
-				}
-			}
-
-			if len(c.Constructors) > 0 {
-				return true
-			}
-
-			for _, meth := range c.Methods {
-				if meth.InstanceRequired {
-					return true
-				}
-
-				for _, p := range meth.Parameters {
-					if p.IsHandle() {
-						return true
-					}
-				}
-
-				for _, r := range meth.ReturnValues {
-					if r.IsHandle() {
-						return true
-					}
-				}
-			}
+		if len(m.Classes) > 0{
+			return true
 		}
 	}
 

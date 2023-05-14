@@ -370,14 +370,14 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 								return err
 							}
 							
-							_, err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), "./"+functionPath["package"])
+							err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), "./"+functionPath["package"])
 							if err != nil {
 								return err
 							}
 
 						} else {
 							// point module to
-							_, err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), v)
+							err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), v)
 							if err != nil {
 								return err
 							}
@@ -509,16 +509,33 @@ func (this *GuestCompiler) goBuild(dir string) (string, error) {
 }
 
 //--------------------------------------------------------------------
-func (this *GuestCompiler) goReplace(dir string, packageName string, packagePath string) (string, error) {
-	getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", packageName, packagePath))
-	getCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
-	output, err := getCmd.CombinedOutput()
+func (this *GuestCompiler) goReplace(dir string, packageName string, packagePath string) error {
+
+	replaceCommand := fmt.Sprintf("\nreplace %v => %v\n", packageName, packagePath)
+
+	fmt.Printf("Writing to %v the command: %v\n", dir+"/go.mod", replaceCommand)
+
+	f, err := os.OpenFile(dir+"/go.mod", os.O_APPEND|os.O_WRONLY, 0644)
+    if err != nil {
+        return err
+    }
+
+	_, err = f.Write([]byte(replaceCommand))
 	if err != nil {
-		return "", fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
-	}
+        return err
+    }
+
+    err = f.Close()
+
+// 	getCmd := exec.Command("go", "mod", "edit", "-replace", fmt.Sprintf("%v=%v", packageName, packagePath))
+// 	getCmd.Dir = dir
+// 	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
+// 	output, err := getCmd.CombinedOutput()
+// 	if err != nil {
+// 		return "", fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
+// 	}
 	
-	return string(output), err
+	return err
 }
 
 //--------------------------------------------------------------------

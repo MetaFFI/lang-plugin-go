@@ -308,7 +308,7 @@ func {{ToGoNameConv $f.Getter.Name}}() (instance {{ConvertToGoType $f.ArgDefinit
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
@@ -365,7 +365,7 @@ func {{ToGoNameConv $f.Setter.Name}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinit
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
@@ -433,7 +433,7 @@ func {{ToGoNameConv $f.Name}}({{range $index, $elem := $f.Parameters}}{{if $inde
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
@@ -536,7 +536,7 @@ func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
@@ -595,7 +595,7 @@ func {{GenerateMethodReceiverCode $f.Setter}} {{GenerateMethodName $f.Setter}}({
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
@@ -661,7 +661,7 @@ func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMetho
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}
@@ -720,7 +720,7 @@ func (this *{{AsPublic $c.Name}}) {{ToGoNameConv $f.Name}}({{range $index, $elem
 		if obj, ok := {{$elem.Name}}AsInterface.(Handle); ok{ // None Go object			
 			{{$elem.Name}} = {{HandleNoneGoObject $elem $m}}
 		} else {
-			{{$elem.Name}} = {{if $elem.IsTypeAlias}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
+			{{$elem.Name}} = {{if and $elem.IsTypeAlias (not $elem.IsHandleTypeAlias)}}{{if $elem.IsArray}}[]{{end}}{{GetTypeOrAlias $elem $m}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{$elem.Name}}AsInterface.({{ConvertToGoType $elem $m}}))
 		}
 		{{else}}
 		{{if $elem.IsTypeAlias}} {{/* a type is specified */}}

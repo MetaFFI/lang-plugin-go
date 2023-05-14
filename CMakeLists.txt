@@ -54,7 +54,7 @@ Also:
 2. CGO_ENABLED=1 (enable using the command \"go env -w CGO_ENABLED=1\")
 3. gcc installed and available for CGo (in windows, tested with TDM-GCC-64)
 4. GIT installed and configured correctly for go package management (go get)
-5. On windows, update "testingWER" to "TestingWER" in runtime/signal_windows.go")
+5. On windows, update \"testingWER\" to \"TestingWER\" in runtime/signal_windows.go" )
 
 file(WRITE ${PROJECT_BINARY_DIR}/notes.txt ${INSTALL_NOTES})
 
