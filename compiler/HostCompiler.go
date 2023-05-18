@@ -8,15 +8,15 @@ import (
 	"golang.org/x/text/language"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 	"text/template"
-	"runtime"
 )
 
 //go:embed MetaFFIGoHostCommon.gotpl
 var metaFFIGoHostCommon string
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 type HostCompiler struct {
 	def            *IDL.IDLDefinition
 	outputDir      string
@@ -24,16 +24,16 @@ type HostCompiler struct {
 	outputFilename string
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func NewHostCompiler() *HostCompiler {
 	return &HostCompiler{}
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) string {
 
 	metaffiHome := os.Getenv("METAFFI_HOME")
-	if metaffiHome == ""{
+	if metaffiHome == "" {
 		panic("METAFFI_HOME environment variable is not set")
 	}
 	metaffiHome = strings.ReplaceAll(metaffiHome, "\\", "/")
@@ -41,39 +41,154 @@ func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) strin
 	os := runtime.GOOS
 	var longtype string
 	switch os {
-        case "windows":
-            longtype = "ulonglong"
-        default:
-            longtype = "ulong"
-    }
+	case "windows":
+		longtype = "ulonglong"
+	default:
+		longtype = "ulong"
+	}
 
 	p := struct {
-        Package string
-        MetaFFIHome string
-        LongType string
-    }{
-        Package: commonPackageName,
-        MetaFFIHome: metaffiHome,
-        LongType: longtype,
-    }
+		Package     string
+		MetaFFIHome string
+		LongType    string
+	}{
+		Package:     commonPackageName,
+		MetaFFIHome: metaffiHome,
+		LongType:    longtype,
+	}
 
 	tmp, err := template.New("metaFFIGoHostCommon").Parse(metaFFIGoHostCommon)
-    if err != nil {
-        panic(fmt.Errorf("Failed to parse HostHeaderTemplate: %v", err))
-    }
+	if err != nil {
+		panic(fmt.Errorf("Failed to parse HostHeaderTemplate: %v", err))
+	}
 
-    buf := strings.Builder{}
-    err = tmp.Execute(&buf, p)
-    if err != nil{
-        panic(err)
-    }
+	buf := strings.Builder{}
+	err = tmp.Execute(&buf, p)
+	if err != nil {
+		panic(err)
+	}
 
-    return buf.String()
+	return buf.String()
 
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
+func (this *HostCompiler) removeGoKeywords(definition *IDL.IDLDefinition) {
+
+	goKeywords := map[string]bool{
+		"break": true, "default": true, "func": true, "interface": true, "select": true,
+		"case": true, "defer": true, "go": true, "map": true, "struct": true,
+		"chan": true, "else": true, "goto": true, "package": true, "switch": true,
+		"const": true, "fallthrough": true, "if": true, "range": true, "type": true,
+		"continue": true, "for": true, "import": true, "return": true, "var": true,
+	}
+
+	if definition == nil || definition.Modules == nil {
+		return
+	}
+
+	for _, m := range definition.Modules {
+		if m.Functions != nil {
+			for _, f := range m.Functions {
+				_, exists := goKeywords[f.Name]
+				if exists {
+					f.Name = f.Name + "__"
+				}
+
+				for _, p := range f.Parameters {
+					_, exists = goKeywords[p.Name]
+					if exists {
+						p.Name = p.Name + "__"
+					}
+				}
+
+				for _, p := range f.ReturnValues {
+					_, exists = goKeywords[p.Name]
+					if exists {
+						p.Name = p.Name + "__"
+					}
+				}
+			}
+		}
+
+		if m.Classes != nil {
+			for _, c := range m.Classes {
+				if c.Constructors != nil {
+					for _, cstr := range c.Constructors {
+						_, exists := goKeywords[cstr.Name]
+						if exists {
+							cstr.Name = cstr.Name + "__"
+						}
+
+						for _, p := range cstr.Parameters {
+							_, exists = goKeywords[p.Name]
+							if exists {
+								p.Name = p.Name + "__"
+							}
+						}
+
+						for _, p := range cstr.ReturnValues {
+							_, exists = goKeywords[p.Name]
+							if exists {
+								p.Name = p.Name + "__"
+							}
+						}
+					}
+				}
+
+				if c.Methods != nil {
+					for _, meth := range c.Methods {
+						_, exists := goKeywords[meth.Name]
+						if exists {
+							meth.Name = meth.Name + "__"
+						}
+
+						for _, p := range meth.Parameters {
+							_, exists = goKeywords[p.Name]
+							if exists {
+								p.Name = p.Name + "__"
+							}
+						}
+
+						for _, p := range meth.ReturnValues {
+							_, exists = goKeywords[p.Name]
+							if exists {
+								p.Name = p.Name + "__"
+							}
+						}
+					}
+				}
+
+				if c.Releaser != nil {
+					_, exists := goKeywords[c.Releaser.Name]
+					if exists {
+						c.Releaser.Name = c.Releaser.Name + "__"
+					}
+
+					for _, p := range c.Releaser.Parameters {
+						_, exists = goKeywords[p.Name]
+						if exists {
+							p.Name = p.Name + "__"
+						}
+					}
+
+					for _, p := range c.Releaser.ReturnValues {
+						_, exists = goKeywords[p.Name]
+						if exists {
+							p.Name = p.Name + "__"
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// --------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
+
+	// make sure definition does not use "go syntax-keywords" as names. If so, change the names a bit...
+	this.removeGoKeywords(definition)
 
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
@@ -83,7 +198,7 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1 : strings.Index(outputFilename, "#")+1]
 		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
 	}
-	
+
 	this.def = definition
 	this.outputDir = outputDir
 	this.hostOptions = hostOptions
@@ -102,7 +217,7 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	if err != nil {
 		return fmt.Errorf("Failed to generate host code: %v", err)
 	}
-	
+
 	// TODO: handle multiple modules
 
 	_ = os.Mkdir(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name), 0777)
@@ -119,136 +234,136 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	if err != nil {
 		return fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
 	}
-	
+
 	return nil
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) parseHeader() (string, error) {
 	tmp, err := template.New("HostHeaderTemplate").Parse(HostHeaderTemplate)
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse HostHeaderTemplate: %v", err)
 	}
-	
+
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, this.def)
-	
+
 	return buf.String(), err
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) parseImports() (string, error) {
-	
+
 	tmp, err := template.New("HostImportsTemplate").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse Go HostImportsTemplate: %v", err)
 	}
-	
+
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, this.def)
-	
+
 	return buf.String(), err
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) parseCImports() (string, error) {
-	
+
 	tmp, err := template.New("HostCImportTemplate").Funcs(templatesFuncMap).Parse(HostCImportTemplate)
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse Go HostCImportTemplate: %v", err)
 	}
-	
+
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, this.def)
-	
+
 	return buf.String(), err
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) parseForeignStubs() (string, error) {
-	
+
 	tmp, err := template.New("Go HostFunctionStubsTemplate").Funcs(templatesFuncMap).Parse(HostFunctionStubsTemplate)
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse Go HostFunctionStubsTemplate: %v", err)
 	}
-	
+
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, this.def)
-	
+
 	return buf.String(), err
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) parsePackage() (code string, packageName string, err error) {
 	tmp, err := template.New("HostPackageTemplate").Funcs(templatesFuncMap).Parse(HostPackageTemplate)
 	if err != nil {
 		return "", "", fmt.Errorf("Failed to parse Go HostPackageTemplate: %v", err)
 	}
-	
+
 	PackageName := struct {
 		Package string
 	}{
 		Package: this.def.Modules[0].Name, // TODO: support multiple modules
 	}
-	
+
 	if pckName, found := this.hostOptions["package"]; found {
 		PackageName.Package = pckName
 	}
-	
+
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, &PackageName)
-	
+
 	return buf.String(), PackageName.Package, err
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) parseHelper() (string, error) {
 	tmp, err := template.New(GetHostHelperFunctionsName()).Funcs(templatesFuncMap).Parse(GetHostHelperFunctions())
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse Go %v: %v", GetHostHelperFunctionsName(), err)
 	}
-	
+
 	buf := strings.Builder{}
 	err = tmp.Execute(&buf, this.def)
-	
+
 	return buf.String(), err
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func (this *HostCompiler) generateCode() (code string, packageName string, err error) {
-	
+
 	header, err := this.parseHeader()
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	packageDeclaration, packageName, err := this.parsePackage()
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	imports, err := this.parseImports()
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	cimports, err := this.parseCImports()
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	helper, err := this.parseHelper()
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	functionStubs, err := this.parseForeignStubs()
 	if err != nil {
 		return "", "", err
 	}
-	
+
 	res := header + packageDeclaration + imports + cimports + helper + functionStubs
-	
+
 	return res, packageName, err
 }
 
