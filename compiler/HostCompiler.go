@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"fmt"
 	IDL "github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/plugin-sdk/compiler/go"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"io/ioutil"
@@ -15,6 +16,14 @@ import (
 
 //go:embed MetaFFIGoHostCommon.gotpl
 var metaFFIGoHostCommon string
+
+var goKeywords = map[string]bool{
+    "break": true, "default": true, "func": true, "interface": true, "select": true,
+    "case": true, "defer": true, "go": true, "map": true, "struct": true,
+    "chan": true, "else": true, "goto": true, "package": true, "switch": true,
+    "const": true, "fallthrough": true, "if": true, "range": true, "type": true,
+    "continue": true, "for": true, "import": true, "return": true, "var": true,
+}
 
 // --------------------------------------------------------------------
 type HostCompiler struct {
@@ -73,122 +82,10 @@ func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) strin
 }
 
 // --------------------------------------------------------------------
-func (this *HostCompiler) removeGoKeywords(definition *IDL.IDLDefinition) {
-
-	goKeywords := map[string]bool{
-		"break": true, "default": true, "func": true, "interface": true, "select": true,
-		"case": true, "defer": true, "go": true, "map": true, "struct": true,
-		"chan": true, "else": true, "goto": true, "package": true, "switch": true,
-		"const": true, "fallthrough": true, "if": true, "range": true, "type": true,
-		"continue": true, "for": true, "import": true, "return": true, "var": true,
-	}
-
-	if definition == nil || definition.Modules == nil {
-		return
-	}
-
-	for _, m := range definition.Modules {
-		if m.Functions != nil {
-			for _, f := range m.Functions {
-				_, exists := goKeywords[f.Name]
-				if exists {
-					f.Name = f.Name + "__"
-				}
-
-				for _, p := range f.Parameters {
-					_, exists = goKeywords[p.Name]
-					if exists {
-						p.Name = p.Name + "__"
-					}
-				}
-
-				for _, p := range f.ReturnValues {
-					_, exists = goKeywords[p.Name]
-					if exists {
-						p.Name = p.Name + "__"
-					}
-				}
-			}
-		}
-
-		if m.Classes != nil {
-			for _, c := range m.Classes {
-				if c.Constructors != nil {
-					for _, cstr := range c.Constructors {
-						_, exists := goKeywords[cstr.Name]
-						if exists {
-							cstr.Name = cstr.Name + "__"
-						}
-
-						for _, p := range cstr.Parameters {
-							_, exists = goKeywords[p.Name]
-							if exists {
-								p.Name = p.Name + "__"
-							}
-						}
-
-						for _, p := range cstr.ReturnValues {
-							_, exists = goKeywords[p.Name]
-							if exists {
-								p.Name = p.Name + "__"
-							}
-						}
-					}
-				}
-
-				if c.Methods != nil {
-					for _, meth := range c.Methods {
-						_, exists := goKeywords[meth.Name]
-						if exists {
-							meth.Name = meth.Name + "__"
-						}
-
-						for _, p := range meth.Parameters {
-							_, exists = goKeywords[p.Name]
-							if exists {
-								p.Name = p.Name + "__"
-							}
-						}
-
-						for _, p := range meth.ReturnValues {
-							_, exists = goKeywords[p.Name]
-							if exists {
-								p.Name = p.Name + "__"
-							}
-						}
-					}
-				}
-
-				if c.Releaser != nil {
-					_, exists := goKeywords[c.Releaser.Name]
-					if exists {
-						c.Releaser.Name = c.Releaser.Name + "__"
-					}
-
-					for _, p := range c.Releaser.Parameters {
-						_, exists = goKeywords[p.Name]
-						if exists {
-							p.Name = p.Name + "__"
-						}
-					}
-
-					for _, p := range c.Releaser.ReturnValues {
-						_, exists = goKeywords[p.Name]
-						if exists {
-							p.Name = p.Name + "__"
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-// --------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
 
 	// make sure definition does not use "go syntax-keywords" as names. If so, change the names a bit...
-	this.removeGoKeywords(definition)
+	compiler.ModifyKeywords(definition, goKeywords, func(keyword string)string{ return keyword+"__" })
 
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
