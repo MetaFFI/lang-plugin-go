@@ -296,7 +296,7 @@ func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 		res = string(def.Type)
 	}
 
-	if def.IsArray() {
+	if def.IsArray() && t != IDL.ANY{
 		res = "[]" + res
 	}
 
