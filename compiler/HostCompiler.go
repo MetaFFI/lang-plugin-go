@@ -23,6 +23,9 @@ var goKeywords = map[string]bool{
     "chan": true, "else": true, "goto": true, "package": true, "switch": true,
     "const": true, "fallthrough": true, "if": true, "range": true, "type": true,
     "continue": true, "for": true, "import": true, "return": true, "var": true,
+    "string": true, "int8": true, "int16": true, "int32": true, "int64": true,
+    "uint8": true, "uint16": true, "uint32": true, "uint64": true,
+    "float32": true, "float64": true, "bool": true,
 }
 
 // --------------------------------------------------------------------
@@ -89,11 +92,6 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
-	}
-
-	if strings.Contains(outputFilename, "#") {
-		toRemove := outputFilename[strings.LastIndex(outputFilename, string(os.PathSeparator))+1 : strings.Index(outputFilename, "#")+1]
-		outputFilename = strings.ReplaceAll(outputFilename, toRemove, "")
 	}
 
 	this.def = definition

@@ -436,10 +436,43 @@ func asPublic(elem string) string {
 }
 
 // --------------------------------------------------------------------
+func countUnderscores(s string) (int, int) {
+    startCount := 0
+    endCount := 0
+    for i := 0; i < len(s); i++ {
+        if s[i] == '_' {
+            startCount++
+        } else {
+            break
+        }
+    }
+    for i := len(s) - 1; i >= 0; i-- {
+        if s[i] == '_' {
+            endCount++
+        } else {
+            break
+        }
+    }
+    return startCount, endCount
+}
+//--------------------------------------------------------------------
 func toGoNameConv(elem string) string {
+
+	underscoreAtStart, underscoreAtEnd := countUnderscores(elem)
+
 	elem = strings.Replace(elem, "_", " ", -1)
 	elem = strings.Title(elem)
-	return strings.Replace(elem, " ", "", -1)
+	elem = strings.Replace(elem, " ", "", -1)
+
+	if underscoreAtEnd > 0{
+		elem += strings.Repeat("_", underscoreAtEnd)
+	}
+
+	if underscoreAtStart > 0{ // This is because Go doesn't support _ at the beginning of the element.
+		elem = "Underscore_"+elem
+	}
+
+	return elem
 }
 
 // --------------------------------------------------------------------
