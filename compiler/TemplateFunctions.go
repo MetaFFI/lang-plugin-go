@@ -115,9 +115,9 @@ func generateMethodParams(meth *IDL.MethodDefinition, mod *IDL.ModuleDefinition)
 // --------------------------------------------------------------------
 func generateMethodName(meth *IDL.MethodDefinition) string {
 	if meth.InstanceRequired {
-		return toGoNameConv(meth.Name)
+		return toGoNameConv(meth.GetNameWithOverloadIndex())
 	} else {
-		return fmt.Sprintf("%v_%v", toGoNameConv(meth.GetParent().Name), toGoNameConv(meth.Name))
+		return fmt.Sprintf("%v_%v", toGoNameConv(meth.GetParent().Name), toGoNameConv(meth.GetNameWithOverloadIndex()))
 	}
 }
 
