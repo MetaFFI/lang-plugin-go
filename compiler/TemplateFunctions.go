@@ -208,7 +208,7 @@ func generateCodeXCall(className string, funcName string, params []*IDL.ArgDefin
 	code += "\t\n"
 	code += "\t// check errors\n"
 	code += "\tif out_err_len != 0{\n"
-	code += "\t\terr = fmt.Errorf(\"Function failed. Error: %v\", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))\n"
+	code += "\t\terr = fmt.Errorf(\"Function failed " +className+"."+funcName+". Error: %v\", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))\n"
 	code += "\t\treturn\n"
 	code += "\t}\n"
 
