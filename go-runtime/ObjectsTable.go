@@ -30,7 +30,7 @@ func init() {
 // sets the object and returns a handle
 // if object already set, it returns the existing handle
 func SetObject(obj interface{}) Handle {
-	
+
 	lock.Lock()
 	defer lock.Unlock()
 	
@@ -39,7 +39,7 @@ func SetObject(obj interface{}) Handle {
 	}
 	
 	handleID := C.int_to_handle(C.ulonglong(len(handlesToObjects) + 1))
-	
+
 	handlesToObjects[handleID] = obj
 	objectsToHandles[obj] = handleID
 	
@@ -52,6 +52,7 @@ func GetObject(h Handle) interface{} {
 	defer lock.RUnlock()
 	
 	if o, found := handlesToObjects[C.metaffi_handle(h)]; found {
+
 		return o
 	} else {
 		return nil

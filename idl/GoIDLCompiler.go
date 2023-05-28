@@ -27,7 +27,7 @@ func NewGoIDLCompiler() *GoIDLCompiler {
 }
 
 //--------------------------------------------------------------------
-func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string, isEmbeddedCode bool) (*IDL.IDLDefinition, bool, error) {
+func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*IDL.IDLDefinition, bool, error) {
 	
 	this.goSourceCode = goSourceCode
 	this.goSourceCodeFilePath = gofilepath

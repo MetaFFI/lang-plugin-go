@@ -86,7 +86,7 @@ func (this *TestMap) Contains(k string) bool{
 func TestGoIDLCompiler_Compile(t *testing.T) {
 	comp := NewGoIDLCompiler()
 
-	_, _, err := comp.ParseIDL(src, "", true)
+	_, _, err := comp.ParseIDL(src, "")
 	if err != nil {
 		t.Fatal(err)
 	}

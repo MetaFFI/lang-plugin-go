@@ -467,6 +467,7 @@ func {{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f.Pa
 type {{AsPublic $c.Name}} struct{
 	h Handle
 }
+
 {{range $findex, $f := $c.Constructors}}
 func New{{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}) (instance *{{AsPublic $c.Name}}, err error){
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
@@ -495,6 +496,10 @@ func New{{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f
 	return inst, nil	
 }
 {{end}}{{/* End Constructor */}}
+
+func (this *{{AsPublic $c.Name}}) GetHandle() Handle{
+	return this.h
+}
 
 {{range $findex, $f := $c.Fields}}
 {{if $f.Getter}}

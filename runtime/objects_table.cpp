@@ -7,6 +7,7 @@ std::shared_mutex m;
 //--------------------------------------------------------------------
 metaffi_handle set_object(void* obj)
 {
+	
 	std::unique_lock<std::shared_mutex> l(m);
 	
 	auto it = objects_to_handles.find(obj);
