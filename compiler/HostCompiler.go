@@ -3,13 +3,14 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	compiler "github.com/MetaFFI/plugin-sdk/compiler/go"
 	IDL "github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"github.com/MetaFFI/plugin-sdk/compiler/go"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"io/ioutil"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/template"
 )
@@ -18,14 +19,14 @@ import (
 var metaFFIGoHostCommon string
 
 var goKeywords = map[string]bool{
-    "break": true, "default": true, "func": true, "interface": true, "select": true,
-    "case": true, "defer": true, "go": true, "map": true, "struct": true,
-    "chan": true, "else": true, "goto": true, "package": true, "switch": true,
-    "const": true, "fallthrough": true, "if": true, "range": true, "type": true,
-    "continue": true, "for": true, "import": true, "return": true, "var": true,
-    "string": true, "int8": true, "int16": true, "int32": true, "int64": true,
-    "uint8": true, "uint16": true, "uint32": true, "uint64": true,
-    "float32": true, "float64": true, "bool": true,
+	"break": true, "default": true, "func": true, "interface": true, "select": true,
+	"case": true, "defer": true, "go": true, "map": true, "struct": true,
+	"chan": true, "else": true, "goto": true, "package": true, "switch": true,
+	"const": true, "fallthrough": true, "if": true, "range": true, "type": true,
+	"continue": true, "for": true, "import": true, "return": true, "var": true,
+	"string": true, "int8": true, "int16": true, "int32": true, "int64": true,
+	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
+	"float32": true, "float64": true, "bool": true,
 }
 
 // --------------------------------------------------------------------
@@ -85,10 +86,70 @@ func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) strin
 }
 
 // --------------------------------------------------------------------
+func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
+
+	for _, mod := range def.Modules {
+		fmt.Printf("+++ looking for optional parameters\n")
+		functions, methods, constructors := mod.GetCallablesWithOptionalParameters(true, true, true)
+
+		for _, f := range functions {
+			fmt.Printf("+++ modifying function %v\n", f.Name)
+			firstIndexOfOptionalParameter := f.GetFirstIndexOfOptionalParameter()
+
+			j := 0
+			for i := firstIndexOfOptionalParameter; i < len(f.Parameters)-1; i++ {
+				j += 1
+				dup := f.Duplicate()
+				dup.Name += strconv.Itoa(j)
+				dup.Parameters = dup.Parameters[:i]
+				mod.Functions = append(mod.Functions, dup)
+			}
+		}
+
+		for _, cstr := range constructors {
+			fmt.Printf("+++ modifying constructor %v\n", cstr.Name)
+			firstIndexOfOptionalParameter := cstr.GetFirstIndexOfOptionalParameter()
+
+			j := 0
+			for i := firstIndexOfOptionalParameter; i < len(cstr.Parameters)-1; i++ {
+				j += 1
+				dup := cstr.Duplicate()
+				dup.Name += strconv.Itoa(j)
+				dup.Parent = cstr.Parent
+				dup.Parameters = dup.Parameters[:i]
+				cstr.Parent.AddConstructor(dup)
+			}
+		}
+
+		for _, m := range methods {
+			firstIndexOfOptionalParameter := m.GetFirstIndexOfOptionalParameter()
+
+			fmt.Printf("+++ modifying method %v. First index of optional parameter: %v. Total number of parameters: %v\n", m.Name, firstIndexOfOptionalParameter, len(m.Parameters))
+
+			j := 0
+			for i := firstIndexOfOptionalParameter; i < len(m.Parameters); i++ {
+				j += 1
+				dup := m.Duplicate()
+				dup.Name += strconv.Itoa(j)
+				dup.Parent = m.Parent
+				dup.Parameters = dup.Parameters[:i]
+				fmt.Printf("+++ parameters count for %v: %v\n", dup.Name, len(dup.Parameters))
+				m.Parent.AddMethod(dup)
+			}
+		}
+	}
+}
+
+// --------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
 
 	// make sure definition does not use "go syntax-keywords" as names. If so, change the names a bit...
-	compiler.ModifyKeywords(definition, goKeywords, func(keyword string)string{ return keyword+"__" })
+	compiler.ModifyKeywords(definition, goKeywords, func(keyword string) string { return keyword + "__" })
+
+	// support optional parameters in guests by overloading the functions/methods, each time
+	// adding another optional parameter to the parameter list.
+	// As Go does not support overloads, simply append an index to the end of the function/method name
+	overloadCallablesWithOptionalParameters(definition)
 
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
