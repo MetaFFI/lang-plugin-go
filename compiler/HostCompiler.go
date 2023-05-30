@@ -89,11 +89,9 @@ func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) strin
 func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 
 	for _, mod := range def.Modules {
-		fmt.Printf("+++ looking for optional parameters\n")
 		functions, methods, constructors := mod.GetCallablesWithOptionalParameters(true, true, true)
 
 		for _, f := range functions {
-			fmt.Printf("+++ modifying function %v\n", f.Name)
 			firstIndexOfOptionalParameter := f.GetFirstIndexOfOptionalParameter()
 
 			j := 0
@@ -107,7 +105,6 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 		}
 
 		for _, cstr := range constructors {
-			fmt.Printf("+++ modifying constructor %v\n", cstr.Name)
 			firstIndexOfOptionalParameter := cstr.GetFirstIndexOfOptionalParameter()
 
 			j := 0
@@ -115,26 +112,21 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 				j += 1
 				dup := cstr.Duplicate()
 				dup.Name += strconv.Itoa(j)
-				dup.Parent = cstr.Parent
 				dup.Parameters = dup.Parameters[:i]
-				cstr.Parent.AddConstructor(dup)
+				cstr.GetParent().AddConstructor(dup)
 			}
 		}
 
 		for _, m := range methods {
 			firstIndexOfOptionalParameter := m.GetFirstIndexOfOptionalParameter()
 
-			fmt.Printf("+++ modifying method %v. First index of optional parameter: %v. Total number of parameters: %v\n", m.Name, firstIndexOfOptionalParameter, len(m.Parameters))
-
 			j := 0
 			for i := firstIndexOfOptionalParameter; i < len(m.Parameters); i++ {
 				j += 1
 				dup := m.Duplicate()
 				dup.Name += strconv.Itoa(j)
-				dup.Parent = m.Parent
 				dup.Parameters = dup.Parameters[:i]
-				fmt.Printf("+++ parameters count for %v: %v\n", dup.Name, len(dup.Parameters))
-				m.Parent.AddMethod(dup)
+				m.GetParent().AddMethod(dup)
 			}
 		}
 	}
