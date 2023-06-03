@@ -501,6 +501,10 @@ func (this *{{AsPublic $c.Name}}) GetHandle() Handle{
 	return this.h
 }
 
+func (this *{{AsPublic $c.Name}}) SetHandle(h Handle){
+	this.h = h
+}
+
 {{range $findex, $f := $c.Fields}}
 {{if $f.Getter}}
 func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({{GenerateMethodParams $f.Getter $m}}) ({{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Getter.ReturnValues}},{{end}} err error){
