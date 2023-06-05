@@ -17,26 +17,6 @@ import "unsafe"
 {{if IsGoRuntimePackNeeded .}}import . "github.com/MetaFFI/lang-plugin-go/go-runtime"{{end}}
 `
 
-const HostCImportTemplate = `
-/*
-#cgo !windows LDFLAGS: -L. -ldl
-#cgo CFLAGS: -I"{{GetEnvVar "METAFFI_HOME" true}}"
-
-#include <stdlib.h>
-#include <stdint.h>
-#include <include/cdt_structs.h>
-#include <include/cdt_capi_loader.h>
-
-metaffi_handle get_null_handle();
-metaffi_size get_int_item(metaffi_size* array, int index);
-void* convert_union_to_ptr(void* p);
-void set_cdt_type(struct cdt* p, metaffi_type t);
-metaffi_type get_cdt_type(struct cdt* p);
-metaffi_size len_to_metaffi_size(long long i);
-*/
-import "C"
-`
-
 func GetHostHelperFunctions() string {
 	if runtime.GOOS == "windows" {
 		return HostHelperFunctionsWindows
@@ -86,36 +66,19 @@ var {{$c.Name}}_{{$c.Releaser.GetNameWithOverloadIndex}}_id unsafe.Pointer
 {{end}}{{/* End modules */}}
 
 func Load(modulePath string){
-	loadCDTCAPI()
+	LoadCDTCAPI()
 
-	runtime_plugin := "xllr.{{.TargetLanguage}}"
-	pruntime_plugin := C.CString(runtime_plugin)
-	runtime_plugin_length := C.uint32_t(len(runtime_plugin))
-
-	// load foreign runtime
-	var out_err *C.char
-    var out_err_len C.uint32_t
-    out_err_len = C.uint32_t(0)
-	C.xllr_load_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
-	if out_err_len != C.uint32_t(0){
-		panic(fmt.Errorf("Failed to load runtime %v: %v", runtime_plugin, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+	runtimePlugin := "xllr.{{.TargetLanguage}}"
+	err := XLLRLoadRuntimePlugin(runtimePlugin)
+	if err != nil{
+		panic(err)
 	}
 
 	// load functions
-	loadFF := func(modulePath string, fpath string, params_count int, retval_count int) unsafe.Pointer{
-		ppath := C.CString(fpath)
-		defer C.free(unsafe.Pointer(ppath))
-
-		pmodulePath := C.CString(modulePath)
-		defer C.free(unsafe.Pointer(pmodulePath))
-
-		var out_err *C.char
-		var out_err_len C.uint32_t
-		out_err_len = C.uint32_t(0)
-		id := C.xllr_load_function(pruntime_plugin, runtime_plugin_length, pmodulePath, C.uint(len(modulePath)), ppath, C.uint(len(fpath)), nil,  C.schar(params_count), C.schar(params_count), &out_err, &out_err_len)
-
-		if id == nil{ // failed
-			panic(fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+	loadFF := func(modulePath string, fpath string, paramsCount int8, retvalCount int8) unsafe.Pointer{
+		id, err := XLLRLoadFunction(runtimePlugin, modulePath, fpath, nil, paramsCount, retvalCount)
+		if err != nil{ // failed
+			panic(err)
 		}
 
 		return id
@@ -123,41 +86,35 @@ func Load(modulePath string){
 
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.Getter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$f.Setter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.Setter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$f.Getter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.Getter.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$f.Setter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.Setter.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End globals */}}
 
 	{{range $findex, $f := $m.Functions}}
-	{{$f.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$f.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Functions */}}
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.Getter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.Setter.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.Getter.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Getter.Parameters}}, {{len $f.Getter.ReturnValues}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.Setter.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Setter.Parameters}}, {{len $f.Setter.ReturnValues}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$f.FunctionPathAsString $idl}}`+"`"+`, {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$f.FunctionPathAsString $idl}}` + "`" + `, {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Constructor */}}
 	{{if $c.Releaser}}
-	{{$c.Name}}_{{$c.Releaser.GetNameWithOverloadIndex}}_id = loadFF(modulePath, `+"`"+`{{$c.Releaser.FunctionPathAsString $idl}}`+"`"+`, {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
+	{{$c.Name}}_{{$c.Releaser.GetNameWithOverloadIndex}}_id = loadFF(modulePath, ` + "`" + `{{$c.Releaser.FunctionPathAsString $idl}}` + "`" + `, {{len $c.Releaser.Parameters}}, {{len $c.Releaser.ReturnValues}})
 	{{end}}{{/* End Releaser */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}
 }
 
 func Free(){
-	runtime_plugin := "xllr.{{.TargetLanguage}}"
-    pruntime_plugin := C.CString(runtime_plugin)
-    runtime_plugin_length := C.uint32_t(len(runtime_plugin))
-
-    var out_err *C.char
-    var out_err_len C.uint32_t
-    out_err_len = C.uint32_t(0)
-    C.xllr_free_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
+	err := XLLRFreeRuntimePlugin("xllr.{{.TargetLanguage}}")
+	if err != nil{ panic(err) }
 }
 
 `
@@ -193,38 +150,20 @@ var {{$c.Name}}_{{$c.Releaser.GetNameWithOverloadIndex}}_id unsafe.Pointer
 {{end}}{{/* End modules */}}
 
 func Load(modulePath string){
-	loadCDTCAPI()
+	LoadCDTCAPI()
 
-	runtime_plugin := "xllr.{{.TargetLanguage}}"
-	pruntime_plugin := C.CString(runtime_plugin)
-	runtime_plugin_length := C.uint32_t(len(runtime_plugin))
-
-	// load foreign runtime
-	var out_err *C.char
-    var out_err_len C.uint32_t
-    out_err_len = C.uint32_t(0)
-	C.xllr_load_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
-	if out_err_len != C.uint32_t(0){
-		panic(fmt.Errorf("Failed to load runtime %v: %v", runtime_plugin, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+	runtimePlugin := "xllr.{{.TargetLanguage}}"
+	err := XLLRLoadRuntimePlugin(runtimePlugin)
+	if err != nil{
+		panic(err)
 	}
 
 	// load functions
-	loadFF := func(modulePath string, fpath string, params_count int, retval_count int) unsafe.Pointer{
-		ppath := C.CString(fpath)
-		defer C.free(unsafe.Pointer(ppath))
-
-		pmodulePath := C.CString(modulePath)
-        defer C.free(unsafe.Pointer(pmodulePath))
-
-		var out_err *C.char
-		var out_err_len C.uint32_t
-		out_err_len = C.uint32_t(0)
-		id := C.xllr_load_function(pruntime_plugin, runtime_plugin_length, pmodulePath, C.uint(len(modulePath)), ppath, C.uint(len(fpath)), nil, C.schar(params_count), C.schar(params_count), &out_err, &out_err_len)
-		
-		if id == nil{ // failed
-			panic(fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", fpath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len)))))
+	loadFF := func(modulePath string, fpath string, paramsCount int8, retvalCount int8) unsafe.Pointer{
+		id, err := XLLRLoadFunction(runtimePlugin, modulePath, fpath, nil, paramsCount, retvalCount)
+		if err != nil{ // failed
+			panic(err)
 		}
-
 		return id
 	}
 
@@ -258,14 +197,8 @@ func Load(modulePath string){
 }
 
 func Free(){
-	runtime_plugin := "xllr.{{.TargetLanguage}}"
-    pruntime_plugin := C.CString(runtime_plugin)
-    runtime_plugin_length := C.uint32_t(len(runtime_plugin))
-
-    var out_err *C.char
-    var out_err_len C.uint32_t
-    out_err_len = C.uint32_t(0)
-    C.xllr_free_runtime_plugin(pruntime_plugin, runtime_plugin_length, &out_err, &out_err_len)
+	err := XLLRFreeRuntimePlugin("xllr.{{.TargetLanguage}}")
+	if err != nil{ panic(err) }
 }
 
 `
@@ -286,13 +219,13 @@ func {{ToGoNameConv $f.Getter.GetNameWithOverloadIndex}}() (instance {{ConvertTo
 
 	// parameters
 	{{range $index, $elem := $f.Getter.Parameters}}
-	fromGoToCDT({{$elem.Name}}, xcall_params, {{$index}})
+	FromGoToCDT({{$elem.Name}}, xcall_params, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	{{GenerateCodeXCall "" $f.Getter.GetNameWithOverloadIndex $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	var {{$elem.Name}} {{ConvertToGoType $elem $m}}
 	
 	if {{$elem.Name}}AsInterface != nil{
@@ -345,13 +278,13 @@ func {{ToGoNameConv $f.Setter.GetNameWithOverloadIndex}}({{$f.Name}} {{ConvertTo
 	
 	// parameters
 	{{range $index, $elem := $f.Setter.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	{{GenerateCodeXCall "" $f.Getter.GetNameWithOverloadIndex $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Setter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
@@ -413,13 +346,13 @@ func {{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f.Pa
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	{{GenerateCodeXCall "" $f.GetNameWithOverloadIndex $f.Parameters $f.ReturnValues}}
 	
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
@@ -476,7 +409,7 @@ func New{{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f
 	
 	// parameters
 	{{range $index, $elem := $f.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{/* End Parameters */}}
 
 	{{GenerateCodeXCall $c.Name $f.GetNameWithOverloadIndex $f.Parameters $f.ReturnValues}}
@@ -484,7 +417,7 @@ func New{{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f
 	inst := &{{AsPublic $c.Name}}{}
 
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		inst.h = {{$elem.Name}}AsInterface.(Handle)
 	} else {
@@ -515,13 +448,13 @@ func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({
 	
 	// get parameters
 	{{if $f.Getter.InstanceRequired}}
-	fromGoToCDT(this.h, parametersCDTS, 0)
+	FromGoToCDT(this.h, parametersCDTS, 0)
 	{{range $index, $elem := $f.Getter.Parameters}}{{if gt $index 0}}
-	fromGoToCDT(this.h, parametersCDTS, {{$index}})
+	FromGoToCDT(this.h, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 	{{else}}
 	{{range $index, $elem := $f.Getter.Parameters}}
-	fromGoToCDT(this.h, parametersCDTS, {{$index}})
+	FromGoToCDT(this.h, parametersCDTS, {{$index}})
 	{{end}} {{/* End Parameters */}}
 	{{end}} {{/* End InstanceRequired */}}
 
@@ -529,7 +462,7 @@ func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({
 	{{GenerateCodeXCall $c.Name $f.Getter.GetNameWithOverloadIndex $f.Getter.Parameters $f.Getter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Getter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		// any
@@ -582,15 +515,15 @@ func {{GenerateMethodReceiverCode $f.Setter}} {{GenerateMethodName $f.Setter}}({
 	{{GenerateCodeAllocateCDTS $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	// parameters
-	fromGoToCDT(this.h, parametersCDTS, 0) // object
+	FromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Setter.Parameters}}{{if gt $index 0}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
 	{{GenerateCodeXCall $c.Name $f.Setter.GetNameWithOverloadIndex $f.Setter.Parameters $f.Setter.ReturnValues}}
 	
 	{{range $index, $elem := $f.Setter.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
@@ -643,20 +576,20 @@ func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMetho
 	
 	// parameters
 	{{if $f.InstanceRequired}}
-	fromGoToCDT(this.h, parametersCDTS, 0) // object
+	FromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}
 	{{else}}
 	{{range $index, $elem := $f.Parameters}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}
 	{{end}}
 
 	{{GenerateCodeXCall $c.Name $f.GetNameWithOverloadIndex $f.Parameters $f.ReturnValues}}
 	
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		{{$elem.Name}} = {{$elem.Name}}AsInterface
@@ -701,21 +634,19 @@ func {{GenerateMethodReceiverCode $f}} {{GenerateMethodName $f}}({{GenerateMetho
 {{end}}{{/* End Methods */}}
 {{if $c.Releaser}}{{ $f := $c.Releaser}}
 func (this *{{AsPublic $c.Name}}) {{ToGoNameConv $f.GetNameWithOverloadIndex}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}} {{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}) ({{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.ReturnValues}},{{end}} err error){
-	
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
-
 	{{GenerateCodeAllocateCDTS $f.Parameters $f.ReturnValues}}
 	
 	// parameters
-	fromGoToCDT(this.h, parametersCDTS, 0) // object
+	FromGoToCDT(this.h, parametersCDTS, 0) // object
 	{{range $index, $elem := $f.Parameters}}{{if gt $index 0}}
-	fromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
+	FromGoToCDT({{$elem.Name}}, parametersCDTS, {{$index}})
 	{{end}}{{end}}{{/* End Parameters */}}
 
 	{{GenerateCodeXCall $c.Name $f.GetNameWithOverloadIndex $f.Parameters $f.ReturnValues}}
 	
 	{{range $index, $elem := $f.ReturnValues}}
-	{{$elem.Name}}AsInterface := fromCDTToGo(return_valuesCDTS, {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(return_valuesCDTS, {{$index}})
 	if {{$elem.Name}}AsInterface != nil{
 		{{if $elem.IsAny}}
 		{{$elem.Name}} = {{$elem.Name}}AsInterface

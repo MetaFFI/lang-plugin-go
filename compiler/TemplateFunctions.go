@@ -66,7 +66,7 @@ func isGoRuntimePackNeeded(idl *IDL.IDLDefinition) bool {
 			}
 		}
 
-		if len(m.Classes) > 0{
+		if len(m.Classes) > 0 {
 			return true
 		}
 	}
@@ -171,19 +171,11 @@ func generateCodeEntrypointSignature(className string, funcName string, params [
 // --------------------------------------------------------------------
 func generateCodeXCall(className string, funcName string, params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) string {
 	/*
-		var out_err *C.char
-		var out_err_len C.uint64_t
-		out_err_len = C.uint64_t(0)
-
-		C.xllr_xcall(pruntime_plugin, runtime_plugin_length,
-				C.int64_t({{$f.Getter.Name}}_id),
-				parametersCDTS, {{$paramsLength}},
-				return_valuesCDTS, {{$returnLength}},
-				&out_err, &out_err_len)
+		err = XLLRXCallParamsRet(metaffi_positional_args_Gett_id, xcall_params)  // call function pointer metaffi_positional_args_Gett_id via XLLR
 
 		// check errors
-		if out_err_len != 0{
-			err = fmt.Errorf("Function failed. Error: %v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+		if err != nil{
+			err = fmt.Errorf("Function failed metaffi_positional_args.Gett. Error: %v", err)
 			return
 		}
 	*/
@@ -194,21 +186,18 @@ func generateCodeXCall(className string, funcName string, params []*IDL.ArgDefin
 
 	name += funcName
 
-	code := "\tvar out_err *C.char\n"
-	code += "\tvar out_err_len C.uint64_t\n"
-	code += "\tout_err_len = C.uint64_t(0)\n"
-	code += "\t\n"
+	code := fmt.Sprintf("\terr = XLLR%v(%v_id", xcall(params, retvals), name)
 
 	if len(params) > 0 || len(retvals) > 0 {
-		code += fmt.Sprintf("\tC.xllr_%v(%v_id, xcall_params, &out_err, &out_err_len)  // call function pointer %v_id via XLLR\n", xcall(params, retvals), name, name)
-	} else {
-		code += fmt.Sprintf("\tC.xllr_%v(%v_id, &out_err, &out_err_len)  // call function pointer %v_id via XLLR\n", xcall(params, retvals), name, name)
+		code += ", xcall_params"
 	}
+
+	code += fmt.Sprintf(")  // call function pointer %v_id via XLLR\n", name)
 
 	code += "\t\n"
 	code += "\t// check errors\n"
-	code += "\tif out_err_len != 0{\n"
-	code += "\t\terr = fmt.Errorf(\"Function failed " +className+"."+funcName+". Error: %v\", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))\n"
+	code += "\tif err != nil{\n"
+	code += "\t\terr = fmt.Errorf(\"Failed calling function" + className + "." + funcName + ". Error: %v\", err)\n"
 	code += "\t\treturn\n"
 	code += "\t}\n"
 
@@ -220,43 +209,42 @@ func xcall(params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) string {
 
 	// name of xcall
 	if len(params) > 0 && len(retvals) > 0 {
-		return "xcall_params_ret"
+		return "XCallParamsRet"
 	} else if len(params) > 0 {
-		return "xcall_params_no_ret"
+		return "XCallParamsNoRet"
 	} else if len(retvals) > 0 {
-		return "xcall_no_params_ret"
+		return "XCallNoParamsRet"
 	} else {
-		return "xcall_no_params_no_ret"
+		return "XCallNoParamsNoRet"
 	}
 }
 
 // --------------------------------------------------------------------
 func generateCodeAllocateCDTS(params []*IDL.ArgDefinition, retval []*IDL.ArgDefinition) string {
 	/*
-		parametersCDTS := C.xllr_alloc_cdts_buffer( {{$paramsLength}} )
-		return_valuesCDTS := C.xllr_alloc_cdts_buffer( {{$returnLength}} )
+		xcall_params, parametersCDTS, return_valuesCDTS := XLLRAllocCDTSBuffer(1, 1)
 	*/
 
-	if len(params) > 0 || len(retval) > 0 { // use convert_host_params_to_cdts to allocate CDTS
-		code := fmt.Sprintf("xcall_params := C.xllr_alloc_cdts_buffer(%v, %v)\n", len(params), len(retval))
-
-		code += "\txcall_params_slice := (*[1 << 30]C.cdts)(unsafe.Pointer(xcall_params))[:2:2]\n"
-
-		if len(params) > 0 {
-			code += "\tparametersCDTS := xcall_params_slice[0].pcdt\n"
-
-			if len(retval) > 0 {
-				code += "\treturn_valuesCDTS := xcall_params_slice[1].pcdt\n"
-			}
-		} else {
-			code += "\treturn_valuesCDTS := xcall_params_slice[0].pcdt\n"
-		}
-
-		return code
-
-	} else {
+	if len(params) == 0 && len(retval) == 0 {
 		return ""
 	}
+
+	code := "xcall_params, "
+	if len(params) > 0 {
+		code += "parametersCDTS, "
+	} else {
+		code += "_, "
+	}
+
+	if len(retval) > 0 {
+		code += "return_valuesCDTS "
+	} else {
+		code += "_ "
+	}
+
+	code += fmt.Sprintf(":= XLLRAllocCDTSBuffer(%v, %v)\n", len(params), len(retval))
+
+	return code
 }
 
 // --------------------------------------------------------------------
@@ -296,7 +284,7 @@ func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 		res = string(def.Type)
 	}
 
-	if def.IsArray() && t != IDL.ANY{
+	if def.IsArray() && t != IDL.ANY {
 		res = "[]" + res
 	}
 
@@ -437,25 +425,26 @@ func asPublic(elem string) string {
 
 // --------------------------------------------------------------------
 func countUnderscores(s string) (int, int) {
-    startCount := 0
-    endCount := 0
-    for i := 0; i < len(s); i++ {
-        if s[i] == '_' {
-            startCount++
-        } else {
-            break
-        }
-    }
-    for i := len(s) - 1; i >= 0; i-- {
-        if s[i] == '_' {
-            endCount++
-        } else {
-            break
-        }
-    }
-    return startCount, endCount
+	startCount := 0
+	endCount := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '_' {
+			startCount++
+		} else {
+			break
+		}
+	}
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == '_' {
+			endCount++
+		} else {
+			break
+		}
+	}
+	return startCount, endCount
 }
-//--------------------------------------------------------------------
+
+// --------------------------------------------------------------------
 func toGoNameConv(elem string) string {
 
 	underscoreAtStart, underscoreAtEnd := countUnderscores(elem)
@@ -464,12 +453,12 @@ func toGoNameConv(elem string) string {
 	elem = strings.Title(elem)
 	elem = strings.Replace(elem, " ", "", -1)
 
-	if underscoreAtEnd > 0{
+	if underscoreAtEnd > 0 {
 		elem += strings.Repeat("_", underscoreAtEnd)
 	}
 
-	if underscoreAtStart > 0{ // This is because Go doesn't support _ at the beginning of the element.
-		elem = "Underscore_"+elem
+	if underscoreAtStart > 0 { // This is because Go doesn't support _ at the beginning of the element.
+		elem = "Underscore_" + elem
 	}
 
 	return elem

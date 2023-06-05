@@ -9,14 +9,10 @@ import (
 	"golang.org/x/text/language"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
 )
-
-//go:embed MetaFFIGoHostCommon.gotpl
-var metaFFIGoHostCommon string
 
 var goKeywords = map[string]bool{
 	"break": true, "default": true, "func": true, "interface": true, "select": true,
@@ -40,49 +36,6 @@ type HostCompiler struct {
 // --------------------------------------------------------------------
 func NewHostCompiler() *HostCompiler {
 	return &HostCompiler{}
-}
-
-// --------------------------------------------------------------------
-func (this *HostCompiler) getMetaFFIGoHostCommon(commonPackageName string) string {
-
-	metaffiHome := os.Getenv("METAFFI_HOME")
-	if metaffiHome == "" {
-		panic("METAFFI_HOME environment variable is not set")
-	}
-	metaffiHome = strings.ReplaceAll(metaffiHome, "\\", "/")
-
-	os := runtime.GOOS
-	var longtype string
-	switch os {
-	case "windows":
-		longtype = "ulonglong"
-	default:
-		longtype = "ulong"
-	}
-
-	p := struct {
-		Package     string
-		MetaFFIHome string
-		LongType    string
-	}{
-		Package:     commonPackageName,
-		MetaFFIHome: metaffiHome,
-		LongType:    longtype,
-	}
-
-	tmp, err := template.New("metaFFIGoHostCommon").Parse(metaFFIGoHostCommon)
-	if err != nil {
-		panic(fmt.Errorf("Failed to parse HostHeaderTemplate: %v", err))
-	}
-
-	buf := strings.Builder{}
-	err = tmp.Execute(&buf, p)
-	if err != nil {
-		panic(err)
-	}
-
-	return buf.String()
-
 }
 
 // --------------------------------------------------------------------
@@ -161,7 +114,7 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	})
 
 	// generate code
-	code, packageName, err := this.generateCode()
+	code, _, err := this.generateCode()
 	if err != nil {
 		return fmt.Errorf("Failed to generate host code: %v", err)
 	}
@@ -169,12 +122,6 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	// TODO: handle multiple modules
 
 	_ = os.Mkdir(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name), 0777)
-
-	// write MetaFFIGoHostCommon
-	err = ioutil.WriteFile(this.outputDir+string(os.PathSeparator)+strings.ToLower(this.def.Modules[0].Name)+string(os.PathSeparator)+"MetaFFIGoHostCommon.go", []byte(this.getMetaFFIGoHostCommon(packageName)), 0600)
-	if err != nil {
-		return fmt.Errorf("Failed to write host code to %v. Error: %v", this.outputDir+this.outputFilename, err)
-	}
 
 	// write to output
 	genOutputFilename := this.outputDir + string(os.PathSeparator) + strings.ToLower(this.def.Modules[0].Name) + string(os.PathSeparator) + this.outputFilename + "_MetaFFIHost.go"
@@ -205,20 +152,6 @@ func (this *HostCompiler) parseImports() (string, error) {
 	tmp, err := template.New("HostImportsTemplate").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
 	if err != nil {
 		return "", fmt.Errorf("Failed to parse Go HostImportsTemplate: %v", err)
-	}
-
-	buf := strings.Builder{}
-	err = tmp.Execute(&buf, this.def)
-
-	return buf.String(), err
-}
-
-// --------------------------------------------------------------------
-func (this *HostCompiler) parseCImports() (string, error) {
-
-	tmp, err := template.New("HostCImportTemplate").Funcs(templatesFuncMap).Parse(HostCImportTemplate)
-	if err != nil {
-		return "", fmt.Errorf("Failed to parse Go HostCImportTemplate: %v", err)
 	}
 
 	buf := strings.Builder{}
@@ -295,11 +228,6 @@ func (this *HostCompiler) generateCode() (code string, packageName string, err e
 		return "", "", err
 	}
 
-	cimports, err := this.parseCImports()
-	if err != nil {
-		return "", "", err
-	}
-
 	helper, err := this.parseHelper()
 	if err != nil {
 		return "", "", err
@@ -310,7 +238,7 @@ func (this *HostCompiler) generateCode() (code string, packageName string, err e
 		return "", "", err
 	}
 
-	res := header + packageDeclaration + imports + cimports + helper + functionStubs
+	res := header + packageDeclaration + imports + helper + functionStubs
 
 	return res, packageName, err
 }
