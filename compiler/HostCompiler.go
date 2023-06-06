@@ -48,7 +48,7 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 			firstIndexOfOptionalParameter := f.GetFirstIndexOfOptionalParameter()
 
 			j := 0
-			for i := firstIndexOfOptionalParameter; i < len(f.Parameters)-1; i++ {
+			for i := firstIndexOfOptionalParameter; i < len(f.Parameters); i++ {
 				j += 1
 				dup := f.Duplicate()
 				dup.Name += strconv.Itoa(j)
@@ -61,7 +61,7 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 			firstIndexOfOptionalParameter := cstr.GetFirstIndexOfOptionalParameter()
 
 			j := 0
-			for i := firstIndexOfOptionalParameter; i < len(cstr.Parameters)-1; i++ {
+			for i := firstIndexOfOptionalParameter; i < len(cstr.Parameters); i++ {
 				j += 1
 				dup := cstr.Duplicate()
 				dup.Name += strconv.Itoa(j)
