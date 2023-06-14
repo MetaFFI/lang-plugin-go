@@ -86,6 +86,13 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 }
 
 // --------------------------------------------------------------------
+func fixModulesMustNotContainDot(def *IDL.IDLDefinition) {
+	for _, mod := range def.Modules {
+		mod.Name = strings.ReplaceAll(mod.Name, ".", "_")
+	}
+}
+
+// --------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
 
 	// make sure definition does not use "go syntax-keywords" as names. If so, change the names a bit...
@@ -96,9 +103,14 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	// As Go does not support overloads, simply append an index to the end of the function/method name
 	overloadCallablesWithOptionalParameters(definition)
 
+	// convert "." is module names to "_" as modules in Go must not contain "."
+	fixModulesMustNotContainDot(definition)
+
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
 	}
+
+	outputFilename = strings.ReplaceAll(outputFilename, ".", "_") // filename must not contains "."
 
 	this.def = definition
 	this.outputDir = outputDir

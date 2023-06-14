@@ -414,13 +414,15 @@ func paramActual(field *IDL.ArgDefinition, direction string, namePrefix string) 
 
 // --------------------------------------------------------------------
 func asPublic(elem string) string {
-	if len(elem) == 0 {
-		return ""
-	} else if len(elem) == 1 {
-		return strings.ToUpper(elem)
-	} else {
-		return strings.ToUpper(elem[0:1]) + elem[1:]
-	}
+
+	return toGoNameConv(elem)
+	//if len(elem) == 0 {
+	//	return ""
+	//} else if len(elem) == 1 {
+	//	return strings.ToUpper(elem)
+	//} else {
+	//	return strings.ToUpper(elem[0:1]) + elem[1:]
+	//}
 }
 
 // --------------------------------------------------------------------
@@ -458,7 +460,7 @@ func toGoNameConv(elem string) string {
 	}
 
 	if underscoreAtStart > 0 { // This is because Go doesn't support _ at the beginning of the element.
-		elem = "Underscore_" + elem
+		elem = "U_" + elem
 	}
 
 	return elem
