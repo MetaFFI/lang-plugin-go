@@ -207,6 +207,8 @@ func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsa
 
     parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
     return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
+
+    return
 }
 
 func GetNullHandle() C.metaffi_handle {
