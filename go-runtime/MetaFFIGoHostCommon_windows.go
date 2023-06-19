@@ -197,24 +197,16 @@ func CFree(p unsafe.Pointer) {
 	C.free(p)
 }
 
-func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsafe.Pointer, parametersCDTS unsafe.Pointer, return_valuesCDTS unsafe.Pointer) {
+func GetPCDTFromCDTSIndex(pcdts unsafe.Pointer, index int) unsafe.Pointer{
+	return unsafe.Pointer(C.get_cdts_index_pcdt(pcdts, 0))
+}
 
+func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsafe.Pointer, parametersCDTS unsafe.Pointer, return_valuesCDTS unsafe.Pointer) {
 	res := C.xllr_alloc_cdts_buffer(params, rets)
 	pcdts = unsafe.Pointer(res)
 
-	if params > C.metaffi_size(0) {
-		parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
-	}
-
-	if rets > C.metaffi_size(0) {
-		if params == C.metaffi_size(0) {
-			return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
-		} else {
-			return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
-		}
-	}
-
-	return
+	parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
+	return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
 }
 
 func GetNullHandle() C.metaffi_handle {
