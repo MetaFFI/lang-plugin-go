@@ -132,13 +132,7 @@ func generateMethodReceiverCode(meth *IDL.MethodDefinition) string {
 
 // --------------------------------------------------------------------
 func getCDTReturnValueIndex(params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) int {
-	if len(params) > 0 {
-		return 1
-	} else if len(retvals) > 0 {
-		return 0
-	} else {
-		panic("Both parameters and return values are 0 - return values should not be used")
-	}
+	return 1 // return values are always at index 1
 }
 
 // --------------------------------------------------------------------
