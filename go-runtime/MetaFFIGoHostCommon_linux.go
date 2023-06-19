@@ -198,7 +198,7 @@ func CFree(p unsafe.Pointer) {
 }
 
 func GetPCDTFromCDTSIndex(pcdts unsafe.Pointer, index int) unsafe.Pointer{
-	return unsafe.Pointer(C.get_cdts_index_pcdt(pcdts, 0))
+	return unsafe.Pointer(C.get_cdts_index_pcdt(C.cast_to_cdts(pcdts), 0))
 }
 
 func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsafe.Pointer, parametersCDTS unsafe.Pointer, return_valuesCDTS unsafe.Pointer) {
