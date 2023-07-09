@@ -65,7 +65,7 @@ var {{$c.Name}}_{{$c.Releaser.GetNameWithOverloadIndex}}_id unsafe.Pointer
 {{end}}{{/* End Classes */}}
 {{end}}{{/* End modules */}}
 
-func Load(modulePath string){
+func MetaFFILoad(modulePath string){
 	LoadCDTCAPI()
 
 	runtimePlugin := "xllr.{{.TargetLanguage}}"
@@ -213,7 +213,7 @@ const HostFunctionStubsTemplate = `
 {{if $f.Comment}}/*
 {{$f.Comment}}
 */{{end}}
-func {{ToGoNameConv $f.Getter.GetNameWithOverloadIndex}}() (instance {{ConvertToGoType $f.ArgDefinition $m}}, err error){
+func {{ToGoNameConv $f.Getter.GetNameWithOverloadIndex}}_MetaFFIGetter() (instance {{ConvertToGoType $f.ArgDefinition $m}}, err error){
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 	{{GenerateCodeAllocateCDTS $f.Getter.Parameters $f.Getter.ReturnValues}}
 
@@ -271,7 +271,7 @@ func {{ToGoNameConv $f.Getter.GetNameWithOverloadIndex}}() (instance {{ConvertTo
 }
 {{end}}{{/* End Getter */}}
 {{if $f.Setter}}
-func {{ToGoNameConv $f.Setter.GetNameWithOverloadIndex}}({{$f.Name}} {{ConvertToGoType $f.ArgDefinition $m}}) (err error){
+func {{ToGoNameConv $f.Setter.GetNameWithOverloadIndex}}_MetaFFISetter({{$f.Name}} {{ConvertToGoType $f.ArgDefinition $m}}) (err error){
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
 	{{GenerateCodeAllocateCDTS $f.Setter.Parameters $f.Setter.ReturnValues}}
@@ -440,7 +440,7 @@ func (this *{{AsPublic $c.Name}}) SetHandle(h Handle){
 
 {{range $findex, $f := $c.Fields}}
 {{if $f.Getter}}
-func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({{GenerateMethodParams $f.Getter $m}}) ({{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Getter.ReturnValues}},{{end}} err error){
+func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}_MetaFFIGetter({{GenerateMethodParams $f.Getter $m}}) ({{range $index, $elem := $f.Getter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Getter.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
@@ -508,7 +508,7 @@ func {{GenerateMethodReceiverCode $f.Getter}} {{GenerateMethodName $f.Getter}}({
 }
 {{end}}{{/* End Getter */}}
 {{if $f.Setter}}
-func {{GenerateMethodReceiverCode $f.Setter}} {{GenerateMethodName $f.Setter}}({{GenerateMethodParams $f.Setter $m}}) ({{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Setter.ReturnValues}},{{end}} err error){
+func {{GenerateMethodReceiverCode $f.Setter}} {{GenerateMethodName $f.Setter}}_MetaFFISetter({{GenerateMethodParams $f.Setter $m}}) ({{range $index, $elem := $f.Setter.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}} {{ConvertToGoType $elem $m}}{{end}}{{if $f.Setter.ReturnValues}},{{end}} err error){
 	
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 

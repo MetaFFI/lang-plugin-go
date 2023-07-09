@@ -447,7 +447,7 @@ func toGoNameConv(elem string) string {
 
 	elem = strings.Replace(elem, "_", " ", -1)
 	elem = strings.Title(elem)
-	elem = strings.Replace(elem, " ", "", -1)
+	elem = strings.Replace(elem, " ", "_", -1)
 
 	if underscoreAtEnd > 0 {
 		elem += strings.Repeat("_", underscoreAtEnd)
