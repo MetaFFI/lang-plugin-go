@@ -149,7 +149,7 @@ var {{$c.Name}}_{{$c.Releaser.GetNameWithOverloadIndex}}_id unsafe.Pointer
 {{end}}{{/* End Classes */}}
 {{end}}{{/* End modules */}}
 
-func Load(modulePath string){
+func MetaFFILoad(modulePath string){
 	LoadCDTCAPI()
 
 	runtimePlugin := "xllr.{{.TargetLanguage}}"
