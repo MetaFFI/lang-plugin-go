@@ -93,6 +93,31 @@ func fixModulesMustNotContainDot(def *IDL.IDLDefinition) {
 }
 
 // --------------------------------------------------------------------
+func fixNameCollisionAfterConvertingToGoNameConvention(def *IDL.IDLDefinition) {
+	for _, mod := range def.Modules {
+
+		// There is no collision with globals due to MetaFFIGetter and MetaFFISetter suffixes
+		// TODO: Maybe set suffix only on collisions?!
+
+		for _, f := range mod.Functions {
+			funcNewName := toGoNameConv(f.Name)
+			isRename := false
+			for _, c := range mod.Classes {
+				classNewName := toGoNameConv(c.Name)
+				if classNewName == funcNewName {
+					isRename = true
+					break
+				}
+			}
+
+			if isRename {
+				f.Name += "Func"
+			}
+		}
+	}
+}
+
+// --------------------------------------------------------------------
 func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, hostOptions map[string]string) (err error) {
 
 	// make sure definition does not use "go syntax-keywords" as names. If so, change the names a bit...
@@ -105,6 +130,8 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 
 	// convert "." is module names to "_" as modules in Go must not contain "."
 	fixModulesMustNotContainDot(definition)
+
+	fixNameCollisionAfterConvertingToGoNameConvention(definition)
 
 	if outputFilename == "" {
 		outputFilename = definition.IDLFilename
