@@ -91,3 +91,17 @@ func TestGoIDLCompiler_Compile(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGoIDLCompiler_CompilePackage(t *testing.T) {
+	comp := NewGoIDLCompiler()
+
+	idl, _, err := comp.ParseIDL("", "text/template")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = idl.ToJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+}

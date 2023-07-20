@@ -7,16 +7,16 @@ import (
 	"strings"
 )
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func ExtractGlobals(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.GlobalDefinition {
-	
+
 	globalsDefs := make([]*IDL.GlobalDefinition, 0)
-	
+
 	for _, gs := range gofile.GlobalConstants {
 		if !IsPublic(gs.Name) {
 			continue
 		}
-		
+
 		var alias string
 		if gs.Underlying != gs.Type {
 			alias = gs.Type
@@ -24,15 +24,15 @@ func ExtractGlobals(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Global
 		global := IDL.NewGlobalDefinitionWithAlias(gs.Name, goTypeToMFFI(gs.Underlying), alias, "Get"+gs.Name, "")
 		global.Getter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
 		global.Getter.SetFunctionPath("entrypoint_function", "EntryPoint_"+global.Getter.Name)
-		
+
 		globalsDefs = append(globalsDefs, global)
 	}
-	
+
 	for _, gv := range gofile.GlobalVariables {
 		if !IsPublic(gv.Name) {
 			continue
 		}
-		
+
 		var alias string
 		if gv.Underlying != gv.Type {
 			alias = gv.Type
@@ -44,11 +44,11 @@ func ExtractGlobals(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Global
 		global.Setter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
 		global.Setter.SetFunctionPath("entrypoint_function", "EntryPoint_"+global.Setter.Name)
 	}
-	
+
 	return globalsDefs
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
 func GetRequiredImport(gofile *parser.GoFile, fullType string) string {
 
 	if strings.Contains(fullType, "...") {
@@ -61,8 +61,12 @@ func GetRequiredImport(gofile *parser.GoFile, fullType string) string {
 
 	// get package name
 	splitType := strings.Split(fullType, ".")
-	
+
 	packageName := splitType[len(splitType)-2] // get one before the last element
+
+	if packageName == gofile.Package { // no import required
+		return ""
+	}
 
 	for _, imp := range gofile.Imports {
 		var impname string
@@ -72,12 +76,12 @@ func GetRequiredImport(gofile *parser.GoFile, fullType string) string {
 			impname = strings.ReplaceAll(imp.Path, `"`, "")
 			impname = impname[strings.LastIndex(impname, ".")+1:]
 		}
-		
+
 		if impname == packageName {
 			return strings.ReplaceAll(imp.Path, `"`, "")
 		}
 	}
-	
+
 	panic(fmt.Errorf("package name \"%v\" (of type: %v) is used, but cannot find its import", packageName, fullType))
 }
 
