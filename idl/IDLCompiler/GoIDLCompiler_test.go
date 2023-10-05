@@ -1,6 +1,7 @@
-package main
+package IDLCompiler
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -100,8 +101,10 @@ func TestGoIDLCompiler_CompilePackage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = idl.ToJSON()
+	json, err := idl.ToJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fmt.Println(json)
 }

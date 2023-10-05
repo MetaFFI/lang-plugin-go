@@ -567,7 +567,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
+	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
@@ -603,7 +603,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
+	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
@@ -652,7 +652,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{$elem.Name}} := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}{{$elem.Name}}AsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
+	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function

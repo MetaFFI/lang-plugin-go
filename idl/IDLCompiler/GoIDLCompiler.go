@@ -1,4 +1,4 @@
-package main
+package IDLCompiler
 
 import (
 	"fmt"
@@ -9,9 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 var Imports map[string]bool
+
+// --------------------------------------------------------------------
+func IsPublic(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	return unicode.IsUpper(rune(name[0]))
+}
 
 // --------------------------------------------------------------------
 
@@ -44,7 +54,7 @@ func (this *GoIDLCompiler) parseSource(goSourceCode string, gofilepath string, m
 	functions := ExtractFunctions(gofile, metaFFIGuestLib)
 
 	for imp, _ := range Imports {
-		mod.AddExternalResource(imp)
+		mod.AddExternalResourceIfNotExist(imp)
 	}
 
 	importPath, _, err := gofile.ImportPath()
@@ -69,7 +79,7 @@ func (this *GoIDLCompiler) parseSource(goSourceCode string, gofilepath string, m
 
 // --------------------------------------------------------------------
 
-func (this *GoIDLCompiler) parseDir(dir string, metaFFIGuestLib string, mod *IDL.ModuleDefinition) (bool, error) {
+func (this *GoIDLCompiler) parseDir(dir string, metaFFIGuestLib string, mod *IDL.ModuleDefinition, isInGoROOT bool) (bool, error) {
 
 	gofiles, err := parser.ParseDir(dir, true, func(file fs.FileInfo) bool {
 
@@ -110,7 +120,7 @@ func (this *GoIDLCompiler) parseDir(dir string, metaFFIGuestLib string, mod *IDL
 		functions := ExtractFunctions(gofile, metaFFIGuestLib)
 
 		for imp, _ := range Imports {
-			mod.AddExternalResource(imp)
+			mod.AddExternalResourceIfNotExist(imp)
 		}
 
 		importPath, _, err := gofile.ImportPath()
@@ -123,8 +133,13 @@ func (this *GoIDLCompiler) parseDir(dir string, metaFFIGuestLib string, mod *IDL
 		mod.AddGlobals(globals)
 		mod.AddFunctions(functions)
 
-		mod.SetFunctionPath("package", gofile.Package)
-		mod.SetFunctionPath("module", importPath)
+		if !isInGoROOT {
+			mod.SetFunctionPath("package", gofile.Package)
+			mod.SetFunctionPath("module", importPath)
+		} else {
+			mod.SetFunctionPath("package", removeGOROOTsrc(dir))
+			mod.SetFunctionPath("module", removeGOROOTsrc(dir))
+		}
 
 	}
 
@@ -145,9 +160,24 @@ func (this *GoIDLCompiler) parseFile(gofilepath string, metaFFIGuestLib string, 
 
 //--------------------------------------------------------------------
 
+func getGOROOTsrc() string {
+	goroot := os.Getenv("GOROOT")
+	if goroot == "" {
+		goroot = build.Default.GOROOT
+	}
+
+	return goroot + "/src/"
+}
+
+func removeGOROOTsrc(path string) string {
+	return strings.ReplaceAll(path, getGOROOTsrc(), "")
+}
+
+//--------------------------------------------------------------------
+
 func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*IDL.IDLDefinition, bool, error) {
 
-	idl := IDL.NewIDLDefinition(goSourceCode, "go")
+	idl := IDL.NewIDLDefinition(gofilepath, "go")
 
 	// parse AST and build IDLDefinition
 
@@ -166,21 +196,19 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*ID
 		}
 
 		// if the gofilepath is a file, read source code and generate IDL, if path, generate IDL from all source code files
+		isInGoROOT := false
 		fi, err := os.Stat(gofilepath)
 		if err != nil {
 
 			// if doesn't exist - try to search "$GOROOT/src"
-			goroot := os.Getenv("GOROOT")
-			if goroot == "" {
-				goroot = build.Default.GOROOT
-			}
-
-			gofilepath = goroot + "/src/" + gofilepath
+			gofilepath = getGOROOTsrc() + gofilepath
 
 			fi, err = os.Stat(gofilepath)
 			if err != nil {
 				return nil, true, fmt.Errorf("Couldn't read given path. Error: %v", err)
 			}
+
+			isInGoROOT = true
 		}
 
 		if !fi.IsDir() {
@@ -196,8 +224,14 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*ID
 		} else {
 
 			// directory
-			module := IDL.NewModuleDefinition(filepath.Base(gofilepath))
-			_, err = this.parseDir(gofilepath, idl.MetaFFIGuestLib, module)
+			var module *IDL.ModuleDefinition
+			if isInGoROOT {
+				module = IDL.NewModuleDefinition(removeGOROOTsrc(gofilepath))
+			} else {
+				module = IDL.NewModuleDefinition(filepath.Base(gofilepath))
+			}
+
+			_, err = this.parseDir(gofilepath, idl.MetaFFIGuestLib, module, isInGoROOT)
 			if err != nil {
 				return nil, true, err
 			}

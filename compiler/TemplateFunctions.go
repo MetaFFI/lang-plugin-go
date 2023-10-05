@@ -40,6 +40,7 @@ var templatesFuncMap = map[string]interface{}{
 	"GetTypeOrAlias":                  getTypeOrAlias,
 	"HandleNoneGoObject":              handleNoneGoObject,
 	"IsGoRuntimePackNeeded":           isGoRuntimePackNeeded,
+	"ConvertEmptyInterfaceFromCDTSToCorrectType": convertEmptyInterfaceFromCDTSToCorrectType,
 }
 
 // --------------------------------------------------------------------
@@ -494,3 +495,28 @@ func getMetaFFIArrayType(numericType string) (numericTypes uint64) {
 }
 
 //--------------------------------------------------------------------
+
+func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
+
+	if elem.IsAny() {
+		return fmt.Sprintf("%v := %vAsInterface", elem.Name, elem.Name)
+	}
+
+	// if casting is needed
+	castingCode := ""
+	if elem.IsTypeAlias() {
+		castingCode = elem.TypeAlias
+	} else {
+		castingCode = convertToGoType(elem, mod)
+	}
+
+	// if type assertion is needed
+	assetionCode := ""
+	if elem.IsTypeAlias() {
+		assetionCode = elem.TypeAlias
+	} else {
+		assetionCode = convertToGoType(elem, mod)
+	}
+
+	return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assetionCode)
+}
