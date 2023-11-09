@@ -2,6 +2,8 @@ package IDLCompiler
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"testing"
 )
 
@@ -87,10 +89,14 @@ func (this *TestMap) Contains(k string) bool{
 func TestGoIDLCompiler_Compile(t *testing.T) {
 	comp := NewGoIDLCompiler()
 
-	_, _, err := comp.ParseIDL(src, "")
+	r, _ := os.Open(`C:\src\github.com\MetaFFI\Tests\Hosts\Java\ToGo\sanity\TestFuncs.go`)
+	s, _ := io.ReadAll(r)
+	def, _, err := comp.ParseIDL(string(s), "")
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	println(def)
 }
 
 func TestGoIDLCompiler_CompilePackage(t *testing.T) {

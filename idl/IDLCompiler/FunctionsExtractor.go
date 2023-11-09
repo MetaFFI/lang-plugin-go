@@ -2,9 +2,10 @@ package IDLCompiler
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/GreenFuze/go-parser"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"strings"
 )
 
 // --------------------------------------------------------------------
@@ -27,7 +28,7 @@ func ExtractFunctions(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Func
 
 		for i, p := range f.Params {
 			var alias string
-			alias = p.Underlying
+			alias = p.Type // Checking from p.Underlying to p.Type so the compiler can tell it needs to be converted
 
 			var name string
 			if p.Name != "" {

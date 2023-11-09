@@ -512,7 +512,7 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 
 	// if type assertion is needed
 	assetionCode := ""
-	if elem.IsTypeAlias() {
+	if elem.IsTypeAlias() && elem.TypeAlias != "int" && elem.TypeAlias == string(elem.Type){
 		assetionCode = elem.TypeAlias
 	} else {
 		assetionCode = convertToGoType(elem, mod)
