@@ -11,6 +11,7 @@ package TestFuncs
 import (
 	"strings"
 	"time"
+	"fmt"
 )
 
 type MyString string
@@ -52,6 +53,10 @@ func WaitABit(d time.Duration) error{
 	return nil
 }
 
+func PrintArgs(args ...string){
+	fmt.Printf("%v", args...)
+}
+
 type TestMap struct{
 	m map[string]interface{}
 	Name string
@@ -89,7 +94,7 @@ func TestGoIDLCompiler_Compile(t *testing.T) {
 
 	def, _, err := comp.ParseIDL(src, "")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed parsing: %v", err)
 	}
 
 	println(def)

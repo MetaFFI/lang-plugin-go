@@ -15,3 +15,5 @@ replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk
 replace github.com/MetaFFI/lang-plugin-go/go-runtime => ../go-runtime
 
 replace github.com/MetaFFI/lang-plugin-go/idl => ../idl
+
+replace github.com/GreenFuze/go-parser => ../../../GreenFuze/go-parser

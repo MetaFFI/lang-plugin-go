@@ -41,6 +41,28 @@ var templatesFuncMap = map[string]interface{}{
 	"HandleNoneGoObject":              handleNoneGoObject,
 	"IsGoRuntimePackNeeded":           isGoRuntimePackNeeded,
 	"ConvertEmptyInterfaceFromCDTSToCorrectType": convertEmptyInterfaceFromCDTSToCorrectType,
+	"CallParameters": callParameters,
+}
+
+func callParameters(funcDef *IDL.FunctionDefinition, startIndex int) string {
+	// {{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if $elem.IsTypeAlias}}({{$elem.GetTypeOrAlias}})({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}}
+	params := make([]string, 0)
+	for i, p := range funcDef.Parameters {
+		if i < startIndex {
+			continue
+		}
+
+		if i+1 == len(funcDef.Parameters) { // if last parameter - check if function is variadic
+			if _, exists := funcDef.Tags["variadic_parameter"]; exists {
+				params = append(params, p.Name+"...")
+				continue
+			}
+		}
+
+		params = append(params, fmt.Sprintf("%v", p.Name))
+	}
+
+	return strings.Join(params, ",")
 }
 
 // --------------------------------------------------------------------
@@ -496,7 +518,7 @@ func getMetaFFIArrayType(numericType string) (numericTypes uint64) {
 
 //--------------------------------------------------------------------
 
-func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
+func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *IDL.ModuleDefinition, funcDef *IDL.FunctionDefinition) string {
 
 	if elem.IsAny() {
 		return fmt.Sprintf("%v := %vAsInterface", elem.Name, elem.Name)
@@ -504,15 +526,13 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 
 	// if casting is needed
 	castingCode := ""
-	if elem.IsTypeAlias() {
-		castingCode = elem.TypeAlias
-	} else {
+	if !elem.IsTypeAlias() {
 		castingCode = convertToGoType(elem, mod)
 	}
 
 	// if type assertion is needed
 	assetionCode := ""
-	if elem.IsTypeAlias() && elem.TypeAlias != "int" && elem.TypeAlias == string(elem.Type){
+	if elem.IsTypeAlias() && elem.TypeAlias != "int" {
 		assetionCode = elem.TypeAlias
 	} else {
 		assetionCode = convertToGoType(elem, mod)

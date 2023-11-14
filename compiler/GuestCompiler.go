@@ -55,6 +55,9 @@ func (this *GuestCompiler) Compile(definition *IDL.IDLDefinition, outputDir stri
 		return fmt.Errorf("Failed to generate guest code: %v", err)
 	}
 
+	outfile := `C:\src\github.com\MetaFFI\lang-plugin-go\compiler\temp_guest\out.go`
+	os.WriteFile(outfile, []byte(code), 0777)
+
 	file, err := this.buildDynamicLibrary(code)
 	if err != nil {
 		return fmt.Errorf("Failed to generate guest code: %v", err)
@@ -85,20 +88,10 @@ func (this *GuestCompiler) parseHeader() (string, error) {
 }
 
 // --------------------------------------------------------------------
-func (this *GuestCompiler) parseImports() (string, error) {
-
-	// get all imports from the def file
-	imports := struct {
-		Imports []string
-		Modules []*IDL.ModuleDefinition
-	}{
-		Imports: make([]string, 0),
-		Modules: this.def.Modules,
-	}
-
+func GetImportsSet(def *IDL.IDLDefinition) (map[string]bool, error) {
 	set := make(map[string]bool)
 
-	for _, m := range this.def.Modules {
+	for _, m := range def.Modules {
 
 		handleFunctionPath := func(functionPath map[string]string) error {
 
@@ -142,7 +135,7 @@ func (this *GuestCompiler) parseImports() (string, error) {
 		for _, f := range m.Functions {
 			err := handleFunctionPath(f.FunctionPath)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 		}
 
@@ -150,24 +143,45 @@ func (this *GuestCompiler) parseImports() (string, error) {
 			for _, cstr := range c.Constructors {
 				err := handleFunctionPath(cstr.FunctionPath)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
 			}
 
 			for _, meth := range c.Methods {
 				err := handleFunctionPath(meth.FunctionPath)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
 			}
 
 			if c.Releaser != nil {
 				err := handleFunctionPath(c.Releaser.FunctionPath)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
 			}
 		}
+	}
+
+	return set, nil
+}
+
+// --------------------------------------------------------------------
+
+func (this *GuestCompiler) parseImports() (string, error) {
+
+	// get all imports from the def file
+	imports := struct {
+		Imports []string
+		Modules []*IDL.ModuleDefinition
+	}{
+		Imports: make([]string, 0),
+		Modules: this.def.Modules,
+	}
+
+	set, err := GetImportsSet(this.def)
+	if err != nil {
+		return "", err
 	}
 
 	for k, _ := range set {
@@ -243,6 +257,104 @@ func (this *GuestCompiler) parseCImports() (string, error) {
 }
 
 // --------------------------------------------------------------------
+func removeFromAliasesDotImportedPackagesAndPathToPackages(def *IDL.IDLDefinition) {
+	// if the type include "/" (for instance io/fs), remove the "/"
+	// and everything before it
+	removeBeforeLastSlash := func(s string) string {
+		lastSlashIndex := strings.LastIndex(s, "/")
+		if lastSlashIndex != -1 {
+			pointersCount := strings.Count(s, "*")
+			s = s[lastSlashIndex+1:]
+			s = strings.Repeat("*", pointersCount) + s
+		}
+
+		return s
+	}
+
+	getPackageName := func(s string) string {
+		s = strings.ReplaceAll(s, "*", "")
+		firstDotIndex := strings.Index(s, ".")
+		if firstDotIndex != -1 {
+			return s[:firstDotIndex]
+		}
+		return s
+	}
+
+	removePackageName := func(s string) string {
+		packageName := getPackageName(s) + "."
+		return strings.ReplaceAll(s, packageName, "")
+	}
+
+	removePackageNameIfInDotImports := func(s string, dotImportedPackage map[string]bool) string {
+		if strings.Index(s, ".") != -1 {
+			if _, exists := dotImportedPackage[getPackageName(s)]; exists {
+				s = removePackageName(s)
+			}
+		}
+		return s
+	}
+
+	// if path to package has been imported (using ".") by the definition, remove
+	// the package name as well.
+	dotImportedFullPackageNames, err := GetImportsSet(def)
+	if err != nil {
+		panic(err)
+	}
+	dotImportedPackage := make(map[string]bool)
+	for k, _ := range dotImportedFullPackageNames {
+		dotImportedPackage[removeBeforeLastSlash(k)] = true
+	}
+
+	handleArgDefinition := func(p *IDL.ArgDefinition) {
+		if p.IsTypeAlias() {
+			beforeAlias := p.TypeAlias
+			p.TypeAlias = removeBeforeLastSlash(p.TypeAlias)
+			p.TypeAlias = removePackageNameIfInDotImports(p.TypeAlias, dotImportedPackage)
+
+			fmt.Printf("+++ %v ==> %v\n", beforeAlias, p.TypeAlias)
+		}
+	}
+
+	handleFunctionDefinition := func(f *IDL.FunctionDefinition) {
+		if f == nil {
+			return
+		}
+
+		for _, p := range f.Parameters {
+			handleArgDefinition(p)
+		}
+		for _, p := range f.ReturnValues {
+			handleArgDefinition(p)
+		}
+	}
+
+	for _, m := range def.Modules {
+		for _, g := range m.Globals {
+			handleFunctionDefinition(g.Getter)
+			handleFunctionDefinition(g.Setter)
+		}
+
+		for _, f := range m.Functions {
+			handleFunctionDefinition(f)
+		}
+
+		for _, c := range m.Classes {
+			for _, cstr := range c.Constructors {
+				handleFunctionDefinition(&cstr.FunctionDefinition)
+			}
+			for _, field := range c.Fields {
+				handleFunctionDefinition(&field.Getter.FunctionDefinition)
+				handleFunctionDefinition(&field.Setter.FunctionDefinition)
+			}
+			for _, method := range c.Methods {
+				handleFunctionDefinition(&method.FunctionDefinition)
+			}
+			handleFunctionDefinition(&c.Releaser.FunctionDefinition)
+		}
+	}
+}
+
+// --------------------------------------------------------------------
 func (this *GuestCompiler) generateCode() (string, error) {
 
 	header, err := this.parseHeader()
@@ -254,6 +366,9 @@ func (this *GuestCompiler) generateCode() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// remove from aliases the dot imported packages
+	removeFromAliasesDotImportedPackagesAndPathToPackages(this.def)
 
 	cimports, err := this.parseCImports()
 	if err != nil {

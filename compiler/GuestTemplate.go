@@ -525,6 +525,8 @@ func fromGoToCDT(input interface{}, pdata *C.struct_cdts, cdtsIndex int, i int){
 
 const (
 	GuestFunctionXLLRTemplate = `
+{{$def := .}}
+
 {{range $mindex, $m := .Modules}}
 
 {{range $findex, $f := $m.Globals}}
@@ -567,11 +569,11 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m}}
+	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m $f}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.Name}}({{CallParameters $f 0}})
 	
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
@@ -603,11 +605,11 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m}}
+	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m $f.FunctionDefinition}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}{{$f.Name}}({{CallParameters $f.FunctionDefinition 0}})
 	
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
@@ -652,12 +654,12 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
 	{{$elem.Name}}AsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Parameters}}, {{$index}})
-	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m}}
+	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m $f.FunctionDefinition}}
 	{{end}} {{/* end range params */}}
 	
 	// call original function
 	{{ $receiver_pointer := index $f.Tags "receiver_pointer"}}
-	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}({{(index $f.Parameters 0).Name }}.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}})).{{$f.Name}}({{range $index, $elem := $f.Parameters}}{{if $index}}{{if gt $index 1}},{{end}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}}{{end}})
+	{{range $index, $elem := $f.ReturnValues}}{{if $index}},{{end}}{{$elem.Name}}{{end}}{{if $f.ReturnValues}} := {{end}}({{(index $f.Parameters 0).Name }}.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}})).{{$f.Name}}({{ CallParameters $f.FunctionDefinition 1}})
 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
@@ -709,7 +711,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Setter.Name $f.Sett
 	// get val
 	{{ $elem = index $f.Setter.Parameters 1 }}
 	valAsInterface := fromCDTToGo(xcall_params, {{GetCDTParametersIndex $f.Setter.Parameters}}, 1)
-	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
+	val := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}valAsInterface{{if not $elem.IsAny}}.({{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}})){{end}}
 
 	// get new data
 	{{ $receiver_pointer := index $f.Setter.Tags "receiver_pointer"}}

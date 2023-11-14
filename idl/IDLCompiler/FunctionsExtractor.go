@@ -27,9 +27,15 @@ func ExtractFunctions(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Func
 		funcDecl.Comment = f.Comments
 
 		for i, p := range f.Params {
+
+			if strings.HasPrefix(p.Type, "...") { // if ellipsis
+				p.Type = strings.ReplaceAll(p.Type, "...", "[]")
+				p.Underlying = strings.ReplaceAll(p.Underlying, "...", "[]")
+				funcDecl.SetTag("variadic_parameter", p.Name)
+			}
+
 			var alias string
 			alias = p.Type // Checking from p.Underlying to p.Type so the compiler can tell it needs to be converted
-
 			var name string
 			if p.Name != "" {
 				name = p.Name

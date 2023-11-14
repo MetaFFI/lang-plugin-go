@@ -2,7 +2,6 @@ package main
 
 import (
 	idl "github.com/MetaFFI/lang-plugin-go/idl/IDLCompiler"
-	compiler "github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"os"
 	"testing"
 )
@@ -131,55 +130,6 @@ func F1(p1 float64, p2 float32, p3 int8, p4 int16, p5 int32, p6 int64, p7 uint8,
 	return r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14
 }`
 
-// --------------------------------------------------------------------
-func TestGuest(t *testing.T) {
-
-	skipMessage := "Cannot execute guest test from Go, as Go->Go is currently unsupported due to Go inability to load Go shared modules.\n"
-	skipMessage += "To run the test, execute the C code in CompilerGuest_testHelper.go from C/C++."
-	t.Skip(skipMessage)
-
-	def, err := compiler.NewIDLDefinitionFromJSON(idl_guest)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
-	_ = os.RemoveAll("temp_guest")
-
-	err = os.Mkdir("temp_guest", 0700)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
-	err = os.WriteFile("./temp_guest/GuestCode.go", []byte(GuestCode), 0600)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
-	err = os.WriteFile("./temp_guest/go.mod", []byte("module GoFuncs"), 0600)
-
-	defer func() {
-		err = os.RemoveAll("temp_guest")
-		if err != nil {
-			t.Fatal(err)
-			return
-		}
-	}()
-
-	cmp := NewGuestCompiler()
-	err = cmp.Compile(def, "temp_guest", "", "", "")
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
-	if CallHostMock() != 0 {
-		t.Fatal("Failed calling guest")
-	}
-}
-
 //--------------------------------------------------------------------
 
 func TestLibrary(t *testing.T) {
@@ -206,7 +156,7 @@ func TestLibrary(t *testing.T) {
 	}()
 
 	cmp := NewGuestCompiler()
-	err = cmp.Compile(idlDef, "temp_guest", "", "", "")
+	err = cmp.Compile(idlDef, "temp_guest", "", nil)
 	if err != nil {
 		t.Fatal(err)
 		return

@@ -43,6 +43,7 @@ func LoadClasses(gofile *parser.GoFile, metaffiGuestLib string) {
 			}
 
 			fdecl := IDL.NewFieldDefinition(structDef, f.Name, goTypeToMFFI(f.Type), "Get"+f.Name, "Set"+f.Name, true)
+			fdecl.TypeAlias = f.Type
 			fdecl.Getter.SetTag("receiver_pointer", "true")
 			fdecl.Getter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
 			fdecl.Getter.SetFunctionPath("entrypoint_function", "EntryPoint_"+structDef.Name+"_"+fdecl.Getter.Name)
@@ -76,8 +77,15 @@ func LoadMethods(gofile *parser.GoFile, metaffiGuestLib string) {
 		funcDecl.Comment = meth.Comments
 
 		for i, p := range meth.Params {
+
+			if strings.HasPrefix(p.Type, "...") { // if ellipsis
+				p.Type = strings.ReplaceAll(p.Type, "...", "[]")
+				p.Underlying = strings.ReplaceAll(p.Underlying, "...", "[]")
+				funcDecl.SetTag("variadic_parameter", p.Name)
+			}
+
 			var alias string
-			if p.Underlying != p.Type {
+			if p.Underlying != p.Type || !isPrimitiveType(p.Type) {
 				alias = p.Type
 			}
 

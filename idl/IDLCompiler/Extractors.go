@@ -5,6 +5,38 @@ import (
 	"strings"
 )
 
+// Declare a global variable map
+var primitives = map[string]string{
+	"bool":       "true",
+	"byte":       "true",
+	"complex64":  "true",
+	"complex128": "true",
+	"float32":    "true",
+	"float64":    "true",
+	"int":        "true",
+	"int8":       "true",
+	"int16":      "true",
+	"int32":      "true",
+	"int64":      "true",
+	"rune":       "true",
+	"string":     "true",
+	"uint":       "true",
+	"uint8":      "true",
+	"uint16":     "true",
+	"uint32":     "true",
+	"uint64":     "true",
+	"uintptr":    "true",
+}
+
+// --------------------------------------------------------------------
+func isPrimitiveType(typename string) bool {
+	typename = strings.ReplaceAll(typename, "[]", "")
+	typename = strings.ReplaceAll(typename, "*", "")
+
+	_, isPrimitive := primitives[typename]
+	return isPrimitive
+}
+
 // --------------------------------------------------------------------
 func goTypeToMFFI(typename string) IDL.MetaFFIType {
 
