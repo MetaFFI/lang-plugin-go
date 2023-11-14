@@ -528,15 +528,18 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 	castingCode := ""
 	if !elem.IsTypeAlias() {
 		castingCode = convertToGoType(elem, mod)
+	} else if elem.IsTypeAlias() && !elem.IsHandle() {
+		castingCode = elem.TypeAlias
 	}
 
-	// if type assertion is needed
-	assetionCode := ""
-	if elem.IsTypeAlias() && elem.TypeAlias != "int" {
-		assetionCode = elem.TypeAlias
+	// if the type is a HANDLE - assertion needs to be the Alias
+	// if the type is NOT a handle - assertion needs to be to "covertToGoType"
+	assertion := ""
+	if elem.IsHandle() && elem.IsTypeAlias() {
+		assertion = elem.TypeAlias
 	} else {
-		assetionCode = convertToGoType(elem, mod)
+		assertion = convertToGoType(elem, mod)
 	}
 
-	return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assetionCode)
+	return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
 }
