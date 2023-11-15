@@ -311,7 +311,7 @@ func removeFromAliasesDotImportedPackagesAndPathToPackages(def *IDL.IDLDefinitio
 			p.TypeAlias = removeBeforeLastSlash(p.TypeAlias)
 			p.TypeAlias = removePackageNameIfInDotImports(p.TypeAlias, dotImportedPackage)
 
-			fmt.Printf("+++ %v ==> %v\n", beforeAlias, p.TypeAlias)
+			//fmt.Printf("+++ %v ==> %v\n", beforeAlias, p.TypeAlias)
 		}
 	}
 
