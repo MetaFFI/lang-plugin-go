@@ -307,7 +307,7 @@ func removeFromAliasesDotImportedPackagesAndPathToPackages(def *IDL.IDLDefinitio
 
 	handleArgDefinition := func(p *IDL.ArgDefinition) {
 		if p.IsTypeAlias() {
-			beforeAlias := p.TypeAlias
+			//beforeAlias := p.TypeAlias
 			p.TypeAlias = removeBeforeLastSlash(p.TypeAlias)
 			p.TypeAlias = removePackageNameIfInDotImports(p.TypeAlias, dotImportedPackage)
 
