@@ -50,6 +50,39 @@ metaffi_type get_cdt_type(struct cdt* p)
 	return p->type;
 }
 
+void call_plugin_xcall_no_params_no_ret(void** ppv, char** err, uint64_t* out_err)
+{
+	void* pvoidxcall = ppv[0];
+	void* pctxt = ppv[1];
+
+	(((void(*)(void*,char**,uint64_t*))pvoidxcall)(pctxt, err, out_err));
+}
+
+void call_plugin_xcall_no_params_ret(void** ppv, struct cdts* cdts, char** err, uint64_t* out_err)
+{
+	void* pvoidxcall = ppv[0];
+	void* pctxt = ppv[1];
+
+	(((void(*)(void*,void*,char**,uint64_t*))pvoidxcall)(pctxt, cdts, err, out_err));
+}
+
+void call_plugin_xcall_params_no_ret(void** ppv, struct cdts* cdts, char** err, uint64_t* out_err)
+{
+	void* pvoidxcall = ppv[0];
+	void* pctxt = ppv[1];
+
+	(((void(*)(void*,void*,char**,uint64_t*))pvoidxcall)(pctxt, cdts, err, out_err));
+}
+
+void call_plugin_xcall_params_ret(void** ppv, struct cdts* cdts, char** err, uint64_t* out_err)
+{
+	void* pvoidxcall = ppv[0];
+	void* pctxt = ppv[1];
+
+	(((void(*)(void*,void*,char**,uint64_t*))pvoidxcall)(pctxt, cdts, err, out_err));
+}
+
+
 #ifdef _WIN32
 metaffi_size len_to_metaffi_size(long long i)
 #else
@@ -66,9 +99,11 @@ import (
 	"unsafe"
 )
 
-func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string,
-	pff unsafe.Pointer,
-	params_count int8, retval_count int8) (unsafe.Pointer, error) {
+func GetCacheSize() int{
+	return int(C.get_cache_size())
+}
+
+func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (*unsafe.Pointer, error) {
 
 	pruntimePlugin := C.CString(runtimePlugin)
 	defer CFree(unsafe.Pointer(pruntimePlugin))
@@ -83,8 +118,25 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 	var out_err_len C.uint32_t
 	out_err_len = C.uint32_t(0)
 
-	id := C.xllr_load_function(pruntimePlugin, C.uint(len(runtimePlugin)), pmodulePath, C.uint(len(modulePath)), ppath, C.uint(len(functionPath)),
-		pff, C.schar(params_count), C.schar(retval_count), &out_err, &out_err_len)
+	var pparamTypes *C.uint64_t
+	if paramsTypes != nil {
+		pparamTypes = (*C.uint64_t)(unsafe.Pointer(&paramsTypes[0]))
+	}
+
+	pparamTypesLen := (C.uint8_t)(len(paramsTypes))
+
+	var ppretvalsTypes *C.uint64_t
+	if retvalsTypes != nil{
+		ppretvalsTypes = (*C.uint64_t)(unsafe.Pointer(&retvalsTypes[0]))
+	}
+	pretvalsTypesLen := (C.uint8_t)(len(retvalsTypes))
+
+	id := C.xllr_load_function(pruntimePlugin, C.uint(len(runtimePlugin)),
+		pmodulePath, C.uint(len(modulePath)),
+		ppath, C.uint(len(functionPath)),
+		pparamTypes, ppretvalsTypes,
+		pparamTypesLen, pretvalsTypesLen,
+		&out_err, &out_err_len)
 
 	if id == nil {
 		return nil, fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", functionPath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
@@ -93,7 +145,7 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 	return id, nil
 }
 
-func XLLRXCallParamsRet(pff unsafe.Pointer, parameters unsafe.Pointer) error {
+func XLLRXCallParamsRet(pff *unsafe.Pointer, parameters unsafe.Pointer) error {
 
 	// TODO: Free error message, in case of returned error
 	// 		 The problem is that some plugins return strings that cannot be freed - FIX THIS!
@@ -102,7 +154,7 @@ func XLLRXCallParamsRet(pff unsafe.Pointer, parameters unsafe.Pointer) error {
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_xcall_params_ret(pff, C.cast_to_cdts(parameters), &out_err, &out_err_len)
+	C.call_plugin_xcall_params_ret(pff, C.cast_to_cdts(parameters), &out_err, &out_err_len)
 
 	if out_err_len != C.uint64_t(0) {
 		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
@@ -111,13 +163,13 @@ func XLLRXCallParamsRet(pff unsafe.Pointer, parameters unsafe.Pointer) error {
 	return nil
 }
 
-func XLLRXCallNoParamsRet(pff unsafe.Pointer, return_values unsafe.Pointer) error {
+func XLLRXCallNoParamsRet(pff *unsafe.Pointer, return_values unsafe.Pointer) error {
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_xcall_no_params_ret(pff, C.cast_to_cdts(return_values), &out_err, &out_err_len)
+	C.call_plugin_xcall_no_params_ret(pff, C.cast_to_cdts(return_values), &out_err, &out_err_len)
 
 	if out_err_len != C.uint64_t(0) {
 		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
@@ -126,13 +178,13 @@ func XLLRXCallNoParamsRet(pff unsafe.Pointer, return_values unsafe.Pointer) erro
 	return nil
 }
 
-func XLLRXCallParamsNoRet(pff unsafe.Pointer, parameters unsafe.Pointer) error {
+func XLLRXCallParamsNoRet(pff *unsafe.Pointer, parameters unsafe.Pointer) error {
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_xcall_params_no_ret(pff, C.cast_to_cdts(parameters), &out_err, &out_err_len)
+	C.call_plugin_xcall_params_no_ret(pff, C.cast_to_cdts(parameters), &out_err, &out_err_len)
 
 	if out_err_len != C.uint64_t(0) {
 		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
@@ -141,13 +193,13 @@ func XLLRXCallParamsNoRet(pff unsafe.Pointer, parameters unsafe.Pointer) error {
 	return nil
 }
 
-func XLLRXCallNoParamsNoRet(pff unsafe.Pointer) error {
+func XLLRXCallNoParamsNoRet(pff *unsafe.Pointer) error {
 
 	var out_err *C.char
 	var out_err_len C.uint64_t
 	out_err_len = C.uint64_t(0)
 
-	C.xllr_xcall_no_params_no_ret(pff, &out_err, &out_err_len)
+	C.call_plugin_xcall_no_params_no_ret(pff, &out_err, &out_err_len)
 
 	if out_err_len != C.uint64_t(0) {
 		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
@@ -205,8 +257,10 @@ func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsa
 	res := C.xllr_alloc_cdts_buffer(params, rets)
 	pcdts = unsafe.Pointer(res)
 
-	parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
-	return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
+	if res != nil{
+		parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
+		return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
+	}
 
 	return
 }
@@ -233,6 +287,10 @@ func GetCDTType(p *C.cdt) C.metaffi_type {
 
 func LenToMetaFFISize(i C.longlong) C.metaffi_size {
 	return C.len_to_metaffi_size(i)
+}
+
+func IntToMetaFFISize(i int) C.metaffi_size{
+	return LenToMetaFFISize(C.longlong(i))
 }
 
 func LoadCDTCAPI() {
