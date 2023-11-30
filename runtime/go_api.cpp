@@ -3,6 +3,7 @@
 #include <boost/thread.hpp>
 #include "functions_repository.h"
 #include <utils/xllr_api_wrapper.h>
+#include <utils/function_path_parser.h>
 
 using namespace metaffi::utils;
 
@@ -56,14 +57,57 @@ void load_runtime(char** err, uint32_t* err_len)
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-void* load_function(const char* module_path, uint32_t module_path_len, const char* function_path, uint32_t function_path_len, int8_t params_count, int8_t retval_count, char** err, uint32_t* err_len)
+void** load_function(const char* module_path, uint32_t module_path_len, const char* function_path, uint32_t function_path_len, metaffi_types_ptr params_types, metaffi_types_ptr retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
 	 */
 	try
 	{
-		return functions_repository::get_instance().load_function(std::string(module_path, module_path_len), std::string(function_path, function_path_len), params_count, retval_count);
+		// build from function path the correct entrypoint
+		metaffi::utils::function_path_parser fpp(std::string(function_path, function_path_len));
+		
+		std::stringstream fp;
+		fp << "EntryPoint_";
+		
+		
+		if(fpp.contains("callable"))
+		{
+			std::string callable_name = fpp["callable"];
+			boost::replace_all(callable_name, ".", "_");
+			
+			fp << callable_name;
+			
+			if(callable_name.ends_with("_EmptyStruct")){
+				fp << "_MetaFFI";
+			}
+		}
+		else if(fpp.contains("global"))
+		{
+			fp << (fpp.contains("getter") ? "Get" :
+				   fpp.contains("setter") ? "Set" :
+				   throw std::runtime_error("global action is not specified"));
+			
+			fp << fpp["global"];
+		}
+		else if(fpp.contains("field"))
+		{
+			std::string action = (fpp.contains("getter") ? "_Get" :
+							       fpp.contains("setter") ? "_Set" :
+							       throw std::runtime_error("global action is not specified"));
+			
+			std::string fieldName = fpp["field"];
+			boost::replace_all(fieldName, ".", action);
+			
+			fp << fieldName;
+		}
+		
+		void* pfunc = functions_repository::get_instance().load_function(std::string(module_path, module_path_len), fp.str(), params_count, retval_count);
+		void** res = (void**)malloc(sizeof(void*)*2);
+		res[0] = pfunc;
+		res[1] = nullptr; // no context required
+		
+		return res;
 	}
 	catch(std::exception& exc)
 	{

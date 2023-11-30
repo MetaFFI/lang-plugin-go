@@ -32,6 +32,7 @@ var templatesFuncMap = map[string]interface{}{
 	"GenerateCodeAllocateCDTS":        generateCodeAllocateCDTS,
 	"GenerateCodeXCall":               generateCodeXCall,
 	"GenerateCodeEntryPointSignature": generateCodeEntrypointSignature,
+	"GenerateCodeEntryPointEmptyStructSignature": generateCodeEntryPointEmptyStructSignature,
 	"GetCDTReturnValueIndex":          getCDTReturnValueIndex,
 	"GetCDTParametersIndex":           getCDTParametersIndex,
 	"GenerateMethodReceiverCode":      generateMethodReceiverCode,
@@ -169,7 +170,7 @@ func getCDTParametersIndex(params []*IDL.ArgDefinition) int {
 
 // --------------------------------------------------------------------
 func generateCodeEntrypointSignature(className string, funcName string, params []*IDL.ArgDefinition, retvals []*IDL.ArgDefinition) string {
-	// {{$c.Name}}_{{$f.Name}}(parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t)
+	// {{$c.Name}}_{{$f.Name}}(context *C.void, parameters *C.struct_cdt, parameters_length C.uint64_t, return_values *C.struct_cdt, return_values_length C.uint64_t, out_err **C.char, out_err_len *C.uint64_t)
 
 	name := ""
 	if className != "" {
@@ -179,10 +180,16 @@ func generateCodeEntrypointSignature(className string, funcName string, params [
 	name += funcName
 
 	if len(params) > 0 || len(retvals) > 0 {
-		return fmt.Sprintf("%v(xcall_params *C.struct_cdts, out_err **C.char, out_err_len *C.uint64_t)", name)
+		return fmt.Sprintf("%v(_ *C.void, xcall_params *C.struct_cdts, out_err **C.char, out_err_len *C.uint64_t)", name)
 	} else {
-		return fmt.Sprintf("%v(out_err **C.char, out_err_len *C.uint64_t)", name)
+		return fmt.Sprintf("%v(_ *C.void, out_err **C.char, out_err_len *C.uint64_t)", name)
 	}
+}
+// --------------------------------------------------------------------
+func generateCodeEntryPointEmptyStructSignature(className string) string {
+
+	rettype := IDL.NewArgArrayDefinition("instance", IDL.HANDLE, 0)
+	return generateCodeEntrypointSignature(className, "EmptyStruct_MetaFFI", nil, []*IDL.ArgDefinition{rettype})
 }
 
 // --------------------------------------------------------------------

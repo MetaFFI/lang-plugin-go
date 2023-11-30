@@ -592,6 +592,13 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 // class {{$c.Name}}
 {{$className := $c.Name}}
 
+// return empty struct
+//export EntryPoint_{{$c.Name}}_EmptyStruct_MetaFFI
+func EntryPoint_{{GenerateCodeEntryPointEmptyStructSignature $c.Name}}{
+	instance := &{{$c.Name}}{}
+	fromGoToCDT(instance, xcall_params, 1, 0)
+}
+
 // constructors
 {{range $i, $f := $c.Constructors}}
 // Call to foreign {{$f.Name}}

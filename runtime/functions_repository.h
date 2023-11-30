@@ -25,7 +25,7 @@ public: // methods
 	functions_repository() = default;
 	~functions_repository() = default;
 	
-	void* load_function(const std::string& module_path, const std::string& function_path, int params_count, int retval_count);
+	void* load_function(const std::string& module_path, const std::string& entrypoint_name, int params_count, int retval_count);
 	
 };
 //--------------------------------------------------------------------

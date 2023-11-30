@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-	func HelloWorld() {
+func HelloWorld() {
 	println("Hello World, From Go!")
 }
 

@@ -26,10 +26,8 @@ void functions_repository::free_instance()
 	functions_repository::instance = nullptr;
 }
 //--------------------------------------------------------------------
-void* functions_repository::load_function(const std::string& module_path, const std::string& function_path, int params_count, int retval_count)
+void* functions_repository::load_function(const std::string& module_path, const std::string& entrypoint_name, int params_count, int retval_count)
 {
-	metaffi::utils::function_path_parser fp(function_path);
-	
 	if(module_path.empty()){
 		throw std::runtime_error("Guest library is not defined");
 	}
@@ -39,8 +37,15 @@ void* functions_repository::load_function(const std::string& module_path, const 
 	std::shared_ptr<boost::dll::shared_library> metaffi_guest_lib;
 	if(it == this->modules.end())
 	{
+		if(!boost::filesystem::exists(module_path))
+		{
+			throw std::invalid_argument("given module oath is not found");
+		}
+		
 		// if module not found - load it
-		std::shared_ptr<boost::dll::shared_library> mod = metaffi::utils::load_library(module_path);
+		
+		std::shared_ptr<boost::dll::shared_library> mod = std::make_shared<boost::dll::shared_library>();
+		mod->load(module_path);
 		this->modules[module_path] = mod;
 		metaffi_guest_lib = mod;
 	}
@@ -51,27 +56,19 @@ void* functions_repository::load_function(const std::string& module_path, const 
 	
 	if(params_count > 0 && retval_count > 0)
 	{
-		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_params_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
-		this->functions_params_ret.push_back(foreign_function);
-		return (void*)(pforeign_function_entrypoint_signature_params_ret)(*((ppforeign_function_entrypoint_signature_params_ret)foreign_function.get()));
+		return (void*)metaffi_guest_lib->get<foreign_function_entrypoint_signature_params_ret>(entrypoint_name);
 	}
 	else if(params_count > 0)
 	{
-		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_params_no_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
-		this->functions_params_no_ret.push_back(foreign_function);
-		return (void*)(pforeign_function_entrypoint_signature_params_no_ret)(*((ppforeign_function_entrypoint_signature_params_no_ret)foreign_function.get()));
+		return (void*)metaffi_guest_lib->get<foreign_function_entrypoint_signature_params_no_ret>(entrypoint_name);
 	}
 	else if(retval_count > 0)
 	{
-		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_no_params_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
-		this->functions_no_params_ret.push_back(foreign_function);
-		return (void*)(pforeign_function_entrypoint_signature_no_params_ret)(*((ppforeign_function_entrypoint_signature_no_params_ret)foreign_function.get()));
+		return (void*)metaffi_guest_lib->get<foreign_function_entrypoint_signature_no_params_ret>(entrypoint_name);
 	}
 	else
 	{
-		auto foreign_function = metaffi::utils::load_func<foreign_function_entrypoint_signature_no_params_no_ret>(*metaffi_guest_lib, fp[function_path_entry_entrypoint_function]);
-		this->functions_no_params_no_ret.push_back(foreign_function);
-		return (void*)(pforeign_function_entrypoint_signature_no_params_no_ret)(*((ppforeign_function_entrypoint_signature_no_params_no_ret)foreign_function.get()));
+		return (void*)metaffi_guest_lib->get<foreign_function_entrypoint_signature_no_params_no_ret>(entrypoint_name);
 	}
 }
 //--------------------------------------------------------------------
