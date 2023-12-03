@@ -72,8 +72,8 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	SECTION("runtime_test_target.div_integers")
 	{
 		std::string function_path = "callable=DivIntegers";
-		uint64_t params_types[] = {metaffi_int64_type, metaffi_int64_type};
-		uint64_t retvals_types[] = {metaffi_float32_type};
+		metaffi_type_with_alias params_types[] = {metaffi::runtime::make_type_with_alias(metaffi_int64_type), metaffi::runtime::make_type_with_alias(metaffi_int64_type)};
+		metaffi_type_with_alias retvals_types[] = {metaffi::runtime::make_type_with_alias(metaffi_float32_type)};
 		
 		uint8_t params_count = 2;
 		uint8_t retvals_count = 1;
@@ -114,8 +114,8 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	SECTION("runtime_test_target.join_strings")
 	{
 		std::string function_path = "callable=JoinStrings";
-		uint64_t params_types[] = {metaffi_string8_array_type};
-		uint64_t retvals_types[] = {metaffi_string8_type};
+		metaffi_type_with_alias params_types[] = {metaffi::runtime::make_type_with_alias(metaffi_string8_array_type)};
+		metaffi_type_with_alias retvals_types[] = {metaffi::runtime::make_type_with_alias(metaffi_string8_type)};
 		
 		void** join_strings = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                     function_path.c_str(), function_path.length(),
@@ -161,7 +161,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	{
 		// create new testmap
 		std::string function_path = "callable=NewTestMap";
-		uint64_t retvals_types[] = {metaffi_handle_type};
+		metaffi_type_with_alias retvals_types[] = {metaffi::runtime::make_type_with_alias(metaffi_handle_type)};
 		
 		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                    function_path.c_str(), function_path.length(),
@@ -193,7 +193,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// set
 		function_path = "callable=TestMap.Set,instance_required";
-		uint64_t params_types[] = {metaffi_handle_type, metaffi_string8_type, metaffi_any_type};
+		metaffi_type_with_alias params_types[] = {metaffi::runtime::make_type_with_alias(metaffi_handle_type),
+												  metaffi::runtime::make_type_with_alias(metaffi_string8_type),
+												  metaffi::runtime::make_type_with_alias(metaffi_any_type)};
 		
 		void** p_testmap_set = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                    function_path.c_str(), function_path.length(),
@@ -227,9 +229,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// contains
 		function_path = "callable=TestMap.Contains,instance_required";
-		params_types[0] = metaffi_handle_type;
-		params_types[1] = metaffi_string8_type;
-		retvals_types[0] = metaffi_bool_type;
+		params_types[0].type = metaffi_handle_type;
+		params_types[1].type = metaffi_string8_type;
+		retvals_types[0].type = metaffi_bool_type;
 		
 		void** p_testmap_contains = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                     function_path.c_str(), function_path.length(),
@@ -265,9 +267,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// get
 		function_path = "callable=TestMap.Get,instance_required";
-		params_types[0] = metaffi_handle_type;
-		params_types[1] = metaffi_string8_type;
-		retvals_types[0] = metaffi_any_type;
+		params_types[0].type = metaffi_handle_type;
+		params_types[1].type = metaffi_string8_type;
+		retvals_types[0].type = metaffi_any_type;
 		
 		void** p_testmap_get = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                          function_path.c_str(), function_path.length(),
@@ -306,7 +308,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	{
 		// load constructor
 		std::string function_path = "callable=NewTestMap";
-		uint64_t retvals_types[] = {metaffi_handle_type};
+		metaffi_type_with_alias retvals_types[] = {metaffi::runtime::make_type_with_alias(metaffi_handle_type)};
 		
 		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                    function_path.c_str(), function_path.length(),
@@ -322,9 +324,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// load getter
 		function_path = "field=TestMap.Name,instance_required,getter";
-		metaffi_type params_types[2];
-		params_types[0] = metaffi_handle_type;
-		retvals_types[0] = metaffi_string8_type;
+		metaffi_type_with_alias params_types[2] = {0};
+		params_types[0].type = metaffi_handle_type;
+		retvals_types[0].type = metaffi_string8_type;
 		
 		void** pget_name = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                    function_path.c_str(), function_path.length(),
@@ -339,8 +341,8 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// load setter
 		function_path = "field=TestMap.Name,instance_required,setter";
-		params_types[0] = metaffi_handle_type;
-		retvals_types[0] = metaffi_string8_type;
+		params_types[0].type = metaffi_handle_type;
+		retvals_types[0].type = metaffi_string8_type;
 		
 		void** pset_name = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                 function_path.c_str(), function_path.length(),
@@ -423,7 +425,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	{
 		// load constructor
 		std::string function_path = "callable=TestMap.EmptyStruct";
-		uint64_t retvals_types[] = {metaffi_handle_type};
+		metaffi_type_with_alias retvals_types[] = {metaffi::runtime::make_type_with_alias(metaffi_handle_type)};
 		
 		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                    function_path.c_str(), function_path.length(),
@@ -439,9 +441,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// load getter
 		function_path = "field=TestMap.Name,instance_required,getter";
-		metaffi_type params_types[2];
-		params_types[0] = metaffi_handle_type;
-		retvals_types[0] = metaffi_string8_type;
+		metaffi_type_with_alias params_types[2] = {0};
+		params_types[0].type = metaffi_handle_type;
+		retvals_types[0].type = metaffi_string8_type;
 		
 		void** pget_name = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                 function_path.c_str(), function_path.length(),
@@ -456,8 +458,8 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// load setter
 		function_path = "field=TestMap.Name,instance_required,setter";
-		params_types[0] = metaffi_handle_type;
-		retvals_types[0] = metaffi_string8_type;
+		params_types[0].type = metaffi_handle_type;
+		retvals_types[0].type = metaffi_string8_type;
 		
 		void** pset_name = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                 function_path.c_str(), function_path.length(),
@@ -539,7 +541,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	SECTION("runtime_test_target.wait_a_bit")
 	{
 		// get five_seconds global
-		uint64_t var_type[] = {metaffi_int64_type};
+		metaffi_type_with_alias var_type[] = {metaffi::runtime::make_type_with_alias(metaffi_int64_type)};
 		std::string variable_path = "global=FiveSeconds,getter";
 		void** pfive_seconds_getter = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                            variable_path.c_str(), variable_path.length(),
@@ -564,7 +566,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		// call wait_a_bit
 		std::string function_path = "callable=WaitABit";
-		uint64_t params_types[] = {metaffi_int64_type};
+		metaffi_type_with_alias params_types[] = {metaffi::runtime::make_type_with_alias(metaffi_int64_type)};
 		
 		void** pwait_a_bit = load_function(module_path.string().c_str(), module_path.string().length(),
 		                                   function_path.c_str(), function_path.length(),

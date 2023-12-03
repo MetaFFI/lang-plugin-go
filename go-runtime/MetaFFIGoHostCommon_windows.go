@@ -103,6 +103,28 @@ func GetCacheSize() int{
 	return int(C.get_cache_size())
 }
 
+func createMetaffiTypeWithAliasArray(paramsTypes []uint64) *C.struct_metaffi_type_with_alias {
+	size := len(paramsTypes)
+	metaffiArray := C.malloc(C.size_t(size) * C.size_t(unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
+
+	for i, v := range paramsTypes {
+		metaffi := (*C.struct_metaffi_type_with_alias)(unsafe.Pointer(uintptr(metaffiArray) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
+		metaffi._type = C.metaffi_type(v)
+		metaffi.alias = nil
+		metaffi.alias_length = 0
+	}
+
+	return (*C.struct_metaffi_type_with_alias)(metaffiArray)
+}
+
+func freeMetaffiTypeWithAliasArray(metaffiArray *C.struct_metaffi_type_with_alias, size int) {
+	for i := 0; i < size; i++ {
+		metaffi := (*C.struct_metaffi_type_with_alias)(unsafe.Pointer(uintptr(unsafe.Pointer(metaffiArray)) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
+		C.free(unsafe.Pointer(metaffi.alias))
+	}
+	C.free(unsafe.Pointer(metaffiArray))
+}
+
 func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (*unsafe.Pointer, error) {
 
 	pruntimePlugin := C.CString(runtimePlugin)
@@ -118,16 +140,18 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 	var out_err_len C.uint32_t
 	out_err_len = C.uint32_t(0)
 
-	var pparamTypes *C.uint64_t
+	var pparamTypes *C.struct_metaffi_type_with_alias
 	if paramsTypes != nil {
-		pparamTypes = (*C.uint64_t)(unsafe.Pointer(&paramsTypes[0]))
+		pparamTypes = createMetaffiTypeWithAliasArray(paramsTypes)
+		defer freeMetaffiTypeWithAliasArray(pparamTypes, len(paramsTypes))
 	}
 
 	pparamTypesLen := (C.uint8_t)(len(paramsTypes))
 
-	var ppretvalsTypes *C.uint64_t
+	var ppretvalsTypes *C.struct_metaffi_type_with_alias
 	if retvalsTypes != nil{
-		ppretvalsTypes = (*C.uint64_t)(unsafe.Pointer(&retvalsTypes[0]))
+		ppretvalsTypes = createMetaffiTypeWithAliasArray(retvalsTypes)
+        defer freeMetaffiTypeWithAliasArray(ppretvalsTypes, len(retvalsTypes))
 	}
 	pretvalsTypesLen := (C.uint8_t)(len(retvalsTypes))
 
