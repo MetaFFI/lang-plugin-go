@@ -1,27 +1,35 @@
-package api
+package python3
 
 import (
+	"github.com/MetaFFI/lang-plugin-go/api"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"os"
 	"testing"
 )
 
-var runtime *MetaFFIRuntime
-var mod *MetaFFIModule
+var runtime *api.MetaFFIRuntime
+var mod *api.MetaFFIModule
 
 func TestMain(m *testing.M) {
-	runtime = NewMetaFFIRuntime("python3")
+	runtime = api.NewMetaFFIRuntime("python3")
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)
 	}
 
-	mod, err = runtime.LoadModule("./tests/test_target.py")
+	mod, err = runtime.LoadModule("test_target.py")
 	if err != nil {
 		panic(err)
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+
+	err = runtime.ReleaseRuntimePlugin()
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(code)
 }
 
 func TestHelloWorld(t *testing.T) {
