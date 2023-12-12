@@ -25,7 +25,7 @@ public class TestRuntime
 
 	public static String joinStrings(String[] arr)
 	{
-		system.out.println("joining strings");
+		System.out.println("joining strings");
 		return String.join(",", arr);
 	}
 

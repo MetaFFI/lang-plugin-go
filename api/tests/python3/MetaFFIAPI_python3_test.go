@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 
 func TestHelloWorld(t *testing.T) {
 
-	hellowWorld, err := mod.LoadCallable(`callable=hello_world`, nil, nil)
+	hellowWorld, err := mod.Load(`callable=hello_world`, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestHelloWorld(t *testing.T) {
 
 func TestReturnsAnError(t *testing.T) {
 
-	returnsAnError, err := mod.LoadCallable(`callable=returns_an_error`, nil, nil)
+	returnsAnError, err := mod.Load(`callable=returns_an_error`, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestReturnsAnError(t *testing.T) {
 }
 
 func TestDivIntegers(t *testing.T) {
-	divIntegers, err := mod.LoadCallable(`callable=div_integers`, []IDL.MetaFFIType{IDL.INT64, IDL.INT64}, []IDL.MetaFFIType{IDL.FLOAT32})
+	divIntegers, err := mod.Load(`callable=div_integers`, []IDL.MetaFFIType{IDL.INT64, IDL.INT64}, []IDL.MetaFFIType{IDL.FLOAT32})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestDivIntegers(t *testing.T) {
 }
 
 func TestJoinStrings(t *testing.T) {
-	divIntegers, err := mod.LoadCallable(`callable=join_strings`, []IDL.MetaFFIType{IDL.STRING8_ARRAY}, []IDL.MetaFFIType{IDL.STRING8})
+	divIntegers, err := mod.Load(`callable=join_strings`, []IDL.MetaFFIType{IDL.STRING8_ARRAY}, []IDL.MetaFFIType{IDL.STRING8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,12 +100,12 @@ func TestJoinStrings(t *testing.T) {
 
 func TestWaitABit(t *testing.T) {
 
-	getFiveSeconds, err := mod.LoadCallable(`attribute=five_seconds,getter`, nil, []IDL.MetaFFIType{IDL.INT64})
+	getFiveSeconds, err := mod.Load(`attribute=five_seconds,getter`, nil, []IDL.MetaFFIType{IDL.INT64})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	waitABit, err := mod.LoadCallable(`callable=wait_a_bit`, []IDL.MetaFFIType{IDL.INT64}, nil)
+	waitABit, err := mod.Load(`callable=wait_a_bit`, []IDL.MetaFFIType{IDL.INT64}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestWaitABit(t *testing.T) {
 }
 
 func TestTestMapGetSet(t *testing.T) {
-	newTestMap, err := mod.LoadCallable(`callable=testmap`, nil, []IDL.MetaFFIType{IDL.HANDLE})
+	newTestMap, err := mod.Load(`callable=testmap`, nil, []IDL.MetaFFIType{IDL.HANDLE})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestTestMapGetSet(t *testing.T) {
 
 	testMap := res[0]
 
-	testmapSet, err := mod.LoadCallable(`callable=testmap.set,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.ANY}, nil)
+	testmapSet, err := mod.Load(`callable=testmap.set,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.ANY}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestTestMapGetSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testmapGet, err := mod.LoadCallable(`callable=testmap.get,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, []IDL.MetaFFIType{IDL.ANY})
+	testmapGet, err := mod.Load(`callable=testmap.get,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, []IDL.MetaFFIType{IDL.ANY})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestTestMapGetSet(t *testing.T) {
 }
 
 func TestTestmapName(t *testing.T) {
-	newTestMap, err := mod.LoadCallable(`callable=testmap`, nil, []IDL.MetaFFIType{IDL.HANDLE})
+	newTestMap, err := mod.Load(`callable=testmap`, nil, []IDL.MetaFFIType{IDL.HANDLE})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,12 +177,12 @@ func TestTestmapName(t *testing.T) {
 
 	testMap := res[0]
 
-	testmapGet, err := mod.LoadCallable(`attribute=name,getter,instance_required`, []IDL.MetaFFIType{IDL.HANDLE}, []IDL.MetaFFIType{IDL.STRING8})
+	testmapGet, err := mod.Load(`attribute=name,getter,instance_required`, []IDL.MetaFFIType{IDL.HANDLE}, []IDL.MetaFFIType{IDL.STRING8})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testmapSet, err := mod.LoadCallable(`attribute=name,setter,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, nil)
+	testmapSet, err := mod.Load(`attribute=name,setter,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

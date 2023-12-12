@@ -13,7 +13,7 @@ type MetaFFIModule struct {
 	modulePath string
 }
 
-func (this *MetaFFIModule) LoadCallable(functionPath string, paramsMetaFFITypes []IDL.MetaFFIType, retvalMetaFFITypes []IDL.MetaFFIType) (ff func(...interface{}) ([]interface{}, error), err error) {
+func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.MetaFFIType, retvalMetaFFITypes []IDL.MetaFFIType) (ff func(...interface{}) ([]interface{}, error), err error) {
 
 	var paramTypes []uint64
 	if paramsMetaFFITypes != nil {

@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 
 func TestHelloWorld(t *testing.T) {
 
-	hellowWorld, err := testRuntimeModule.LoadCallable(`class=sanity.TestRuntime,callable=helloWorld`, nil, nil)
+	hellowWorld, err := testRuntimeModule.Load(`class=sanity.TestRuntime,callable=helloWorld`, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestHelloWorld(t *testing.T) {
 
 func TestReturnsAnError(t *testing.T) {
 
-	returnsAnError, err := testRuntimeModule.LoadCallable(`class=sanity.TestRuntime,callable=returnsAnError`, nil, nil)
+	returnsAnError, err := testRuntimeModule.Load(`class=sanity.TestRuntime,callable=returnsAnError`, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestReturnsAnError(t *testing.T) {
 }
 
 func TestDivIntegers(t *testing.T) {
-	divIntegers, err := testRuntimeModule.LoadCallable(`class=sanity.TestRuntime,callable=divIntegers`, []IDL.MetaFFIType{IDL.INT32, IDL.INT32}, []IDL.MetaFFIType{IDL.FLOAT32})
+	divIntegers, err := testRuntimeModule.Load(`class=sanity.TestRuntime,callable=divIntegers`, []IDL.MetaFFIType{IDL.INT32, IDL.INT32}, []IDL.MetaFFIType{IDL.FLOAT32})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestDivIntegers(t *testing.T) {
 }
 
 func TestJoinStrings(t *testing.T) {
-	divIntegers, err := testRuntimeModule.LoadCallable(`class=sanity.TestRuntime,callable=joinStrings`, []IDL.MetaFFIType{IDL.STRING8_ARRAY}, []IDL.MetaFFIType{IDL.STRING8})
+	divIntegers, err := testRuntimeModule.Load(`class=sanity.TestRuntime,callable=joinStrings`, []IDL.MetaFFIType{IDL.STRING8_ARRAY}, []IDL.MetaFFIType{IDL.STRING8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,12 +106,12 @@ func TestJoinStrings(t *testing.T) {
 
 func TestWaitABit(t *testing.T) {
 
-	getFiveSeconds, err := testRuntimeModule.LoadCallable(`class=sanity.TestRuntime,field=fiveSeconds,getter`, nil, []IDL.MetaFFIType{IDL.INT32})
+	getFiveSeconds, err := testRuntimeModule.Load(`class=sanity.TestRuntime,field=fiveSeconds,getter`, nil, []IDL.MetaFFIType{IDL.INT32})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	waitABit, err := testRuntimeModule.LoadCallable(`class=sanity.TestRuntime,callable=waitABit`, []IDL.MetaFFIType{IDL.INT32}, nil)
+	waitABit, err := testRuntimeModule.Load(`class=sanity.TestRuntime,callable=waitABit`, []IDL.MetaFFIType{IDL.INT32}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestWaitABit(t *testing.T) {
 }
 
 func TestTestMapGetSet(t *testing.T) {
-	newTestMap, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,callable=<init>`, nil, []IDL.MetaFFIType{IDL.HANDLE})
+	newTestMap, err := testRuntimeModule.Load(`class=sanity.TestMap,callable=<init>`, nil, []IDL.MetaFFIType{IDL.HANDLE})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestTestMapGetSet(t *testing.T) {
 
 	testMap := res[0]
 
-	testmapSet, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,callable=set,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.ANY}, nil)
+	testmapSet, err := testRuntimeModule.Load(`class=sanity.TestMap,callable=set,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.ANY}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestTestMapGetSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testmapContains, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,callable=contains,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, []IDL.MetaFFIType{IDL.BOOL})
+	testmapContains, err := testRuntimeModule.Load(`class=sanity.TestMap,callable=contains,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, []IDL.MetaFFIType{IDL.BOOL})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestTestMapGetSet(t *testing.T) {
 		t.Fatalf("Expected to return true")
 	}
 
-	testmapGet, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,callable=get,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, []IDL.MetaFFIType{IDL.ANY})
+	testmapGet, err := testRuntimeModule.Load(`class=sanity.TestMap,callable=get,instance_required`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, []IDL.MetaFFIType{IDL.ANY})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestTestMapGetSet(t *testing.T) {
 }
 
 func TestTestmapName(t *testing.T) {
-	newTestMap, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,callable=<init>`, nil, []IDL.MetaFFIType{IDL.HANDLE})
+	newTestMap, err := testRuntimeModule.Load(`class=sanity.TestMap,callable=<init>`, nil, []IDL.MetaFFIType{IDL.HANDLE})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,12 +197,12 @@ func TestTestmapName(t *testing.T) {
 
 	testMap := res[0]
 
-	testmapGet, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,field=name,instance_required,getter`, []IDL.MetaFFIType{IDL.HANDLE}, []IDL.MetaFFIType{IDL.STRING8})
+	testmapGet, err := testRuntimeModule.Load(`class=sanity.TestMap,field=name,instance_required,getter`, []IDL.MetaFFIType{IDL.HANDLE}, []IDL.MetaFFIType{IDL.STRING8})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testmapSet, err := testRuntimeModule.LoadCallable(`class=sanity.TestMap,field=name,instance_required,setter`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, nil)
+	testmapSet, err := testRuntimeModule.Load(`class=sanity.TestMap,field=name,instance_required,setter`, []IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
