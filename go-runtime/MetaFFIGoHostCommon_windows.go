@@ -50,6 +50,11 @@ metaffi_type get_cdt_type(struct cdt* p)
 	return p->type;
 }
 
+struct cdt* get_cdt_index(struct cdt* p, int index)
+{
+	return &p[index];
+}
+
 void call_plugin_xcall_no_params_no_ret(void** ppv, char** err, uint64_t* out_err)
 {
 	void* pvoidxcall = ppv[0];
@@ -99,7 +104,14 @@ import (
 	"unsafe"
 )
 
-func GetCacheSize() int{
+func init() {
+	err := C.load_cdt_capi()
+	if err != nil {
+		panic("Failed to load MetaFFI XLLR functions: " + C.GoString(err))
+	}
+}
+
+func GetCacheSize() int {
 	return int(C.get_cache_size())
 }
 
@@ -149,9 +161,9 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 	pparamTypesLen := (C.uint8_t)(len(paramsTypes))
 
 	var ppretvalsTypes *C.struct_metaffi_type_with_alias
-	if retvalsTypes != nil{
+	if retvalsTypes != nil {
 		ppretvalsTypes = createMetaffiTypeWithAliasArray(retvalsTypes)
-        defer freeMetaffiTypeWithAliasArray(ppretvalsTypes, len(retvalsTypes))
+		defer freeMetaffiTypeWithAliasArray(ppretvalsTypes, len(retvalsTypes))
 	}
 	pretvalsTypesLen := (C.uint8_t)(len(retvalsTypes))
 
@@ -273,7 +285,7 @@ func CFree(p unsafe.Pointer) {
 	C.free(p)
 }
 
-func GetPCDTFromCDTSIndex(pcdts unsafe.Pointer, index int) unsafe.Pointer{
+func GetPCDTFromCDTSIndex(pcdts unsafe.Pointer, index int) unsafe.Pointer {
 	return unsafe.Pointer(C.get_cdts_index_pcdt(C.cast_to_cdts(pcdts), 0))
 }
 
@@ -281,7 +293,7 @@ func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsa
 	res := C.xllr_alloc_cdts_buffer(params, rets)
 	pcdts = unsafe.Pointer(res)
 
-	if res != nil{
+	if res != nil {
 		parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
 		return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
 	}
@@ -313,7 +325,7 @@ func LenToMetaFFISize(i C.longlong) C.metaffi_size {
 	return C.len_to_metaffi_size(i)
 }
 
-func IntToMetaFFISize(i int) C.metaffi_size{
+func IntToMetaFFISize(i int) C.metaffi_size {
 	return LenToMetaFFISize(C.longlong(i))
 }
 
@@ -327,10 +339,9 @@ func LoadCDTCAPI() {
 func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 
 	data := C.cast_to_cdt(pdata)
-
 	var res interface{}
 	index := C.int(i)
-	in_res_cdt := C.get_cdt(data, index)
+	in_res_cdt := C.get_cdt_index(data, index)
 	res_type := C.get_cdt_type(in_res_cdt)
 	switch res_type {
 
@@ -344,22 +355,29 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 
 		res = GetObject(Handle(in_res))
 		if res == nil { // handle belongs to another language
-			res = Handle(in_res)
+			res = MetaFFIHandle{
+				Val:       Handle(in_res),
+				RuntimeID: uint64(pcdt_in_handle_res.runtime_id),
+			}
 		}
 
 	case 98304: // []Handle
 		pcdt_in_handle_res := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-		var in_res *C.metaffi_handle = pcdt_in_handle_res.vals
 		var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_handle_res.dimensions_lengths
 		// var in_res_dimensions C.metaffi_size = pcdt_in_handle_res.dimensions - TODO: not used until multi-dimensions support!
 
-		res_typed := make([]interface{}, 0)
-		for i := C.int(0); i < C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0))); i++ {
-			val := C.get_metaffi_handle_element(in_res, C.int(i))
+		length := C.int(C.int(C.get_int_item(in_res_dimensions_lengths, 0)))
+		res_typed := make([]interface{}, 0, int(length))
+		for i := C.int(0); i < length; i++ {
+			val := C.get_metaffi_handle_element(pcdt_in_handle_res.vals, C.int(i))
 
-			val_obj := GetObject(Handle(val))
+			val_obj := GetObject(Handle(val.val))
 			if val_obj == nil { // handle belongs to
-				res_typed = append(res_typed, Handle(val))
+				item := MetaFFIHandle{
+					Val:       Handle(val.val),
+					RuntimeID: uint64(val.runtime_id),
+				}
+				res_typed = append(res_typed, item)
 			} else {
 				res_typed = append(res_typed, val_obj)
 			}
@@ -557,7 +575,7 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 		res = res_typed
 
 	case 4096: // string8
-		in_res_cdt := C.get_cdt(data, index)
+		in_res_cdt := C.get_cdt_index(data, index)
 		pcdt_in_string8_res := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 		var in_res_len C.metaffi_size = pcdt_in_string8_res.length
 		var in_res C.metaffi_string8 = pcdt_in_string8_res.val
@@ -565,9 +583,8 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 		res = C.GoStringN(in_res, C.int(in_res_len))
 
 	case 69632: // []string8
-		in_res_cdt := C.get_cdt(data, index)
+		in_res_cdt := C.get_cdt_index(data, index)
 		pcdt_in_string8_res := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
-
 		var in_res *C.metaffi_string8 = pcdt_in_string8_res.vals
 		var in_res_sizes *C.metaffi_size = pcdt_in_string8_res.vals_sizes
 		var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_string8_res.dimensions_lengths
@@ -579,17 +596,18 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 			str := C.get_metaffi_string8_element(in_res, C.int(i), in_res_sizes, &str_size)
 			res_typed = append(res_typed, C.GoStringN(str, C.int(str_size)))
 		}
+
 		res = res_typed
 
 	case 1024: // bool
-		in_res_cdt := C.get_cdt(data, index)
+		in_res_cdt := C.get_cdt_index(data, index)
 		pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 		var in_res C.metaffi_bool = pcdt_in_bool_res.val
 
 		res = in_res != C.metaffi_bool(0)
 
 	case 66560: // []bool
-		in_res_cdt := C.get_cdt(data, index)
+		in_res_cdt := C.get_cdt_index(data, index)
 		pcdt_in_bool_res := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&in_res_cdt.cdt_val))))
 		var in_res *C.metaffi_bool = pcdt_in_bool_res.vals
 		var in_res_dimensions_lengths *C.metaffi_size = pcdt_in_bool_res.dimensions_lengths
@@ -624,16 +642,21 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	switch input.(type) {
 
 	case Handle:
-		out_input := C.metaffi_handle(input.(Handle))
-		out_input_cdt := C.get_cdt(data, index)
+		panic("Expected MetaFFIHandle, not Handle")
+
+	case MetaFFIHandle:
+		out_input := C.metaffi_handle((input.(MetaFFIHandle)).Val)
+		out_input_runtime_id := C.metaffi_size((input.(MetaFFIHandle)).RuntimeID)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_Handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
 		pcdt_out_Handle_input.val = out_input
+		pcdt_out_Handle_input.runtime_id = out_input_runtime_id
 
 	case float64:
 		out_input := C.metaffi_float64(input.(float64))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_float64_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_float64_input := ((*C.struct_cdt_metaffi_float64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -641,7 +664,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case float32:
 		out_input := C.metaffi_float32(input.(float32))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_float32_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_float32_input := ((*C.struct_cdt_metaffi_float32)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -649,7 +672,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case int8:
 		out_input := C.metaffi_int8(input.(int8))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int8_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int8_input := ((*C.struct_cdt_metaffi_int8)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -657,7 +680,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case int16:
 		out_input := C.metaffi_int16(input.(int16))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int16_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int16_input := ((*C.struct_cdt_metaffi_int16)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -665,7 +688,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case int32:
 		out_input := C.metaffi_int32(input.(int32))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int32_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int32_input := ((*C.struct_cdt_metaffi_int32)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -673,7 +696,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case int64:
 		out_input := C.metaffi_int64(input.(int64))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int64_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -681,7 +704,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case uint8:
 		out_input := C.metaffi_uint8(input.(uint8))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint8_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint8_input := ((*C.struct_cdt_metaffi_uint8)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -689,7 +712,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case uint16:
 		out_input := C.metaffi_uint16(input.(uint16))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint16_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint16_input := ((*C.struct_cdt_metaffi_uint16)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -697,7 +720,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case uint32:
 		out_input := C.metaffi_uint32(input.(uint32))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint32_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint32_input := ((*C.struct_cdt_metaffi_uint32)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -705,23 +728,26 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case uint64:
 		out_input := C.metaffi_uint64(input.(uint64))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint64_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint64_input := ((*C.struct_cdt_metaffi_uint64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
 		pcdt_out_uint64_input.val = out_input
 
 	case []Handle:
+		panic("Expected []MetaFFIHandle, not []Handle")
+
+	case []MetaFFIHandle:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]Handle)))
+		*out_input_dimensions_lengths = C.ulonglong(len(input.([]MetaFFIHandle)))
 
-		out_input := (*C.metaffi_handle)(C.malloc(C.ulonglong(len(input.([]Handle))) * C.sizeof_metaffi_handle))
-		for i, val := range input.([]Handle) {
-			C.set_metaffi_handle_element(out_input, C.int(i), C.metaffi_handle(val))
+		out_input := (*C.struct_cdt_metaffi_handle)(C.malloc(C.ulonglong(len(input.([]MetaFFIHandle))) * (C.sizeof_struct_cdt_metaffi_handle)))
+		for i, val := range input.([]MetaFFIHandle) {
+			C.set_metaffi_handle_element(out_input, C.int(i), C.metaffi_handle(val.Val), C.metaffi_size(val.RuntimeID))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_handle_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_Handle_input := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -739,7 +765,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_float64_element(out_input, C.int(i), C.metaffi_float64(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_float64_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_float64_input := ((*C.struct_cdt_metaffi_float64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -757,7 +783,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_float32_element(out_input, C.int(i), C.metaffi_float32(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_float32_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_float32_input := ((*C.struct_cdt_metaffi_float32_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -775,7 +801,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_int8_element(out_input, C.int(i), C.metaffi_int8(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int8_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int8_input := ((*C.struct_cdt_metaffi_int8_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -793,7 +819,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_int16_element(out_input, C.int(i), C.metaffi_int16(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int16_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int16_input := ((*C.struct_cdt_metaffi_int16_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -811,7 +837,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_int32_element(out_input, C.int(i), C.metaffi_int32(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int32_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int32_input := ((*C.struct_cdt_metaffi_int32_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -829,7 +855,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int64_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -847,7 +873,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_uint8_element(out_input, C.int(i), C.metaffi_uint8(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint8_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint8_input := ((*C.struct_cdt_metaffi_uint8_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -865,7 +891,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_uint16_element(out_input, C.int(i), C.metaffi_uint16(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint16_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint16_input := ((*C.struct_cdt_metaffi_uint16_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -883,7 +909,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_uint32_element(out_input, C.int(i), C.metaffi_uint32(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint32_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint32_input := ((*C.struct_cdt_metaffi_uint32_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -901,7 +927,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_uint64_element(out_input, C.int(i), C.metaffi_uint64(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_uint64_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_uint64_input := ((*C.struct_cdt_metaffi_uint64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -911,7 +937,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 	case int:
 		out_input := C.metaffi_int64(int64(input.(int)))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int64_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -927,7 +953,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_int64_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -942,7 +968,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 		} else {
 			out_input = C.metaffi_bool(0)
 		}
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_bool_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -951,7 +977,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case string:
 		out_input_len := C.metaffi_size(C.ulonglong(len(input.(string))))
 		out_input := C.CString(input.(string))
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -974,7 +1000,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_bool_element(out_input, C.int(i), C.metaffi_bool(bval))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_bool_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -993,7 +1019,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			C.set_metaffi_string8_element(out_input, out_input_sizes, C.int(i), C.metaffi_string8(C.CString(val)), C.metaffi_size(len(val)))
 		}
 
-		out_input_cdt := C.get_cdt(data, index)
+		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_string8_array_type)
 		out_input_cdt.free_required = 1
 		pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -1006,7 +1032,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 
 		if input == nil { // return handle "0"
 			out_input := C.metaffi_handle(uintptr(0))
-			out_input_cdt := C.get_cdt(data, index)
+			out_input_cdt := C.get_cdt_index(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
 			out_input_cdt.free_required = 0
 			pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
@@ -1186,7 +1212,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 			input_handle := SetObject(input) // if already in table, return existing handle
 
 			out_input := C.metaffi_handle(input_handle)
-			out_input_cdt := C.get_cdt(data, index)
+			out_input_cdt := C.get_cdt_index(data, index)
 			C.set_cdt_type(out_input_cdt, C.metaffi_handle_type)
 			out_input_cdt.free_required = 1
 			pcdt_out_handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))

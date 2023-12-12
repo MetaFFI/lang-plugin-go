@@ -33,16 +33,16 @@ var templatesFuncMap = map[string]interface{}{
 	"GenerateCodeXCall":               generateCodeXCall,
 	"GenerateCodeEntryPointSignature": generateCodeEntrypointSignature,
 	"GenerateCodeEntryPointEmptyStructSignature": generateCodeEntryPointEmptyStructSignature,
-	"GetCDTReturnValueIndex":          getCDTReturnValueIndex,
-	"GetCDTParametersIndex":           getCDTParametersIndex,
-	"GenerateMethodReceiverCode":      generateMethodReceiverCode,
-	"GenerateMethodName":              generateMethodName,
-	"GenerateMethodParams":            generateMethodParams,
-	"GetTypeOrAlias":                  getTypeOrAlias,
-	"HandleNoneGoObject":              handleNoneGoObject,
-	"IsGoRuntimePackNeeded":           isGoRuntimePackNeeded,
+	"GetCDTReturnValueIndex":                     getCDTReturnValueIndex,
+	"GetCDTParametersIndex":                      getCDTParametersIndex,
+	"GenerateMethodReceiverCode":                 generateMethodReceiverCode,
+	"GenerateMethodName":                         generateMethodName,
+	"GenerateMethodParams":                       generateMethodParams,
+	"GetTypeOrAlias":                             getTypeOrAlias,
+	"HandleNoneGoObject":                         handleNoneGoObject,
+	"IsGoRuntimePackNeeded":                      isGoRuntimePackNeeded,
 	"ConvertEmptyInterfaceFromCDTSToCorrectType": convertEmptyInterfaceFromCDTSToCorrectType,
-	"CallParameters": callParameters,
+	"CallParameters":                             callParameters,
 }
 
 func callParameters(funcDef *IDL.FunctionDefinition, startIndex int) string {
@@ -185,6 +185,7 @@ func generateCodeEntrypointSignature(className string, funcName string, params [
 		return fmt.Sprintf("%v(_ *C.void, out_err **C.char, out_err_len *C.uint64_t)", name)
 	}
 }
+
 // --------------------------------------------------------------------
 func generateCodeEntryPointEmptyStructSignature(className string) string {
 
@@ -500,7 +501,7 @@ func castIfNeeded(elem string) string {
 
 // --------------------------------------------------------------------
 func getNumericTypes() (numericTypes []string) {
-	return []string{"Handle", "float64", "float32", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"}
+	return []string{"float64", "float32", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"}
 }
 
 // --------------------------------------------------------------------

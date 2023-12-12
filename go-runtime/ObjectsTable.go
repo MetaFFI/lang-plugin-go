@@ -14,7 +14,13 @@ import (
 	"sync"
 )
 
+const GO_RUNTIME_ID = 3958232544
+
 type Handle C.metaffi_handle
+type MetaFFIHandle struct {
+	Val       Handle
+	RuntimeID uint64
+}
 
 var (
 	handlesToObjects map[C.metaffi_handle]interface{}
@@ -33,41 +39,41 @@ func SetObject(obj interface{}) Handle {
 
 	lock.Lock()
 	defer lock.Unlock()
-	
+
 	if h, found := objectsToHandles[obj]; found {
 		return Handle(h)
 	}
-	
+
 	handleID := C.int_to_handle(C.ulonglong(len(handlesToObjects) + 1))
 
 	handlesToObjects[handleID] = obj
 	objectsToHandles[obj] = handleID
-	
+
 	return Handle(handleID)
 }
 
 func GetObject(h Handle) interface{} {
-	
+
 	lock.RLock()
 	defer lock.RUnlock()
-	
+
 	if o, found := handlesToObjects[C.metaffi_handle(h)]; found {
 
 		return o
 	} else {
 		return nil
 	}
-	
+
 }
 
 func ContainsObject(obj interface{}) bool {
-	
+
 	lock.RLock()
 	defer lock.RUnlock()
-	
+
 	_, found := objectsToHandles[obj]
 	return found
-	
+
 }
 
 func ReleaseObject(h Handle) error {
@@ -78,9 +84,9 @@ func ReleaseObject(h Handle) error {
 	if !found {
 		return fmt.Errorf("Given handle (%v) is not found in MetaFFI Go's object table", h)
 	}
-	
+
 	objectsToHandles[obj] = nil
 	handlesToObjects[C.metaffi_handle(h)] = nil
-	
+
 	return nil
 }

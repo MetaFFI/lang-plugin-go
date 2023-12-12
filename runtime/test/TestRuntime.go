@@ -3,6 +3,7 @@ package TestRuntime
 import (
 	"strings"
 	"time"
+	"fmt"
 )
 
 func HelloWorld() {
@@ -45,11 +46,14 @@ func NewTestMap() *TestMap{
 }
 
 func (this *TestMap) Set(k string, v interface{}){
+	fmt.Printf("Setting: %T\n", v)
 	this.m[k] = v
 }
 
 func (this *TestMap) Get(k string) interface{}{
-	return this.m[k]
+	v := this.m[k]
+	fmt.Printf("Getting: %T\n", v)
+	return v
 }
 
 func (this *TestMap) Contains(k string) bool{
