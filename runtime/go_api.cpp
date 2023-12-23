@@ -40,7 +40,7 @@ void load_runtime(char** err, uint32_t* err_len)
 {
 	// load xllr.go.goruntime OR xllr.go.runtime
 	// xllr.go.loader - loads Go runtime
-	
+
 	// loads the right dynamic library according to GO_RUNTIME flag in XLLR
 	
 	try
@@ -114,6 +114,11 @@ void** load_function(const char* module_path, uint32_t module_path_len, const ch
 		handle_err(err, err_len, exc.what());
 	}
 	
+	return nullptr;
+}
+//--------------------------------------------------------------------
+void** make_callable(void* make_callable_context, metaffi_types_with_alias_ptr params_types, metaffi_types_with_alias_ptr retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
+{
 	return nullptr;
 }
 //--------------------------------------------------------------------
