@@ -101,6 +101,7 @@ import "C"
 import (
 	"fmt"
 	"reflect"
+	"time"
 	"unsafe"
 )
 
@@ -138,7 +139,7 @@ func freeMetaffiTypeWithAliasArray(metaffiArray *C.struct_metaffi_type_with_alia
 }
 
 func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (*unsafe.Pointer, error) {
-
+	
 	pruntimePlugin := C.CString(runtimePlugin)
 	defer CFree(unsafe.Pointer(pruntimePlugin))
 
@@ -151,13 +152,13 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 	var out_err *C.char
 	var out_err_len C.uint32_t
 	out_err_len = C.uint32_t(0)
-
+	
 	var pparamTypes *C.struct_metaffi_type_with_alias
 	if paramsTypes != nil {
 		pparamTypes = createMetaffiTypeWithAliasArray(paramsTypes)
 		defer freeMetaffiTypeWithAliasArray(pparamTypes, len(paramsTypes))
 	}
-
+	
 	pparamTypesLen := (C.uint8_t)(len(paramsTypes))
 
 	var ppretvalsTypes *C.struct_metaffi_type_with_alias
@@ -167,17 +168,20 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 	}
 	pretvalsTypesLen := (C.uint8_t)(len(retvalsTypes))
 
+	t := time.Now()
+
+	
 	id := C.xllr_load_function(pruntimePlugin, C.uint(len(runtimePlugin)),
 		pmodulePath, C.uint(len(modulePath)),
 		ppath, C.uint(len(functionPath)),
 		pparamTypes, ppretvalsTypes,
 		pparamTypesLen, pretvalsTypesLen,
 		&out_err, &out_err_len)
-
+	
 	if id == nil {
 		return nil, fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", functionPath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
 	}
-
+	
 	return id, nil
 }
 

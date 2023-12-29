@@ -3,9 +3,10 @@ package api
 import "C"
 import (
 	"fmt"
+	"unsafe"
+
 	goruntime "github.com/MetaFFI/lang-plugin-go/go-runtime"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"unsafe"
 )
 
 type MetaFFIModule struct {
@@ -35,6 +36,7 @@ func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.Me
 
 	var pff *unsafe.Pointer
 	pff, err = goruntime.XLLRLoadFunction(this.runtime.runtimePlugin, this.modulePath, functionPath, paramTypes, retvalTypes)
+
 	if err != nil { // failed
 		return
 	}
