@@ -55,9 +55,6 @@ func (this *GuestCompiler) Compile(definition *IDL.IDLDefinition, outputDir stri
 		return fmt.Errorf("Failed to generate guest code: %v", err)
 	}
 
-	outfile := `C:\src\github.com\MetaFFI\lang-plugin-go\compiler\temp_guest\out.go`
-	os.WriteFile(outfile, []byte(code), 0777)
-
 	file, err := this.buildDynamicLibrary(code)
 	if err != nil {
 		return fmt.Errorf("Failed to generate guest code: %v", err)

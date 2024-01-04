@@ -9,8 +9,14 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 	std::filesystem::path module_path(__FILE__);
 	module_path = module_path.parent_path();
 	module_path.append("test");
+#ifdef _WIN32
 	module_path.append("TestRuntime_MetaFFIGuest.dll");
-	
+#else
+	module_path.append("TestRuntime_MetaFFIGuest.so");
+#endif
+
+
+
 	char* err = nullptr;
 	uint32_t err_len = 0;
 	

@@ -38,21 +38,7 @@ boost::mutex runtime_flags_lock;
 //--------------------------------------------------------------------
 void load_runtime(char** err, uint32_t* err_len)
 {
-	// load xllr.go.goruntime OR xllr.go.runtime
-	// xllr.go.loader - loads Go runtime
-
-	// loads the right dynamic library according to GO_RUNTIME flag in XLLR
-	
-	try
-	{
-		xllr_api_wrapper xllr;
-		boost::unique_lock<boost::mutex> l(runtime_flags_lock);
-		if (!xllr.is_runtime_flag_set(GO_RUNTIME, GO_RUNTIME_LENGTH)) // go is NOT loaded
-		{
-			xllr.set_runtime_flag(GO_RUNTIME, GO_RUNTIME_LENGTH);
-		}
-	}
-	catch_err(err, err_len, exc.what());
+	// go runtime loads when loading the module
 }
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
