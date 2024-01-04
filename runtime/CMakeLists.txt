@@ -28,7 +28,10 @@ set_target_properties( ${target_name}
 add_executable(go_api_test "go_api_test.cpp" ${utils_srcs} ${runtime_srcs})
 target_link_libraries(go_api_test PRIVATE Catch2::Catch2 ${target_name} Boost::filesystem)
 target_include_directories(go_api_test PRIVATE ${METAFFI_SDK})
-add_test(NAME "Go Runtime API" COMMAND expand_env_test)
+add_test(NAME "Go Runtime API" COMMAND go_api_test)
+if(NOT WIN32)
+	add_custom_command(TARGET go_api_test POST_BUILD COMMAND patchelf --set-rpath "$ORIGIN:$ORIGIN/lib:$ENV{METAFFI_HOME}:${Boost_LIBRARY_DIRS}" $<TARGET_FILE:go_api_test>)
+endif()
 
 
 # install

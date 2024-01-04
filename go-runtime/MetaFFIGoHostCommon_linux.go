@@ -740,9 +740,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []MetaFFIHandle:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]MetaFFIHandle)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]MetaFFIHandle)))
 
-		out_input := (*C.struct_cdt_metaffi_handle)(C.malloc(C.ulonglong(len(input.([]MetaFFIHandle))) * (C.sizeof_struct_cdt_metaffi_handle)))
+		out_input := (*C.struct_cdt_metaffi_handle)(C.malloc(C.ulong(len(input.([]MetaFFIHandle))) * (C.sizeof_struct_cdt_metaffi_handle)))
 		for i, val := range input.([]MetaFFIHandle) {
 			C.set_metaffi_handle_element(out_input, C.int(i), C.metaffi_handle(val.Val), C.metaffi_size(val.RuntimeID))
 		}
@@ -758,9 +758,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []float64:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]float64)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]float64)))
 
-		out_input := (*C.metaffi_float64)(C.malloc(C.ulonglong(len(input.([]float64))) * C.sizeof_metaffi_float64))
+		out_input := (*C.metaffi_float64)(C.malloc(C.ulong(len(input.([]float64))) * C.sizeof_metaffi_float64))
 		for i, val := range input.([]float64) {
 			C.set_metaffi_float64_element(out_input, C.int(i), C.metaffi_float64(val))
 		}
@@ -776,9 +776,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []float32:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]float32)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]float32)))
 
-		out_input := (*C.metaffi_float32)(C.malloc(C.ulonglong(len(input.([]float32))) * C.sizeof_metaffi_float32))
+		out_input := (*C.metaffi_float32)(C.malloc(C.ulong(len(input.([]float32))) * C.sizeof_metaffi_float32))
 		for i, val := range input.([]float32) {
 			C.set_metaffi_float32_element(out_input, C.int(i), C.metaffi_float32(val))
 		}
@@ -794,9 +794,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []int8:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]int8)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]int8)))
 
-		out_input := (*C.metaffi_int8)(C.malloc(C.ulonglong(len(input.([]int8))) * C.sizeof_metaffi_int8))
+		out_input := (*C.metaffi_int8)(C.malloc(C.ulong(len(input.([]int8))) * C.sizeof_metaffi_int8))
 		for i, val := range input.([]int8) {
 			C.set_metaffi_int8_element(out_input, C.int(i), C.metaffi_int8(val))
 		}
@@ -812,9 +812,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []int16:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]int16)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]int16)))
 
-		out_input := (*C.metaffi_int16)(C.malloc(C.ulonglong(len(input.([]int16))) * C.sizeof_metaffi_int16))
+		out_input := (*C.metaffi_int16)(C.malloc(C.ulong(len(input.([]int16))) * C.sizeof_metaffi_int16))
 		for i, val := range input.([]int16) {
 			C.set_metaffi_int16_element(out_input, C.int(i), C.metaffi_int16(val))
 		}
@@ -830,9 +830,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []int32:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]int32)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]int32)))
 
-		out_input := (*C.metaffi_int32)(C.malloc(C.ulonglong(len(input.([]int32))) * C.sizeof_metaffi_int32))
+		out_input := (*C.metaffi_int32)(C.malloc(C.ulong(len(input.([]int32))) * C.sizeof_metaffi_int32))
 		for i, val := range input.([]int32) {
 			C.set_metaffi_int32_element(out_input, C.int(i), C.metaffi_int32(val))
 		}
@@ -848,9 +848,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []int64:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]int64)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]int64)))
 
-		out_input := (*C.metaffi_int64)(C.malloc(C.ulonglong(len(input.([]int64))) * C.sizeof_metaffi_int64))
+		out_input := (*C.metaffi_int64)(C.malloc(C.ulong(len(input.([]int64))) * C.sizeof_metaffi_int64))
 		for i, val := range input.([]int64) {
 			C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 		}
@@ -866,9 +866,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []uint8:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]uint8)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]uint8)))
 
-		out_input := (*C.metaffi_uint8)(C.malloc(C.ulonglong(len(input.([]uint8))) * C.sizeof_metaffi_uint8))
+		out_input := (*C.metaffi_uint8)(C.malloc(C.ulong(len(input.([]uint8))) * C.sizeof_metaffi_uint8))
 		for i, val := range input.([]uint8) {
 			C.set_metaffi_uint8_element(out_input, C.int(i), C.metaffi_uint8(val))
 		}
@@ -884,9 +884,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []uint16:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]uint16)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]uint16)))
 
-		out_input := (*C.metaffi_uint16)(C.malloc(C.ulonglong(len(input.([]uint16))) * C.sizeof_metaffi_uint16))
+		out_input := (*C.metaffi_uint16)(C.malloc(C.ulong(len(input.([]uint16))) * C.sizeof_metaffi_uint16))
 		for i, val := range input.([]uint16) {
 			C.set_metaffi_uint16_element(out_input, C.int(i), C.metaffi_uint16(val))
 		}
@@ -902,9 +902,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []uint32:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]uint32)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]uint32)))
 
-		out_input := (*C.metaffi_uint32)(C.malloc(C.ulonglong(len(input.([]uint32))) * C.sizeof_metaffi_uint32))
+		out_input := (*C.metaffi_uint32)(C.malloc(C.ulong(len(input.([]uint32))) * C.sizeof_metaffi_uint32))
 		for i, val := range input.([]uint32) {
 			C.set_metaffi_uint32_element(out_input, C.int(i), C.metaffi_uint32(val))
 		}
@@ -920,9 +920,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []uint64:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]uint64)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]uint64)))
 
-		out_input := (*C.metaffi_uint64)(C.malloc(C.ulonglong(len(input.([]uint64))) * C.sizeof_metaffi_uint64))
+		out_input := (*C.metaffi_uint64)(C.malloc(C.ulong(len(input.([]uint64))) * C.sizeof_metaffi_uint64))
 		for i, val := range input.([]uint64) {
 			C.set_metaffi_uint64_element(out_input, C.int(i), C.metaffi_uint64(val))
 		}
@@ -946,9 +946,9 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 	case []int:
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
-		*out_input_dimensions_lengths = C.ulonglong(len(input.([]int)))
+		*out_input_dimensions_lengths = C.ulong(len(input.([]int)))
 
-		out_input := (*C.metaffi_int64)(C.malloc(C.ulonglong(len(input.([]int))) * C.sizeof_metaffi_int64))
+		out_input := (*C.metaffi_int64)(C.malloc(C.ulong(len(input.([]int))) * C.sizeof_metaffi_int64))
 		for i, val := range input.([]int) {
 			C.set_metaffi_int64_element(out_input, C.int(i), C.metaffi_int64(val))
 		}
@@ -975,7 +975,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 		pcdt_out_bool_input.val = out_input
 
 	case string:
-		out_input_len := C.metaffi_size(C.ulonglong(len(input.(string))))
+		out_input_len := C.metaffi_size(C.ulong(len(input.(string))))
 		out_input := C.CString(input.(string))
 		out_input_cdt := C.get_cdt_index(data, index)
 		C.set_cdt_type(out_input_cdt, C.metaffi_string8_type)
@@ -1009,8 +1009,8 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 		pcdt_out_bool_input.dimensions = out_input_dimensions
 
 	case []string:
-		out_input := (*C.metaffi_string8)(C.malloc(C.ulonglong(len(input.([]string))) * C.sizeof_metaffi_string8))
-		out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulonglong(len(input.([]string))) * C.sizeof_metaffi_size))
+		out_input := (*C.metaffi_string8)(C.malloc(C.ulong(len(input.([]string))) * C.sizeof_metaffi_string8))
+		out_input_sizes := (*C.metaffi_size)(C.malloc(C.ulong(len(input.([]string))) * C.sizeof_metaffi_size))
 		out_input_dimensions := C.metaffi_size(1)
 		out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size * (out_input_dimensions)))
 		*out_input_dimensions_lengths = C.metaffi_size(len(input.([]string)))
