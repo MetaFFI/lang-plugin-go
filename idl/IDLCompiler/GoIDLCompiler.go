@@ -161,19 +161,30 @@ func (this *GoIDLCompiler) parseFile(gofilepath string, metaFFIGuestLib string, 
 //--------------------------------------------------------------------
 
 func getGOROOTsrc() string {
-	goroot := os.Getenv("GOROOT")
+	goroot := os.Getenv("GOPATH")
 	if goroot == "" {
-		goroot = build.Default.GOROOT
+		goroot = build.Default.GOPATH
 	}
 
-	return goroot + "/src/"
+	return goroot + "/pkg/mod/"
 }
 
 func removeGOROOTsrc(path string) string {
 	return strings.ReplaceAll(path, getGOROOTsrc(), "")
 }
 
-//--------------------------------------------------------------------
+// --------------------------------------------------------------------
+func replaceUpper(s string) string {
+	result := ""
+	for _, c := range s {
+		if c >= 'A' && c <= 'Z' {
+			result += "!" + strings.ToLower(string(c))
+		} else {
+			result += string(c)
+		}
+	}
+	return result
+}
 
 func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*IDL.IDLDefinition, bool, error) {
 
@@ -201,7 +212,9 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*ID
 		if err != nil {
 
 			// if doesn't exist - try to search "$GOROOT/src"
-			gofilepath = getGOROOTsrc() + gofilepath
+			gofilepath = getGOROOTsrc() + replaceUpper(gofilepath)
+
+			// replace upper case with "!" (e.g. A replaced with !a)
 
 			fi, err = os.Stat(gofilepath)
 			if err != nil {

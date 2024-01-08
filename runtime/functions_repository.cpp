@@ -39,7 +39,7 @@ void* functions_repository::load_function(const std::string& module_path, const 
 	{
 		if(!boost::filesystem::exists(module_path))
 		{
-			throw std::invalid_argument("given module oath is not found");
+			throw std::invalid_argument("given module path is not found");
 		}
 		
 		// if module not found - load it

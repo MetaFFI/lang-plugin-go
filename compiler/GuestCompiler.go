@@ -615,16 +615,28 @@ func (this *GuestCompiler) goBuild(dir string) (string, error) {
 }
 
 // --------------------------------------------------------------------
+func replaceUpper(s string) string {
+	result := ""
+	for _, c := range s {
+		if c >= 'A' && c <= 'Z' {
+			result += "!" + strings.ToLower(string(c))
+		} else {
+			result += string(c)
+		}
+	}
+	return result
+}
+
 func (this *GuestCompiler) goReplace(dir string, packageName string, packagePath string) error {
 
 	// first check if the package is inside GOROOT
-	goroot := os.Getenv("GOROOT")
+	goroot := os.Getenv("GOPATH")
 	if goroot == "" {
-		goroot = build.Default.GOROOT
+		goroot = build.Default.GOPATH
 	}
 
 	goroot = strings.ToLower(strings.ReplaceAll(goroot, "\\", "/"))
-	packagePathToCheck := strings.ToLower(strings.ReplaceAll(packagePath, "\\", "/"))
+	packagePathToCheck := strings.ToLower(strings.ReplaceAll(replaceUpper(packagePath), "\\", "/"))
 
 	if strings.HasPrefix(packagePathToCheck, goroot) {
 		// package in GOROOT - no need to "replace"
