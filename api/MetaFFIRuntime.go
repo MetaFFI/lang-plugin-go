@@ -2,7 +2,6 @@ package api
 
 import (
 	goruntime "github.com/MetaFFI/lang-plugin-go/go-runtime"
-	"os"
 )
 
 func init() {
@@ -26,11 +25,6 @@ func (this *MetaFFIRuntime) ReleaseRuntimePlugin() error {
 }
 
 func (this *MetaFFIRuntime) LoadModule(modulePath string) (*MetaFFIModule, error) {
-	_, err := os.Stat(modulePath)
-	if err != nil {
-		return nil, err
-	}
-
 	return &MetaFFIModule{
 		runtime:    this,
 		modulePath: modulePath,
