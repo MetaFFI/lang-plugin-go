@@ -125,7 +125,7 @@ func createMetaffiTypeWithAliasArray(paramsTypes []IDL.MetaFFITypeWithAlias) *C.
 
 		if v.Alias != "" {
 			metaffi.alias = C.CString(v.Alias)
-			metaffi.alias_length = len(v.Alias)
+			metaffi.alias_length = C.ulonglong(len(v.Alias))
 		} else {
 			metaffi.alias = nil
 			metaffi.alias_length = 0
