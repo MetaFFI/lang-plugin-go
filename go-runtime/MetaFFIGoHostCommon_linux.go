@@ -115,15 +115,21 @@ func GetCacheSize() int {
 	return int(C.get_cache_size())
 }
 
-func createMetaffiTypeWithAliasArray(paramsTypes []uint64) *C.struct_metaffi_type_with_alias {
+func createMetaffiTypeWithAliasArray(paramsTypes []IDL.MetaFFITypeWithAlias) *C.struct_metaffi_type_with_alias {
 	size := len(paramsTypes)
 	metaffiArray := C.malloc(C.size_t(size) * C.size_t(unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
 
 	for i, v := range paramsTypes {
 		metaffi := (*C.struct_metaffi_type_with_alias)(unsafe.Pointer(uintptr(metaffiArray) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
-		metaffi._type = C.metaffi_type(v)
-		metaffi.alias = nil
-		metaffi.alias_length = 0
+		metaffi._type = C.metaffi_type(v.Type)
+
+		if v.Alias != "" {
+			metaffi.alias = C.CString(v.Alias)
+			metaffi.alias_length = len(v.Alias)
+		} else {
+			metaffi.alias = nil
+			metaffi.alias_length = 0
+		}
 	}
 
 	return (*C.struct_metaffi_type_with_alias)(metaffiArray)
@@ -132,12 +138,35 @@ func createMetaffiTypeWithAliasArray(paramsTypes []uint64) *C.struct_metaffi_typ
 func freeMetaffiTypeWithAliasArray(metaffiArray *C.struct_metaffi_type_with_alias, size int) {
 	for i := 0; i < size; i++ {
 		metaffi := (*C.struct_metaffi_type_with_alias)(unsafe.Pointer(uintptr(unsafe.Pointer(metaffiArray)) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
-		C.free(unsafe.Pointer(metaffi.alias))
+		if metaffi.alias != nil {
+			C.free(unsafe.Pointer(metaffi.alias))
+		}
 	}
 	C.free(unsafe.Pointer(metaffiArray))
 }
 
 func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (*unsafe.Pointer, error) {
+
+	var params []IDL.MetaFFITypeWithAlias
+	if paramsTypes != nil {
+		params = make([]IDL.MetaFFITypeWithAlias, 0)
+		for _, p := range paramsTypes {
+			params = append(params, IDL.MetaFFITypeWithAlias{Type: p})
+		}
+	}
+
+	var retvals []IDL.MetaFFITypeWithAlias
+	if retvalsTypes != nil {
+		retvals = make([]IDL.MetaFFITypeWithAlias, 0)
+		for _, r := range retvalsTypes {
+			retvals = append(retvals, IDL.MetaFFITypeWithAlias{Type: r})
+		}
+	}
+
+	return XLLRLoadFunctionWithAliases(runtimePlugin, modulePath, functionPath, params, retvals)
+}
+
+func XLLRLoadFunctionWithAliases(runtimePlugin string, modulePath string, functionPath string, paramsTypes []IDL.MetaFFITypeWithAlias, retvalsTypes []IDL.MetaFFITypeWithAlias) (*unsafe.Pointer, error) {
 
 	pruntimePlugin := C.CString(runtimePlugin)
 	defer CFree(unsafe.Pointer(pruntimePlugin))
