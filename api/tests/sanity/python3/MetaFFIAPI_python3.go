@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -22,6 +23,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	TestHelloWorld()
+	TestReturnsAnError()
+	TestDivIntegers()
+	TestJoinStrings()
+	TestWaitABit()
+	TestTestMapGetSet()
+	TestTestmapName()
 
 	err = runtime.ReleaseRuntimePlugin()
 	if err != nil {

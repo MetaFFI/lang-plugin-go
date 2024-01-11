@@ -1,4 +1,4 @@
-module openjdk
+module bs4
 
 go 1.21.4
 
@@ -7,4 +7,4 @@ require (
 	github.com/MetaFFI/plugin-sdk v0.0.0-20240104091413-269ab95f95ad
 )
 
-require github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240110190316-81e20a42e11d // indirect
+require github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240110190316-81e20a42e11d

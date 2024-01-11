@@ -15,27 +15,46 @@ type MetaFFIModule struct {
 }
 
 func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.MetaFFIType, retvalMetaFFITypes []IDL.MetaFFIType) (ff func(...interface{}) ([]interface{}, error), err error) {
-
-	var paramTypes []uint64
+	var params []IDL.MetaFFITypeWithAlias
 	if paramsMetaFFITypes != nil {
-		paramTypes = make([]uint64, len(paramsMetaFFITypes))
+		params = make([]IDL.MetaFFITypeWithAlias, 0)
+		for _, p := range paramsMetaFFITypes {
+			params = append(params, IDL.MetaFFITypeWithAlias{StringType: p})
+		}
 	}
 
-	var retvalTypes []uint64
+	var retvals []IDL.MetaFFITypeWithAlias
 	if retvalMetaFFITypes != nil {
-		retvalTypes = make([]uint64, len(retvalMetaFFITypes))
+		retvals = make([]IDL.MetaFFITypeWithAlias, 0)
+		for _, r := range retvalMetaFFITypes {
+			retvals = append(retvals, IDL.MetaFFITypeWithAlias{StringType: r})
+		}
 	}
 
-	for i, p := range paramsMetaFFITypes {
-		paramTypes[i] = IDL.TypeStringToTypeEnum[p]
+	return this.LoadWithAlias(functionPath, params, retvals)
+}
+
+func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes []IDL.MetaFFITypeWithAlias, retvalMetaFFITypes []IDL.MetaFFITypeWithAlias) (ff func(...interface{}) ([]interface{}, error), err error) {
+
+	// convert Go's String metaffi types to INT metaffi types
+	if paramsMetaFFITypes != nil {
+		for i := 0; i < len(paramsMetaFFITypes); i++ {
+			item := paramsMetaFFITypes[i]
+			item.FillMetaFFITypeFromStringMetaFFIType()
+			paramsMetaFFITypes[i] = item
+		}
 	}
 
-	for i, r := range retvalMetaFFITypes {
-		retvalTypes[i] = IDL.TypeStringToTypeEnum[r]
+	if retvalMetaFFITypes != nil {
+		for i := 0; i < len(retvalMetaFFITypes); i++ {
+			item := retvalMetaFFITypes[i]
+			item.FillMetaFFITypeFromStringMetaFFIType()
+			retvalMetaFFITypes[i] = item
+		}
 	}
 
 	var pff *unsafe.Pointer
-	pff, err = goruntime.XLLRLoadFunction(this.runtime.runtimePlugin, this.modulePath, functionPath, paramTypes, retvalTypes)
+	pff, err = goruntime.XLLRLoadFunctionWithAliases(this.runtime.runtimePlugin, this.modulePath, functionPath, paramsMetaFFITypes, retvalMetaFFITypes)
 
 	if err != nil { // failed
 		return
