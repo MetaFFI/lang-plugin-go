@@ -3,7 +3,6 @@ module github.com/MetaFFI/lang-plugin-go/compiler
 go 1.16
 
 require (
-	github.com/GreenFuze/go-parser v0.0.0-20231114070054-7b0168006eb8 // indirect
 	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240104094200-93bfb07792f3
 	github.com/MetaFFI/lang-plugin-go/idl v0.0.0-20240104094200-93bfb07792f3
 	github.com/MetaFFI/plugin-sdk v0.0.0-20240111115655-a2f1bf60dbf5

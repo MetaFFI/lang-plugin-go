@@ -13,7 +13,7 @@ var runtime *api.MetaFFIRuntime
 var mod *api.MetaFFIModule
 
 func main() {
-	runtime = api.NewMetaFFIRuntime("python3")
+	runtime = api.NewMetaFFIRuntime("python311")
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)
