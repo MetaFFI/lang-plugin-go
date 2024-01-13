@@ -3,8 +3,8 @@ module github.com/MetaFFI/lang-plugin-go/idl
 go 1.16
 
 require (
-	github.com/GreenFuze/go-parser v0.0.0-20231114070054-7b0168006eb8
-	github.com/MetaFFI/plugin-sdk v0.0.0-20240104091413-269ab95f95ad
+	github.com/GreenFuze/go-parser v0.0.0-20240113080500-83cff8210dd0
+	github.com/MetaFFI/plugin-sdk v0.0.0-20240111115655-a2f1bf60dbf5
 )
 
 replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk
