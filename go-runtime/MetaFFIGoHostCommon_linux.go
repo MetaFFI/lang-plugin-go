@@ -100,6 +100,7 @@ metaffi_size len_to_metaffi_size(long long i)
 import "C"
 import (
 	"fmt"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"reflect"
 	"unsafe"
 )
