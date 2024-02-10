@@ -43,8 +43,36 @@ var templatesFuncMap = map[string]interface{}{
 	"IsGoRuntimePackNeeded":                      isGoRuntimePackNeeded,
 	"ConvertEmptyInterfaceFromCDTSToCorrectType": convertEmptyInterfaceFromCDTSToCorrectType,
 	"CallParameters":                             callParameters,
+	"GetMetaFFITypeWithAliases":                  getMetaFFITypeWithAliases,
 }
 
+func getMetaFFITypeWithAliases(funcDef *IDL.FunctionDefinition) string {
+	paramsTypes := funcDef.GetParametersMetaFFITypeWithAlias()
+	retvalTypes := funcDef.GetReturnValuesMetaFFITypeWithAlias()
+
+	strParams := "nil"
+	strRetVals := "nil"
+
+	if paramsTypes != nil && len(paramsTypes) > 0 {
+		strParams = "[]IDL.MetaFFITypeWithAlias{"
+		for _, p := range paramsTypes {
+			strParams += `IDL.MetaFFITypeWithAlias{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
+		}
+		strParams += "}"
+	}
+
+	if retvalTypes != nil && len(retvalTypes) > 0 {
+		strRetVals = "[]IDL.MetaFFITypeWithAlias{"
+		for _, p := range retvalTypes {
+			strRetVals += `IDL.MetaFFITypeWithAlias{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
+		}
+		strRetVals += "}"
+	}
+
+	return strParams + "," + strRetVals
+}
+
+// --------------------------------------------------------------------
 func callParameters(funcDef *IDL.FunctionDefinition, startIndex int) string {
 	// {{range $index, $elem := $f.Parameters}}{{if $index}},{{end}}{{if $elem.IsTypeAlias}}({{$elem.GetTypeOrAlias}})({{$elem.Name}}){{else}}{{$elem.Name}}{{end}}{{end}}
 	params := make([]string, 0)

@@ -10,8 +10,4 @@ import "C"
 func init_plugin() {
 	compiler.PluginMain = compiler.NewLanguagePluginMain(NewHostCompiler(), NewGuestCompiler())
 }
-
-//--------------------------------------------------------------------
 func main() {}
-
-//--------------------------------------------------------------------

@@ -51,7 +51,7 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 			for i := firstIndexOfOptionalParameter; i < len(f.Parameters); i++ {
 				j += 1
 				dup := f.Duplicate()
-				dup.Name += "_overload"+strconv.Itoa(j)
+				dup.Name += "_overload" + strconv.Itoa(j)
 				dup.Parameters = dup.Parameters[:i]
 				mod.Functions = append(mod.Functions, dup)
 			}
@@ -64,7 +64,7 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 			for i := firstIndexOfOptionalParameter; i < len(cstr.Parameters); i++ {
 				j += 1
 				dup := cstr.Duplicate()
-				dup.Name += "_overload"+strconv.Itoa(j)
+				dup.Name += "_overload" + strconv.Itoa(j)
 				dup.Parameters = dup.Parameters[:i]
 				cstr.GetParent().AddConstructor(dup)
 			}
@@ -77,7 +77,7 @@ func overloadCallablesWithOptionalParameters(def *IDL.IDLDefinition) {
 			for i := firstIndexOfOptionalParameter; i < len(m.Parameters); i++ {
 				j += 1
 				dup := m.Duplicate()
-				dup.Name += "_overload"+strconv.Itoa(j)
+				dup.Name += "_overload" + strconv.Itoa(j)
 				dup.Parameters = dup.Parameters[:i]
 				m.GetParent().AddMethod(dup)
 			}
@@ -186,20 +186,6 @@ func (this *HostCompiler) parseHeader() (string, error) {
 }
 
 // --------------------------------------------------------------------
-func (this *HostCompiler) parseImports() (string, error) {
-
-	tmp, err := template.New("HostImportsTemplate").Funcs(templatesFuncMap).Parse(HostImportsTemplate)
-	if err != nil {
-		return "", fmt.Errorf("Failed to parse Go HostImportsTemplate: %v", err)
-	}
-
-	buf := strings.Builder{}
-	err = tmp.Execute(&buf, this.def)
-
-	return buf.String(), err
-}
-
-// --------------------------------------------------------------------
 func (this *HostCompiler) parseForeignStubs() (string, error) {
 
 	tmp, err := template.New("Go HostFunctionStubsTemplate").Funcs(templatesFuncMap).Parse(HostFunctionStubsTemplate)
@@ -237,19 +223,6 @@ func (this *HostCompiler) parsePackage() (code string, packageName string, err e
 }
 
 // --------------------------------------------------------------------
-func (this *HostCompiler) parseHelper() (string, error) {
-	tmp, err := template.New(GetHostHelperFunctionsName()).Funcs(templatesFuncMap).Parse(GetHostHelperFunctions())
-	if err != nil {
-		return "", fmt.Errorf("Failed to parse Go %v: %v", GetHostHelperFunctionsName(), err)
-	}
-
-	buf := strings.Builder{}
-	err = tmp.Execute(&buf, this.def)
-
-	return buf.String(), err
-}
-
-// --------------------------------------------------------------------
 func (this *HostCompiler) generateCode() (code string, packageName string, err error) {
 
 	header, err := this.parseHeader()
@@ -262,22 +235,12 @@ func (this *HostCompiler) generateCode() (code string, packageName string, err e
 		return "", "", err
 	}
 
-	imports, err := this.parseImports()
-	if err != nil {
-		return "", "", err
-	}
-
-	helper, err := this.parseHelper()
-	if err != nil {
-		return "", "", err
-	}
-
 	functionStubs, err := this.parseForeignStubs()
 	if err != nil {
 		return "", "", err
 	}
 
-	res := header + packageDeclaration + imports + helper + functionStubs
+	res := header + packageDeclaration + functionStubs
 
 	return res, packageName, err
 }
