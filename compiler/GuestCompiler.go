@@ -576,7 +576,7 @@ func (this *GuestCompiler) goModInit(dir string, packageName string) (string, er
 
 // --------------------------------------------------------------------
 func (this *GuestCompiler) goGet(dir string) (string, error) {
-	getCmd := exec.Command("go", "get", "-v")
+	getCmd := exec.Command("go", "get", "-u")
 	getCmd.Dir = dir
 	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
 	output, err := getCmd.CombinedOutput()
