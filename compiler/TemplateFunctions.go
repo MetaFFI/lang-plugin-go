@@ -43,28 +43,28 @@ var templatesFuncMap = map[string]interface{}{
 	"IsGoRuntimePackNeeded":                      isGoRuntimePackNeeded,
 	"ConvertEmptyInterfaceFromCDTSToCorrectType": convertEmptyInterfaceFromCDTSToCorrectType,
 	"CallParameters":                             callParameters,
-	"GetMetaFFITypeWithAliases":                  getMetaFFITypeWithAliases,
+	"GetMetaFFITypeInfos":                  GetMetaFFITypeInfos,
 }
 
-func getMetaFFITypeWithAliases(funcDef *IDL.FunctionDefinition) string {
-	paramsTypes := funcDef.GetParametersMetaFFITypeWithAlias()
-	retvalTypes := funcDef.GetReturnValuesMetaFFITypeWithAlias()
+func GetMetaFFITypeInfos(funcDef *IDL.FunctionDefinition) string {
+	paramsTypes := funcDef.GetParametersMetaFFITypeInfo()
+	retvalTypes := funcDef.GetReturnValuesMetaFFITypeInfo()
 
 	strParams := "nil"
 	strRetVals := "nil"
 
 	if paramsTypes != nil && len(paramsTypes) > 0 {
-		strParams = "[]IDL.MetaFFITypeWithAlias{"
+		strParams = "[]IDL.MetaFFITypeInfo{"
 		for _, p := range paramsTypes {
-			strParams += `IDL.MetaFFITypeWithAlias{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
+			strParams += `IDL.MetaFFITypeInfo{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
 		}
 		strParams += "}"
 	}
 
 	if retvalTypes != nil && len(retvalTypes) > 0 {
-		strRetVals = "[]IDL.MetaFFITypeWithAlias{"
+		strRetVals = "[]IDL.MetaFFITypeInfo{"
 		for _, p := range retvalTypes {
-			strRetVals += `IDL.MetaFFITypeWithAlias{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
+			strRetVals += `IDL.MetaFFITypeInfo{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
 		}
 		strRetVals += "}"
 	}

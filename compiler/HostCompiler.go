@@ -134,7 +134,7 @@ func (this *HostCompiler) Compile(definition *IDL.IDLDefinition, outputDir strin
 	fixNameCollisionAfterConvertingToGoNameConvention(definition)
 
 	if outputFilename == "" {
-		outputFilename = definition.IDLFilename
+		outputFilename = definition.IDLSource
 	}
 
 	outputFilename = strings.ReplaceAll(outputFilename, ".", "_") // filename must not contains "."

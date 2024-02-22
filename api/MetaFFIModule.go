@@ -15,26 +15,26 @@ type MetaFFIModule struct {
 }
 
 func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.MetaFFIType, retvalMetaFFITypes []IDL.MetaFFIType) (ff func(...interface{}) ([]interface{}, error), err error) {
-	var params []IDL.MetaFFITypeWithAlias
+	var params []IDL.MetaFFITypeInfo
 	if paramsMetaFFITypes != nil {
-		params = make([]IDL.MetaFFITypeWithAlias, 0)
+		params = make([]IDL.MetaFFITypeInfo, 0)
 		for _, p := range paramsMetaFFITypes {
-			params = append(params, IDL.MetaFFITypeWithAlias{StringType: p})
+			params = append(params, IDL.MetaFFITypeInfo{StringType: p})
 		}
 	}
 
-	var retvals []IDL.MetaFFITypeWithAlias
+	var retvals []IDL.MetaFFITypeInfo
 	if retvalMetaFFITypes != nil {
-		retvals = make([]IDL.MetaFFITypeWithAlias, 0)
+		retvals = make([]IDL.MetaFFITypeInfo, 0)
 		for _, r := range retvalMetaFFITypes {
-			retvals = append(retvals, IDL.MetaFFITypeWithAlias{StringType: r})
+			retvals = append(retvals, IDL.MetaFFITypeInfo{StringType: r})
 		}
 	}
 
 	return this.LoadWithAlias(functionPath, params, retvals)
 }
 
-func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes []IDL.MetaFFITypeWithAlias, retvalMetaFFITypes []IDL.MetaFFITypeWithAlias) (ff func(...interface{}) ([]interface{}, error), err error) {
+func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes []IDL.MetaFFITypeInfo, retvalMetaFFITypes []IDL.MetaFFITypeInfo) (ff func(...interface{}) ([]interface{}, error), err error) {
 
 	// convert Go's String metaffi types to INT metaffi types
 	if paramsMetaFFITypes != nil {

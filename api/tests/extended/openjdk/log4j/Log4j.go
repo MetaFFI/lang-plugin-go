@@ -23,8 +23,8 @@ func NewLog4j(name string) (*Log4j, error) {
 		return nil, err
 	}
 
-	params := []IDL.MetaFFITypeWithAlias{IDL.MetaFFITypeWithAlias{StringType: IDL.STRING8}}
-	retvals := []IDL.MetaFFITypeWithAlias{IDL.MetaFFITypeWithAlias{StringType: IDL.HANDLE, Alias: "org.apache.logging.log4j.Logger"}}
+	params := []IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.STRING8}}
+	retvals := []IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.HANDLE, Alias: "org.apache.logging.log4j.Logger"}}
 	constructor, err := mod.LoadWithAlias("class=org.apache.logging.log4j.LogManager,callable=getLogger", params, retvals)
 	if err != nil {
 		return nil, err

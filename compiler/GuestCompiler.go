@@ -42,7 +42,7 @@ func NewGuestCompiler() *GuestCompiler {
 func (this *GuestCompiler) Compile(definition *IDL.IDLDefinition, outputDir string, outputFilename string, guestOptions map[string]string) (err error) {
 
 	if outputFilename == "" {
-		outputFilename = definition.IDLFilename
+		outputFilename = definition.IDLSource
 	}
 
 	this.def = definition

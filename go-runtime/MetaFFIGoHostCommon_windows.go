@@ -116,12 +116,12 @@ func GetCacheSize() int {
 	return int(C.get_cache_size())
 }
 
-func createMetaffiTypeWithAliasArray(paramsTypes []IDL.MetaFFITypeWithAlias) *C.struct_metaffi_type_with_alias {
+func createMetaFFITypeInfoArray(paramsTypes []IDL.MetaFFITypeInfo) *C.struct_metaffi_type_info {
 	size := len(paramsTypes)
-	metaffiArray := C.malloc(C.size_t(size) * C.size_t(unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
+	metaffiArray := C.malloc(C.size_t(size) * C.size_t(unsafe.Sizeof(C.struct_metaffi_type_info{})))
 
 	for i, v := range paramsTypes {
-		metaffi := (*C.struct_metaffi_type_with_alias)(unsafe.Pointer(uintptr(metaffiArray) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
+		metaffi := (*C.struct_metaffi_type_info)(unsafe.Pointer(uintptr(metaffiArray) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_info{})))
 		metaffi._type = C.metaffi_type(v.Type)
 
 		if v.Alias != "" {
@@ -133,12 +133,12 @@ func createMetaffiTypeWithAliasArray(paramsTypes []IDL.MetaFFITypeWithAlias) *C.
 		}
 	}
 
-	return (*C.struct_metaffi_type_with_alias)(metaffiArray)
+	return (*C.struct_metaffi_type_info)(metaffiArray)
 }
 
-func freeMetaffiTypeWithAliasArray(metaffiArray *C.struct_metaffi_type_with_alias, size int) {
+func freeMetaFFITypeInfoArray(metaffiArray *C.struct_metaffi_type_info, size int) {
 	for i := 0; i < size; i++ {
-		metaffi := (*C.struct_metaffi_type_with_alias)(unsafe.Pointer(uintptr(unsafe.Pointer(metaffiArray)) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_with_alias{})))
+		metaffi := (*C.struct_metaffi_type_info)(unsafe.Pointer(uintptr(unsafe.Pointer(metaffiArray)) + uintptr(i)*unsafe.Sizeof(C.struct_metaffi_type_info{})))
 		if metaffi.alias != nil {
 			C.free(unsafe.Pointer(metaffi.alias))
 		}
@@ -148,26 +148,26 @@ func freeMetaffiTypeWithAliasArray(metaffiArray *C.struct_metaffi_type_with_alia
 
 func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (*unsafe.Pointer, error) {
 
-	var params []IDL.MetaFFITypeWithAlias
+	var params []IDL.MetaFFITypeInfo
 	if paramsTypes != nil {
-		params = make([]IDL.MetaFFITypeWithAlias, 0)
+		params = make([]IDL.MetaFFITypeInfo, 0)
 		for _, p := range paramsTypes {
-			params = append(params, IDL.MetaFFITypeWithAlias{Type: p})
+			params = append(params, IDL.MetaFFITypeInfo{Type: p})
 		}
 	}
 
-	var retvals []IDL.MetaFFITypeWithAlias
+	var retvals []IDL.MetaFFITypeInfo
 	if retvalsTypes != nil {
-		retvals = make([]IDL.MetaFFITypeWithAlias, 0)
+		retvals = make([]IDL.MetaFFITypeInfo, 0)
 		for _, r := range retvalsTypes {
-			retvals = append(retvals, IDL.MetaFFITypeWithAlias{Type: r})
+			retvals = append(retvals, IDL.MetaFFITypeInfo{Type: r})
 		}
 	}
 
 	return XLLRLoadFunctionWithAliases(runtimePlugin, modulePath, functionPath, params, retvals)
 }
 
-func XLLRLoadFunctionWithAliases(runtimePlugin string, modulePath string, functionPath string, paramsTypes []IDL.MetaFFITypeWithAlias, retvalsTypes []IDL.MetaFFITypeWithAlias) (*unsafe.Pointer, error) {
+func XLLRLoadFunctionWithAliases(runtimePlugin string, modulePath string, functionPath string, paramsTypes []IDL.MetaFFITypeInfo, retvalsTypes []IDL.MetaFFITypeInfo) (*unsafe.Pointer, error) {
 
 	pruntimePlugin := C.CString(runtimePlugin)
 	defer CFree(unsafe.Pointer(pruntimePlugin))
@@ -182,18 +182,18 @@ func XLLRLoadFunctionWithAliases(runtimePlugin string, modulePath string, functi
 	var out_err_len C.uint32_t
 	out_err_len = C.uint32_t(0)
 
-	var pparamTypes *C.struct_metaffi_type_with_alias
+	var pparamTypes *C.struct_metaffi_type_info
 	if paramsTypes != nil {
-		pparamTypes = createMetaffiTypeWithAliasArray(paramsTypes)
-		defer freeMetaffiTypeWithAliasArray(pparamTypes, len(paramsTypes))
+		pparamTypes = createMetaFFITypeInfoArray(paramsTypes)
+		defer freeMetaFFITypeInfoArray(pparamTypes, len(paramsTypes))
 	}
 
 	pparamTypesLen := (C.uint8_t)(len(paramsTypes))
 
-	var ppretvalsTypes *C.struct_metaffi_type_with_alias
+	var ppretvalsTypes *C.struct_metaffi_type_info
 	if retvalsTypes != nil {
-		ppretvalsTypes = createMetaffiTypeWithAliasArray(retvalsTypes)
-		defer freeMetaffiTypeWithAliasArray(ppretvalsTypes, len(retvalsTypes))
+		ppretvalsTypes = createMetaFFITypeInfoArray(retvalsTypes)
+		defer freeMetaFFITypeInfoArray(ppretvalsTypes, len(retvalsTypes))
 	}
 	pretvalsTypesLen := (C.uint8_t)(len(retvalsTypes))
 

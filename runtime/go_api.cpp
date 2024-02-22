@@ -43,7 +43,7 @@ void load_runtime(char** err, uint32_t* err_len)
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-void** load_function(const char* module_path, uint32_t module_path_len, const char* function_path, uint32_t function_path_len, metaffi_types_with_alias_ptr params_types, metaffi_types_with_alias_ptr retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
+void** load_function(const char* module_path, uint32_t module_path_len, const char* function_path, uint32_t function_path_len, metaffi_type_infos_ptr params_types, metaffi_type_infos_ptr retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
@@ -103,7 +103,7 @@ void** load_function(const char* module_path, uint32_t module_path_len, const ch
 	return nullptr;
 }
 //--------------------------------------------------------------------
-void** make_callable(void* make_callable_context, metaffi_types_with_alias_ptr params_types, metaffi_types_with_alias_ptr retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
+void** make_callable(void* make_callable_context, metaffi_type_infos_ptr params_types, metaffi_type_infos_ptr retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
 {
 	return nullptr;
 }
