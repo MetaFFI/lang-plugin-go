@@ -1234,6 +1234,24 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, i int) {
 				}
 				FromGoToCDT(dstSlice, pdata, i)
 				return
+
+			default: // slice of handles
+				out_input_dimensions := C.metaffi_size(1)
+				out_input_dimensions_lengths := (*C.metaffi_size)(C.malloc(C.sizeof_metaffi_size))
+				*out_input_dimensions_lengths = C.ulonglong(len(input.([]MetaFFIHandle)))
+
+				out_input := (*C.struct_cdt_metaffi_handle)(C.malloc(C.ulonglong(len(input.([]MetaFFIHandle))) * (C.sizeof_struct_cdt_metaffi_handle)))
+				for i, val := range input.([]MetaFFIHandle) {
+					C.set_metaffi_handle_element(out_input, C.int(i), C.metaffi_handle(val.Val), C.metaffi_size(val.RuntimeID))
+				}
+
+				out_input_cdt := C.get_cdt_index(data, index)
+				C.set_cdt_type(out_input_cdt, C.metaffi_handle_array_type)
+				out_input_cdt.free_required = 1
+				pcdt_out_Handle_input := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&out_input_cdt.cdt_val))))
+				pcdt_out_Handle_input.vals = out_input
+				pcdt_out_Handle_input.dimensions_lengths = out_input_dimensions_lengths
+				pcdt_out_Handle_input.dimensions = out_input_dimensions
 			}
 
 			fallthrough // if no kind matched, treat as handle
