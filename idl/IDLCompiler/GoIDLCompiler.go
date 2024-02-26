@@ -216,9 +216,10 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*ID
 
 			// replace upper case with "!" (e.g. A replaced with !a)
 
-			fi, err = os.Stat(gofilepath)
-			if err != nil {
-				return nil, true, fmt.Errorf("Couldn't read given path. Error: %v", err)
+			var err2 error
+			fi, err2 = os.Stat(gofilepath)
+			if err2 != nil {
+				return nil, true, fmt.Errorf("Couldn't find given path. Error: %v | %v", err, err2)
 			}
 
 			isInGoROOT = true

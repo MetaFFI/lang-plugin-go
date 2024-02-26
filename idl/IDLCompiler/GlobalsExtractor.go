@@ -63,7 +63,7 @@ func GetRequiredImport(gofile *parser.GoFile, fullType string) string {
 	splitType := strings.Split(fullType, ".")
 
 	packageName := splitType[len(splitType)-2] // get one before the last element
-	packageName = strings.ReplaceAll(packageName, "*", "")
+	packageName = strings.ReplaceAll(strings.ReplaceAll(packageName, "*", ""), "[]", "")
 
 	if packageName == gofile.Package { // no import required
 		return ""
