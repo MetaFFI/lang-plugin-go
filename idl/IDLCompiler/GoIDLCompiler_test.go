@@ -115,3 +115,14 @@ func TestGoIDLCompiler_CompilePackage(t *testing.T) {
 
 	fmt.Println(json)
 }
+
+func TestGoIDLCompiler_File(t *testing.T) {
+	comp := NewGoIDLCompiler()
+
+	def, _, err := comp.ParseIDL("", "./../../runtime/test/TestRuntime.go")
+	if err != nil {
+		t.Fatalf("Failed parsing: %v", err)
+	}
+
+	println(def)
+}

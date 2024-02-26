@@ -137,8 +137,8 @@ func (this *GoIDLCompiler) parseDir(dir string, metaFFIGuestLib string, mod *IDL
 			mod.SetFunctionPath("package", gofile.Package)
 			mod.SetFunctionPath("module", importPath)
 		} else {
-			mod.SetFunctionPath("package", removeGOROOTsrc(dir))
-			mod.SetFunctionPath("module", removeGOROOTsrc(dir))
+			mod.SetFunctionPath("package", removeGoPathModulePathFromPath(removeGoRootSrcPathFromPath(dir)))
+			mod.SetFunctionPath("module", removeGoPathModulePathFromPath(removeGoRootSrcPathFromPath(dir)))
 		}
 
 	}
@@ -160,17 +160,19 @@ func (this *GoIDLCompiler) parseFile(gofilepath string, metaFFIGuestLib string, 
 
 //--------------------------------------------------------------------
 
-func getGOROOTsrc() string {
-	goroot := os.Getenv("GOPATH")
-	if goroot == "" {
-		goroot = build.Default.GOPATH
-	}
-
-	return goroot + "/pkg/mod/"
+func getGOPATHModulePath() string {
+	return build.Default.GOPATH + "/pkg/mod/"
 }
 
-func removeGOROOTsrc(path string) string {
-	return strings.ReplaceAll(path, getGOROOTsrc(), "")
+func getGOROOTSrcPath() string {
+	return build.Default.GOROOT + "/src/"
+}
+
+func removeGoPathModulePathFromPath(path string) string {
+	return strings.ReplaceAll(path, getGOPATHModulePath(), "")
+}
+func removeGoRootSrcPathFromPath(path string) string {
+	return strings.ReplaceAll(path, getGOROOTSrcPath(), "")
 }
 
 // --------------------------------------------------------------------
@@ -184,6 +186,25 @@ func replaceUpper(s string) string {
 		}
 	}
 	return result
+}
+
+func findCodePath(path string) (fullPath string, foundPath os.FileInfo, isInGoROOT bool, isInGoPATH bool, err error) {
+	foundPath, errDirect := os.Stat(path)
+	if errDirect == nil {
+		return path, foundPath, false, false, nil
+	}
+
+	foundPath, errGoRoot := os.Stat(getGOROOTSrcPath() + path)
+	if errGoRoot == nil {
+		return getGOROOTSrcPath() + path, foundPath, true, false, nil
+	}
+
+	foundPath, errGoPath := os.Stat(getGOPATHModulePath() + replaceUpper(path))
+	if errGoPath == nil {
+		return getGOPATHModulePath() + replaceUpper(path), foundPath, false, true, nil
+	}
+
+	return "", nil, false, false, fmt.Errorf("Couldn't find given path. Errors:\n%v\n%v\n%v", errDirect, errGoRoot, errGoPath)
 }
 
 func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*IDL.IDLDefinition, bool, error) {
@@ -207,22 +228,9 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*ID
 		}
 
 		// if the gofilepath is a file, read source code and generate IDL, if path, generate IDL from all source code files
-		isInGoROOT := false
-		fi, err := os.Stat(gofilepath)
+		gofilepath, fi, isInGoROOT, _, err := findCodePath(gofilepath)
 		if err != nil {
-
-			// if doesn't exist - try to search "$GOROOT/src"
-			gofilepath = getGOROOTsrc() + replaceUpper(gofilepath)
-
-			// replace upper case with "!" (e.g. A replaced with !a)
-
-			var err2 error
-			fi, err2 = os.Stat(gofilepath)
-			if err2 != nil {
-				return nil, true, fmt.Errorf("Couldn't find given path. Error: %v | %v", err, err2)
-			}
-
-			isInGoROOT = true
+			return nil, true, err
 		}
 
 		if !fi.IsDir() {
@@ -240,7 +248,7 @@ func (this *GoIDLCompiler) ParseIDL(goSourceCode string, gofilepath string) (*ID
 			// directory
 			var module *IDL.ModuleDefinition
 			if isInGoROOT {
-				module = IDL.NewModuleDefinition(removeGOROOTsrc(gofilepath))
+				module = IDL.NewModuleDefinition(removeGoRootSrcPathFromPath(gofilepath))
 			} else {
 				module = IDL.NewModuleDefinition(filepath.Base(gofilepath))
 			}
