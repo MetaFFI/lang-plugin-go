@@ -39,6 +39,11 @@ struct cdts* cast_to_cdts(void* p)
 	return (cdts*)p;
 }
 
+struct cdt* get_cdt_index(struct cdt* p, int index)
+{
+	return &p[index];
+}
+
 struct cdt* cast_to_cdt(void* p)
 {
 	return (cdt*)p;
