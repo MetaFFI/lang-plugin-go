@@ -533,8 +533,9 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 	data := C.cast_to_cdt(pdata)
 	var res interface{}
 	index := C.int(i)
-	pcdt := (*C.struct_cdt)(C.get_index(unsafe.Pointer(data), index))
+	pcdt := C.get_cdt_index(data, index)
 	res_type := C.get_cdt_type(pcdt)
+
 	switch uint64(res_type) {
 
 	case IDL.METAFFI_TYPE_HANDLE: // handle
