@@ -1,3 +1,3 @@
 import os
 
-os.system('metaffi -c --idl TestRuntime.go -g')
+os.system('metaffi -c --idl TestRuntime.go -g --print-idl')

@@ -43,7 +43,27 @@ var templatesFuncMap = map[string]interface{}{
 	"IsGoRuntimePackNeeded":                      isGoRuntimePackNeeded,
 	"ConvertEmptyInterfaceFromCDTSToCorrectType": convertEmptyInterfaceFromCDTSToCorrectType,
 	"CallParameters":                             callParameters,
-	"GetMetaFFITypeInfos":                  GetMetaFFITypeInfos,
+	"GetMetaFFITypeInfos":                        GetMetaFFITypeInfos,
+	"Repeat":                                     strings.Repeat,
+	"Iterate":                                    Iterate,
+	"GetMetaFFINumericType":                      GetMetaFFINumericType,
+}
+
+func GetMetaFFINumericType(typeName IDL.MetaFFIType) uint64 {
+	t := IDL.TypeStringToTypeEnum[IDL.MetaFFIType(strings.ToLower(string(typeName)))]
+	if t == 0 {
+		panic("Failed to find numeric MetaFFI type for " + strings.ToLower(string(typeName)))
+	}
+	return t
+}
+
+func Iterate(count *uint) []uint {
+	var i uint
+	var items []uint
+	for i = 0; i < (*count); i++ {
+		items = append(items, i)
+	}
+	return items
 }
 
 func GetMetaFFITypeInfos(funcDef *IDL.FunctionDefinition) string {
@@ -56,7 +76,7 @@ func GetMetaFFITypeInfos(funcDef *IDL.FunctionDefinition) string {
 	if paramsTypes != nil && len(paramsTypes) > 0 {
 		strParams = "[]IDL.MetaFFITypeInfo{"
 		for _, p := range paramsTypes {
-			strParams += `IDL.MetaFFITypeInfo{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
+			strParams += `IDL.MetaFFITypeInfo{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `", Type: ` + fmt.Sprintf("%v", GetMetaFFINumericType(p.StringType)) + `, Dimensions: ` + fmt.Sprintf("%v", p.Dimensions) + ` },`
 		}
 		strParams += "}"
 	}
@@ -64,7 +84,7 @@ func GetMetaFFITypeInfos(funcDef *IDL.FunctionDefinition) string {
 	if retvalTypes != nil && len(retvalTypes) > 0 {
 		strRetVals = "[]IDL.MetaFFITypeInfo{"
 		for _, p := range retvalTypes {
-			strRetVals += `IDL.MetaFFITypeInfo{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `" },`
+			strRetVals += `IDL.MetaFFITypeInfo{StringType: IDL.` + IDL.TypeStringToEnumName[p.StringType] + `, Alias: "` + p.Alias + `", Type: ` + fmt.Sprintf("%v", GetMetaFFINumericType(p.StringType)) + `, Dimensions: ` + fmt.Sprintf("%v", p.Dimensions) + ` },`
 		}
 		strRetVals += "}"
 	}
@@ -312,6 +332,15 @@ func methodNameNotExists(c *IDL.ClassDefinition, fieldName string, prefix string
 }
 
 // --------------------------------------------------------------------
+func isPrimitiveType(typeName string) bool {
+	switch typeName {
+	case "bool", "byte", "complex64", "complex128", "error", "float32", "float64", "int", "int8", "int16", "int32", "int64", "rune", "string", "uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
+		return true
+	default:
+		return false
+	}
+}
+
 func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 
 	var res string
@@ -330,6 +359,8 @@ func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 	case IDL.HANDLE:
 		if def.IsTypeAlias() && mod.IsContainsClass(def.TypeAlias) {
 			res = asPublic(def.TypeAlias)
+		} else if def.IsTypeAlias() && isPrimitiveType(def.TypeAlias) {
+			res = def.TypeAlias
 		} else {
 			res = "interface{}"
 		}
@@ -337,8 +368,10 @@ func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 		res = string(def.Type)
 	}
 
-	if def.IsArray() && t != IDL.ANY {
-		res = "[]" + res
+	if t != IDL.ANY && def.Dimensions > 0 {
+		for i := 0; i < def.Dimensions; i++ {
+			res = "[]" + res
+		}
 	}
 
 	return res
@@ -554,28 +587,72 @@ func getMetaFFIArrayType(numericType string) (numericTypes uint64) {
 
 //--------------------------------------------------------------------
 
-func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *IDL.ModuleDefinition, funcDef *IDL.FunctionDefinition) string {
+func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *IDL.ModuleDefinition, outputVarExists bool) string {
 
 	if elem.IsAny() {
 		return fmt.Sprintf("%v := %vAsInterface", elem.Name, elem.Name)
 	}
 
-	// if casting is needed
-	castingCode := ""
-	if !elem.IsTypeAlias() {
-		castingCode = convertToGoType(elem, mod)
-	} else if elem.IsTypeAlias() && !elem.IsHandle() {
-		castingCode = elem.TypeAlias
-	}
+	if elem.Dimensions > 0 {
+		/*
+			{{if gt $f.Dimensions 0}}
+			{{$f.Name}} := make({{Repeat [] $f.Dimensions}}{{ConvertToGoType $f.ArgDefinition $m}}, {{$f.Dimensions}})
+			{{range $curDimIndex := Iterate $f.Dimensions}}
+			for i{{$curDimIndex}}, {{$f.Name}}_v{{add $curDimIndex 1}} := range {{$f.Name}}_v{{$curDimIndex}}.(interface{}[]) {
+			{{end}} {{/ * end if dimensions > 0 * /}}
+			{{$f.Name}}{{range $curDimIndex := Iterate $f.Dimensions}}[i{{$curDimIndex}}]{{end}} = {{$f.Name}}_v{{$f.Dimensions}}.({{ConvertToGoType $f.ArgDefinition $m}})
+			{{range $curDimIndex := Iterate $f.Dimensions}} } {{end}}
+		*/
+		code := fmt.Sprintf("%v_v0 := %vAsInterface\n", elem.Name, elem.Name)
+		if outputVarExists {
+			code += fmt.Sprintf("%v = make(%v, len(%v_v0.([]interface{})))\n", elem.Name, convertToGoType(elem, mod), elem.Name)
+		} else {
+			code += fmt.Sprintf("%v := make(%v, len(%v_v0.([]interface{})))\n", elem.Name, convertToGoType(elem, mod), elem.Name)
+		}
 
-	// if the type is a HANDLE - assertion needs to be the Alias
-	// if the type is NOT a handle - assertion needs to be to "covertToGoType"
-	assertion := ""
-	if elem.IsHandle() && elem.IsTypeAlias() {
-		assertion = elem.TypeAlias
+		for i := 0; i < elem.Dimensions; i++ {
+			code += fmt.Sprintf("for i%v, %v_v%v := range %v_v%v.([]interface{}) {\n", i, elem.Name, i+1, elem.Name, i)
+			if i+1 < elem.Dimensions { // create the next dimension
+
+				indexCode := ""
+				for j := 0; j < i+1; j++ {
+					indexCode += fmt.Sprintf("[i%v]", j)
+				}
+
+				code += fmt.Sprintf("%v%v = make(%v%v, len(%v_v%v.([]interface{})))\n", elem.Name, indexCode, strings.Repeat("[]", i+1), strings.ReplaceAll(convertToGoType(elem, mod), "[]", ""), elem.Name, i)
+			}
+		}
+
+		indexCode := ""
+		for i := 0; i < elem.Dimensions; i++ {
+			indexCode += fmt.Sprintf("[i%v]", i)
+		}
+
+		code += fmt.Sprintf("%v%v = %v_v%v.(%v)\n", elem.Name, indexCode, elem.Name, elem.Dimensions, strings.ReplaceAll(convertToGoType(elem, mod), "[]", ""))
+		code += strings.Repeat("}", elem.Dimensions)
+		return code
 	} else {
-		assertion = convertToGoType(elem, mod)
-	}
+		// if casting is needed
+		castingCode := ""
+		if !elem.IsTypeAlias() {
+			castingCode = convertToGoType(elem, mod)
+		} else if elem.IsTypeAlias() && !elem.IsHandle() {
+			castingCode = elem.TypeAlias
+		}
 
-	return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
+		// if the type is a HANDLE - assertion needs to be the Alias
+		// if the type is NOT a handle - assertion needs to be to "covertToGoType"
+		assertion := ""
+		if elem.IsHandle() && elem.IsTypeAlias() {
+			assertion = elem.TypeAlias
+		} else {
+			assertion = convertToGoType(elem, mod)
+		}
+
+		if outputVarExists {
+			return fmt.Sprintf("%v = %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
+		} else {
+			return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
+		}
+	}
 }

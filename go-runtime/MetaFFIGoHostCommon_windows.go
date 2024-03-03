@@ -662,7 +662,7 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 		res = convertToMultiDimSliceOfBools(pcdt_bool_res_arr)
 
 	default:
-		panic(fmt.Errorf("Return value %v is not of a supported type, but of type: %v", "res", res_type))
+		panic(fmt.Errorf("Converting from CDT to Go failed at index %v. supported type: %v", index, res_type))
 	}
 
 	return res
@@ -887,7 +887,6 @@ func setStringElement(p *C.metaffi_string8, l *C.metaffi_size, val string) {
 }
 
 func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo, i int) {
-	t.FillMetaFFITypeFromStringMetaFFIType()
 
 	pcdt := C.cast_to_cdt(pdata)
 	index := C.int(i)

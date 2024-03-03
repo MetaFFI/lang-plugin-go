@@ -33,6 +33,41 @@ func WaitABit(d time.Duration) error{
 	return nil
 }
 
+//--------------------------------------------
+
+type SomeClass struct{}
+
+func (s SomeClass) Print() {
+	fmt.Println("Hello from inner class")
+}
+
+func GetSomeClasses() []SomeClass {
+	return []SomeClass{{}, {}, {}}
+}
+
+func ExpectThreeSomeClasses(arr []SomeClass) {
+	if len(arr) != 3 {
+		panic("Array length is not 3")
+	}
+}
+
+func ExpectThreeBuffers(buffers [][]byte) {
+	if len(buffers) != 3 {
+		panic("Buffers length is not 3")
+	}
+}
+
+func GetThreeBuffers() [][]byte {
+	buffers := make([][]byte, 3)
+	for i := 0; i < 3; i++ {
+		buffers[i] = []byte{1, 2, 3}
+	}
+	return buffers
+}
+
+
+//--------------------------------------------
+
 type TestMap struct{
 	m map[string]interface{}
 	Name string

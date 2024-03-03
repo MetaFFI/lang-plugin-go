@@ -164,6 +164,133 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		}
 	}
 	
+	SECTION("runtime_test_target.SomeClass")
+	{
+		std::string function_path = "callable=GetSomeClasses";
+		metaffi_type_info retvals_getSomeClasses_types[] = {{metaffi_handle_array_type, (char*)"SomeClass[]", strlen("SomeClass[]"), 1}};
+		
+		void** pgetSomeClasses = load_function(module_path.string().c_str(), module_path.string().length(),
+		                                       function_path.c_str(), function_path.length(),
+		                                       nullptr, retvals_getSomeClasses_types,
+		                                       0, 1,
+		                                       &err, &err_len);
+		
+		if(err){ FAIL(err); }
+		REQUIRE(err_len == 0);
+		REQUIRE(pgetSomeClasses[0] != nullptr);
+		REQUIRE(pgetSomeClasses[1] == nullptr);
+		
+		function_path = "callable=ExpectThreeSomeClasses";
+		metaffi_type_info params_expectThreeSomeClasses_types[] = {{metaffi_handle_array_type, (char*)"SomeClass[]", strlen("SomeClass[]"), 1}};
+		
+		void** pexpectThreeSomeClasses = load_function(module_path.string().c_str(), module_path.string().length(),
+		                                               function_path.c_str(), function_path.length(),
+		                                               params_expectThreeSomeClasses_types, nullptr,
+		                                               1, 0,
+		                                               &err, &err_len);
+		
+		if(err){ FAIL(err); }
+		REQUIRE(err_len == 0);
+		REQUIRE(pexpectThreeSomeClasses[0] != nullptr);
+		REQUIRE(pexpectThreeSomeClasses[1] == nullptr);
+		
+		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		
+		uint64_t long_err_len = 0;
+		((void(*)(void*,cdts*,char**,uint64_t*))pgetSomeClasses[0])(pgetSomeClasses[1], (cdts*)cdts_param_ret, &err, &long_err_len);
+		if(err){ FAIL(err); }
+		REQUIRE(long_err_len == 0);
+		
+		
+		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
+		REQUIRE(wrapper_get_ret[0]->type == metaffi_handle_array_type);
+		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimensions == 1);
+		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimensions_lengths[0] == 3);
+		
+		auto arr = wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val;
+		
+		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
+		metaffi::runtime::cdts_wrapper wrapper_expect(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
+		wrapper_get_ret[0]->type = metaffi_handle_array_type;
+		wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val = arr;
+		
+		long_err_len = 0;
+		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeSomeClasses[0])(pexpectThreeSomeClasses[1], (cdts*)cdts_param_ret, &err, &long_err_len);
+		
+		if(err){ FAIL(err); }
+		REQUIRE(long_err_len == 0);
+	}
+	
+	
+	SECTION("runtime_test_target.ThreeBuffers")
+	{
+		std::string function_path = "callable=ExpectThreeBuffers";
+		metaffi_type_info params_expectThreeBuffers_types[] = {{metaffi_uint8_array_type, nullptr, 0, 2}};
+		
+		void** pexpectThreeBuffers = load_function(module_path.string().c_str(), module_path.string().length(),
+		                                           function_path.c_str(), function_path.length(),
+		                                           params_expectThreeBuffers_types, nullptr,
+		                                           1, 0,
+		                                           &err, &err_len);
+		
+		if(err){ FAIL(err); }
+		REQUIRE(err_len == 0);
+		REQUIRE(pexpectThreeBuffers[0] != nullptr);
+		REQUIRE(pexpectThreeBuffers[1] == nullptr);
+		
+		function_path = "callable=GetThreeBuffers";
+		metaffi_type_info retval_getThreeBuffers_types[] = {{metaffi_uint8_array_type, nullptr, 0, 2}};
+		
+		void** pgetThreeBuffers = load_function(module_path.string().c_str(), module_path.string().length(),
+		                                        function_path.c_str(), function_path.length(),
+		                                        nullptr, retval_getThreeBuffers_types,
+		                                        0, 1,
+		                                        &err, &err_len);
+		
+		if(err){ FAIL(err); }
+		REQUIRE(err_len == 0);
+		REQUIRE(pgetThreeBuffers[0] != nullptr);
+		REQUIRE(pgetThreeBuffers[1] == nullptr);
+		
+		// pass 3 buffers
+		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
+		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
+		wrapper_get_ret[0]->type = metaffi_uint8_array_type;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimensions = 2;
+		metaffi_size lengths[] = {3, 3};
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths = lengths;
+		metaffi_size data[3][3] = { {0,1,2}, {3,4,5}, {6,7,8} };
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals = (uint8_t*)data;
+		
+		uint64_t long_err_len = 0;
+		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeBuffers[0])(pexpectThreeBuffers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
+		if(err){ FAIL(err); }
+		REQUIRE(long_err_len == 0);
+		
+		
+		// get 3 buffers
+		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		((void(*)(void*,cdts*,char**,uint64_t*))pgetThreeBuffers[0])(pgetThreeBuffers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
+		if(err){ FAIL(err); }
+		REQUIRE(long_err_len == 0);
+		
+		metaffi::runtime::cdts_wrapper wrapper_get_buffers(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
+		
+		REQUIRE(wrapper_get_buffers[0]->type == metaffi_uint8_array_type);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimensions == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths[0] == 3);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths[1] == 3);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[0])[0] == 1);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[0])[1] == 2);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[0])[2] == 3);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[1])[0] == 1);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[1])[1] == 2);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[1])[2] == 3);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[2])[0] == 1);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[2])[1] == 2);
+		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[2])[2] == 3);
+	}
+	
 	SECTION("runtime_test_target.testmap.set_get_contains")
 	{
 		// create new testmap
