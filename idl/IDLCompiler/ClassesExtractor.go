@@ -43,7 +43,8 @@ func LoadClasses(gofile *parser.GoFile, metaffiGuestLib string) {
 			}
 
 			fdecl := IDL.NewFieldDefinition(structDef, f.Name, goTypeToMFFI(f.Type), "Get"+f.Name, "Set"+f.Name, true)
-			fdecl.TypeAlias = f.Type
+			fdecl.TypeAlias = strings.ReplaceAll(strings.ReplaceAll(f.Type, gofile.Package+".", ""), "[]", "")
+			fdecl.Dimensions = strings.Count(f.Type, "[]")
 			fdecl.Getter.SetTag("receiver_pointer", "true")
 			fdecl.Getter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
 			fdecl.Getter.SetFunctionPath("entrypoint_function", "EntryPoint_"+structDef.Name+"_"+fdecl.Getter.Name)
@@ -86,7 +87,7 @@ func LoadMethods(gofile *parser.GoFile, metaffiGuestLib string) {
 
 			var alias string
 			if p.Underlying != p.Type || !isPrimitiveType(p.Type) {
-				alias = p.Type
+				alias = strings.ReplaceAll(strings.ReplaceAll(p.Type, gofile.Package+".", ""), "[]", "")
 			}
 
 			var name string
@@ -109,7 +110,7 @@ func LoadMethods(gofile *parser.GoFile, metaffiGuestLib string) {
 		for i, p := range meth.Results {
 			var alias string
 			if p.Underlying != p.Type {
-				alias = p.Type
+				alias = strings.ReplaceAll(strings.ReplaceAll(p.Type, gofile.Package+".", ""), "[]", "")
 			}
 
 			var name string

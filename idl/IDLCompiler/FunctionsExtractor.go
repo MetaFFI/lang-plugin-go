@@ -37,7 +37,7 @@ func ExtractFunctions(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Func
 			var alias string
 			// Checking from p.Underlying to p.Type so the compiler can tell it needs to be converted
 			// if alias contains the file's package name - remove it as it is imported with "."
-			alias = strings.ReplaceAll(p.Type, gofile.Package+".", "")
+			alias = strings.ReplaceAll(strings.ReplaceAll(p.Type, gofile.Package+".", ""), "[]", "")
 			var name string
 			if p.Name != "" {
 				name = p.Name
@@ -57,7 +57,7 @@ func ExtractFunctions(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Func
 		for i, p := range f.Results {
 			var alias string
 			if p.Underlying != p.Type {
-				alias = p.Type
+				alias = strings.ReplaceAll(strings.ReplaceAll(p.Type, gofile.Package+".", ""), "[]", "")
 			}
 
 			var name string
