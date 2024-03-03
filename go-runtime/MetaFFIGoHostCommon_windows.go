@@ -897,7 +897,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 	pcdt := C.cast_to_cdt(pdata)
 	index := C.int(i)
 
-	cdt_to_set := (*C.struct_cdt)(C.get_index(unsafe.Pointer(pcdt), index))
+	cdt_to_set := C.get_cdt_index(pcdt, index)
 
 	switch t.Type {
 
@@ -909,7 +909,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 
 	case IDL.METAFFI_TYPE_HANDLE_ARRAY:
 		cdt_to_set.free_required = 1
-		C.set_cdt_type(cdt_to_set, C.metaffi_handle_type)
+		C.set_cdt_type(cdt_to_set, C.metaffi_handle_array_type)
 		pcdt_handle_array := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
 
 		pcdt_handle_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
