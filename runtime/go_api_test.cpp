@@ -202,6 +202,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		REQUIRE(long_err_len == 0);
 		
 		
+		
 		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_handle_array_type);
 		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimensions == 1);

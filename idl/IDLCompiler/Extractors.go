@@ -41,7 +41,7 @@ func isPrimitiveType(typename string) bool {
 func goTypeToMFFI(typename string) IDL.MetaFFIType {
 
 	isArray := false
-	if strings.Count(typename, "[]") > 1 {
+	if strings.Count(typename, "[]") > 0 {
 		isArray = true
 	}
 
