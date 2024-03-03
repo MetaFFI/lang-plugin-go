@@ -40,45 +40,118 @@ func isPrimitiveType(typename string) bool {
 // --------------------------------------------------------------------
 func goTypeToMFFI(typename string) IDL.MetaFFIType {
 
+	isArray := false
+	if strings.Count(typename, "[]") > 1 {
+		isArray = true
+	}
+
 	typename = strings.ReplaceAll(typename, "[]", "")
 	typename = strings.ReplaceAll(typename, "*", "")
 
 	switch typename {
 	case "string":
-		return IDL.STRING8
+		if !isArray {
+			return IDL.STRING8
+		} else {
+			return IDL.STRING8_ARRAY
+		}
 	case "int":
-		return IDL.INT64
+		if !isArray {
+			return IDL.INT64
+		} else {
+			return IDL.INT64_ARRAY
+		}
 	case "int8":
-		return IDL.INT8
+		if !isArray {
+			return IDL.INT8
+		} else {
+			return IDL.INT8_ARRAY
+		}
 	case "int16":
-		return IDL.INT16
+		if !isArray {
+			return IDL.INT16
+		} else {
+			return IDL.INT16_ARRAY
+		}
 	case "int32":
-		return IDL.INT32
+		if !isArray {
+			return IDL.INT32
+		} else {
+			return IDL.INT32_ARRAY
+		}
 	case "int64":
-		return IDL.INT64
+		if !isArray {
+			return IDL.INT64
+		} else {
+			return IDL.INT64_ARRAY
+		}
 	case "untyped int":
-		return IDL.INT64
+		if !isArray {
+			return IDL.INT64
+		} else {
+			return IDL.INT64_ARRAY
+		}
 	case "uint":
-		return IDL.UINT64
+		if !isArray {
+			return IDL.UINT64
+		} else {
+			return IDL.UINT64_ARRAY
+		}
 	case "uint8":
-		return IDL.UINT8
+		if !isArray {
+			return IDL.UINT8
+		} else {
+			return IDL.UINT8_ARRAY
+		}
 	case "uint16":
-		return IDL.UINT16
+		if !isArray {
+			return IDL.UINT16
+		} else {
+			return IDL.UINT16_ARRAY
+		}
 	case "uint32":
-		return IDL.UINT32
+		if !isArray {
+			return IDL.UINT32
+		} else {
+			return IDL.UINT32_ARRAY
+		}
 	case "uint64":
-		return IDL.UINT64
+		if !isArray {
+			return IDL.UINT64
+		} else {
+			return IDL.UINT64_ARRAY
+		}
 	case "float32":
-		return IDL.FLOAT32
+		if !isArray {
+			return IDL.FLOAT32
+		} else {
+			return IDL.FLOAT32_ARRAY
+		}
 	case "float64":
-		return IDL.FLOAT64
+		if !isArray {
+			return IDL.FLOAT64
+		} else {
+			return IDL.FLOAT64_ARRAY
+		}
 	case "bool":
-		return IDL.BOOL
+		if !isArray {
+			return IDL.BOOL
+		} else {
+			return IDL.BOOL_ARRAY
+		}
 	case "interface{}":
-		return IDL.ANY
+		if !isArray {
+			return IDL.ANY
+		} else {
+			return IDL.ANY_ARRAY
+		}
 
 	default:
-		return IDL.HANDLE
+		if !isArray {
+			return IDL.HANDLE
+		} else {
+			return IDL.HANDLE_ARRAY
+		}
 	}
 
 }
