@@ -73,7 +73,7 @@ func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes
 
 		if paramsCount > 0 {
 			for i, p := range params {
-				goruntime.FromGoToCDT(p, parametersCDTS, i)
+				goruntime.FromGoToCDT(p, parametersCDTS, paramsMetaFFITypes[i], i)
 			}
 		}
 
