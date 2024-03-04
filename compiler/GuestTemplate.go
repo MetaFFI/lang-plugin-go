@@ -170,7 +170,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Getter.Name $f.Getter.Pa
 	    Dimensions: {{$t.Dimensions}},
 		Type: {{GetMetaFFINumericType $t.Type}},
 	}
-	FromGoToCDT({{$f.Name}}, unsafe.Pointer(retvals_CDTS), t0, 0)
+	FromGoToCDT({{AssertAndConvert $f.Name $t $m}}, unsafe.Pointer(retvals_CDTS), t0, 0)
 
 }
 {{end}} {{/* end $f.Get */}}
@@ -232,7 +232,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 			Dimensions: {{$t.Dimensions}},
 			Type: {{GetMetaFFINumericType $t.Type}},
 		}
-		FromGoToCDT({{$elem.Name}}, unsafe.Pointer(retvals_CDTS), t{{$index}}, {{$index}})
+		FromGoToCDT({{AssertAndConvert $elem.Name $t $m}}, unsafe.Pointer(retvals_CDTS), t{{$index}}, {{$index}})
 	}	
 	{{end}} {{/* end range return vals */}}
 }
@@ -288,7 +288,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 			Dimensions: {{$t.Dimensions}},
 			Type: {{GetMetaFFINumericType $t.Type}},
 		}
-		FromGoToCDT({{$elem.Name}}, unsafe.Pointer(retvals_CDTS), t{{$index}}, {{$index}})
+		FromGoToCDT({{AssertAndConvert $elem.Name $t $m}}, unsafe.Pointer(retvals_CDTS), t{{$index}}, {{$index}})
 	}	
 	{{end}} {{/* end range return vals */}}
 }
@@ -333,7 +333,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 			Dimensions: {{$t.Dimensions}},
 			Type: {{GetMetaFFINumericType $t.Type}},
 		}
-		FromGoToCDT({{$elem.Name}}, unsafe.Pointer(retvals_CDTS), t{{$index}}, {{$index}})
+		FromGoToCDT({{AssertAndConvert $elem.Name $t $m}}, unsafe.Pointer(retvals_CDTS), t{{$index}}, {{$index}})
 	}	
 	{{end}} {{/* end range return values */}}
 }
@@ -363,7 +363,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Gett
 	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 
 	{{ $receiver_pointer := index $f.Getter.Tags "receiver_pointer"}}
-	{{$f.Name}}_res := obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}}
+	{{$f.Name}} := obj.({{if eq $receiver_pointer "true"}}*{{end}}{{$className}}).{{$f.Name}}
 
 	{{ if gt $returnLength 0 }}
 	t0 := IDL.MetaFFITypeInfo{ {{$t := index $f.Getter.ReturnValues 0}}
@@ -372,7 +372,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Gett
 		Dimensions: {{$t.Dimensions}},
 		Type: {{GetMetaFFINumericType $t.Type}},
 	}
-	FromGoToCDT({{$f.Name}}_res, unsafe.Pointer(retvals_CDTS), t0, 0)
+	FromGoToCDT({{AssertAndConvert $f.Name $t $m}}, unsafe.Pointer(retvals_CDTS), t0, 0)
 	{{end}}
 }
 {{end}} {{/* end $f.Getter */}}
