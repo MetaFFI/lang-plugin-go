@@ -365,7 +365,7 @@ func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 			res = "interface{}"
 		}
 	default:
-		res = string(def.Type)
+		res = string(t)
 	}
 
 	if t != IDL.ANY && def.Dimensions > 0 {

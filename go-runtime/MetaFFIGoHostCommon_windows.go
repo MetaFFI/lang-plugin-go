@@ -130,6 +130,7 @@ import "C"
 import (
 	"fmt"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"os"
 	"reflect"
 	"unsafe"
 )
@@ -534,7 +535,7 @@ func convertToMultiDimSliceOfBools(cdt_arr *C.struct_cdt_metaffi_bool_array) []i
 }
 
 func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
-
+	fmt.Fprintf(os.Stderr, "+++++++++ In FromCDTToGo +++++++++\n")
 	data := C.cast_to_cdt(pdata)
 	var res interface{}
 	index := C.int(i)
