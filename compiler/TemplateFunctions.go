@@ -368,7 +368,7 @@ func convertToGoType(def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
 		res = string(t)
 	}
 
-	if t != IDL.ANY && def.Dimensions > 0 {
+	if def.Dimensions > 0 {
 		for i := 0; i < def.Dimensions; i++ {
 			res = "[]" + res
 		}
