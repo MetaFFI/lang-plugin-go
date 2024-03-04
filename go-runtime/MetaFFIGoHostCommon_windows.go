@@ -451,7 +451,7 @@ func createMultiDimSlice[ctype_t CNumber, gotype_t GoNumber](data_arr *ctype_t, 
 		for i := range slice {
 			fmt.Printf("settings element: %v\n", i)
 			elem := (*ctype_t)(unsafe.Pointer(uintptr(unsafe.Pointer(data_arr)) + uintptr(i)*sizeofElement))
-			fmt.Printf("pointer to elem: %v\n", elem)
+			fmt.Printf("++pointer to elem: %v\n", elem)
 			fmt.Printf("elem data: %v\n", *elem)
 			slice[i] = *(*gotype_t)(unsafe.Pointer(elem))
 		}
