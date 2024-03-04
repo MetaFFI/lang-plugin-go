@@ -97,6 +97,8 @@ func goTypeToMFFI(typename string) IDL.MetaFFIType {
 		} else {
 			return IDL.UINT64_ARRAY
 		}
+	case "byte":
+		fallthrough
 	case "uint8":
 		if !isArray {
 			return IDL.UINT8
@@ -139,6 +141,8 @@ func goTypeToMFFI(typename string) IDL.MetaFFIType {
 		} else {
 			return IDL.BOOL_ARRAY
 		}
+	case "any":
+		fallthrough
 	case "interface{}":
 		if !isArray {
 			return IDL.ANY
