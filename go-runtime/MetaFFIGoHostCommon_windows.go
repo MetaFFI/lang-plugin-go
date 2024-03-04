@@ -841,26 +841,24 @@ func setElementUint32ToMetaffiUint32(p *C.metaffi_uint32, val interface{}) {
 
 // For int64 and C.metaffi_int64
 func setElementInt64ToMetaffiInt64(p *C.metaffi_int64, val interface{}) {
-	v := val.(int64)
-	*p = C.metaffi_int64(v)
+
+	*p = C.metaffi_int64(reflect.ValueOf(val).Convert(reflect.TypeOf(int64(0))).Interface().(int64))
+
+	//if v, ok := val.(int64); ok {
+	//	*p = C.metaffi_int64(v)
+	//} else if v, ok := val.(int); ok {
+	//	*p = C.metaffi_int64(v)
+	//}
+
 }
 
 // For uint64 and C.metaffi_uint64
 func setElementUint64ToMetaffiUint64(p *C.metaffi_uint64, val interface{}) {
-	v := val.(uint64)
-	*p = C.metaffi_uint64(v)
-}
-
-// For int and C.metaffi_int64
-func setElementIntToMetaffiInt64(p *C.metaffi_int64, val interface{}) {
-	v := val.(int)
-	*p = C.metaffi_int64(v)
-}
-
-// For uint and C.metaffi_uint64
-func setElementUintToMetaffiUint64(p *C.metaffi_uint64, val interface{}) {
-	v := val.(uint)
-	*p = C.metaffi_uint64(v)
+	if v, ok := val.(uint64); ok {
+		*p = C.metaffi_int64(v)
+	} else if v, ok := val.(uint); ok {
+		*p = int(v)
+	}
 }
 
 // For float32 and C.metaffi_float32
@@ -893,7 +891,7 @@ func setStringElement(p *C.metaffi_string8, l *C.metaffi_size, val string) {
 	*l = C.metaffi_size(len(val))
 }
 
-func GetMetaFFITypeInfo(input interface{}) IDL.MetaFFITypeInfo {
+func GetMetaFFITypeInfo(input interface{}) (IDL.MetaFFITypeInfo, reflect.Type) {
 	t := reflect.TypeOf(input)
 	var metaFFIType IDL.MetaFFIType
 	var alias string
@@ -954,7 +952,7 @@ func GetMetaFFITypeInfo(input interface{}) IDL.MetaFFITypeInfo {
 		Alias:      alias,
 		Type:       IDL.TypeStringToTypeEnum[metaFFIType],
 		Dimensions: dimensions,
-	}
+	}, t
 }
 
 func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo, i int) {
@@ -1116,12 +1114,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 		C.set_cdt_type(cdt_to_set, C.metaffi_int64_type)
 
 		pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		if _, ok := input.(int64); ok {
-			setElementInt64ToMetaffiInt64(&pcdt_out_int64_input.val, input)
-		} else {
-			setElementIntToMetaffiInt64(&pcdt_out_int64_input.val, input)
-		}
+		setElementInt64ToMetaffiInt64(&pcdt_out_int64_input.val, input)
 
 	case IDL.METAFFI_TYPE_INT64_ARRAY:
 		cdt_to_set.free_required = 1
@@ -1131,18 +1124,12 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 		pcdt_int64_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
 
 		// check if it is "int" or "int64" and set the appropriate setElementFunc
-		var setElementFunc func(*C.metaffi_int64, interface{})
 		curVal := reflect.ValueOf(input)
 		for curVal.Kind() == reflect.Slice {
 			curVal = curVal.Index(0)
 		}
-		if curVal.Kind() == reflect.Int64 {
-			setElementFunc = setElementInt64ToMetaffiInt64
-		} else {
-			setElementFunc = setElementIntToMetaffiInt64
-		}
 
-		pcdt_int64_array.vals = copySliceToArray[C.metaffi_int64](input, t.Dimensions, &pcdt_int64_array.dimensions_lengths, setElementFunc)
+		pcdt_int64_array.vals = copySliceToArray[C.metaffi_int64](input, t.Dimensions, &pcdt_int64_array.dimensions_lengths, setElementInt64ToMetaffiInt64)
 		pcdt_int64_array.dimensions = C.metaffi_size(t.Dimensions)
 
 		// For uint64
@@ -1152,11 +1139,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 
 		pcdt_out_uint64_input := ((*C.struct_cdt_metaffi_uint64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
 
-		if _, ok := input.(uint64); ok {
-			setElementUint64ToMetaffiUint64(&pcdt_out_uint64_input.val, input)
-		} else {
-			setElementUintToMetaffiUint64(&pcdt_out_uint64_input.val, input)
-		}
+		setElementUint64ToMetaffiUint64(&pcdt_out_uint64_input.val, input)
 
 	case IDL.METAFFI_TYPE_UINT64_ARRAY:
 		cdt_to_set.free_required = 1
@@ -1164,19 +1147,13 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 		pcdt_uint64_array := ((*C.struct_cdt_metaffi_uint64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
 
 		// check if it is "uint" or "uint64" and set the appropriate setElementFunc
-		var setElementFunc func(*C.metaffi_uint64, interface{})
 		curVal := reflect.ValueOf(input)
 		for curVal.Kind() == reflect.Slice {
 			curVal = curVal.Index(0)
 		}
-		if curVal.Kind() == reflect.Uint64 {
-			setElementFunc = setElementUint64ToMetaffiUint64
-		} else {
-			setElementFunc = setElementUintToMetaffiUint64
-		}
 
 		pcdt_uint64_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_uint64_array.vals = copySliceToArray[C.metaffi_uint64](input, t.Dimensions, &pcdt_uint64_array.dimensions_lengths, setElementFunc)
+		pcdt_uint64_array.vals = copySliceToArray[C.metaffi_uint64](input, t.Dimensions, &pcdt_uint64_array.dimensions_lengths, setElementUint64ToMetaffiUint64)
 		pcdt_uint64_array.dimensions = C.metaffi_size(t.Dimensions)
 
 	case IDL.METAFFI_TYPE_BOOL:
@@ -1213,7 +1190,7 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 
 	case IDL.METAFFI_TYPE_ANY:
 		// detect the underlying type and call recursively call with appropriate metaffi type
-		mtype := GetMetaFFITypeInfo(input)
+		mtype, _ := GetMetaFFITypeInfo(input)
 		FromGoToCDT(input, pdata, mtype, i)
 
 	default:
