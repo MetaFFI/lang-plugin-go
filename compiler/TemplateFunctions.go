@@ -47,6 +47,7 @@ var templatesFuncMap = map[string]interface{}{
 	"Repeat":                                     strings.Repeat,
 	"Iterate":                                    Iterate,
 	"GetMetaFFINumericType":                      GetMetaFFINumericType,
+	"AssertAndConvert":                           assertAndConvert,
 }
 
 func GetMetaFFINumericType(typeName IDL.MetaFFIType) uint64 {
@@ -586,6 +587,19 @@ func getMetaFFIArrayType(numericType string) (numericTypes uint64) {
 }
 
 //--------------------------------------------------------------------
+
+func assertAndConvert(varName string, def *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
+
+	if def.Type == IDL.HANDLE || def.Type == IDL.HANDLE_ARRAY {
+		return varName
+	}
+
+	if def.IsTypeAlias() { // assert
+		return fmt.Sprintf("%v(%v.(%v))", convertToGoType(def, mod), varName, def.TypeAlias)
+	} else {
+		return varName
+	}
+}
 
 func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *IDL.ModuleDefinition, outputVarExists bool) string {
 
