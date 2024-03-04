@@ -893,6 +893,70 @@ func setStringElement(p *C.metaffi_string8, l *C.metaffi_size, val string) {
 	*l = C.metaffi_size(len(val))
 }
 
+func GetMetaFFITypeInfo(input interface{}) IDL.MetaFFITypeInfo {
+	t := reflect.TypeOf(input)
+	var metaFFIType IDL.MetaFFIType
+	var alias string
+	var dimensions int
+
+	// Check if it's a slice
+	if t.Kind() == reflect.Slice {
+		dimensions = 1
+		t = t.Elem()
+		for t.Kind() == reflect.Slice {
+			dimensions++
+			t = t.Elem()
+		}
+	}
+
+	// Check if it's a primitive type
+	switch t.Kind() {
+	case reflect.Float64:
+		metaFFIType = IDL.FLOAT64
+	case reflect.Float32:
+		metaFFIType = IDL.FLOAT32
+	case reflect.Int8:
+		metaFFIType = IDL.INT8
+	case reflect.Int16:
+		metaFFIType = IDL.INT16
+	case reflect.Int32:
+		metaFFIType = IDL.INT32
+	case reflect.Int64:
+		metaFFIType = IDL.INT64
+	case reflect.Uint8:
+		metaFFIType = IDL.UINT8
+	case reflect.Uint16:
+		metaFFIType = IDL.UINT16
+	case reflect.Uint32:
+		metaFFIType = IDL.UINT32
+	case reflect.Uint64:
+		metaFFIType = IDL.UINT64
+	case reflect.Bool:
+		metaFFIType = IDL.BOOL
+	case reflect.String:
+		metaFFIType = IDL.STRING8
+	default:
+		metaFFIType = IDL.HANDLE
+	}
+
+	// If it's a slice, append "_array" to the metaFFIType
+	if dimensions > 0 {
+		metaFFIType = IDL.MetaFFIType(string(metaFFIType) + "_array")
+	}
+
+	// Check if it's a named type
+	if t.Name() != "" && t.Name() != string(metaFFIType) {
+		alias = t.Name()
+	}
+
+	return IDL.MetaFFITypeInfo{
+		StringType: metaFFIType,
+		Alias:      alias,
+		Type:       IDL.TypeStringToTypeEnum[metaFFIType],
+		Dimensions: dimensions,
+	}
+}
+
 func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo, i int) {
 
 	pcdt := C.cast_to_cdt(pdata)
@@ -1146,6 +1210,11 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 		pcdt_string8_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
 		pcdt_string8_array.vals, pcdt_string8_array.vals_sizes = copyStringSliceToStringArray(input, t.Dimensions, &pcdt_string8_array.dimensions_lengths, setStringElement)
 		pcdt_string8_array.dimensions = C.metaffi_size(t.Dimensions)
+
+	case IDL.METAFFI_TYPE_ANY:
+		// detect the underlying type and call recursively call with appropriate metaffi type
+		mtype := GetMetaFFITypeInfo(input)
+		FromGoToCDT(input, pdata, mtype, i)
 
 	default:
 		panic(fmt.Errorf("Input value %v is not of a supported type, but of type: %v", "input", t.Type))
