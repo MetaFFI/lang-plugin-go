@@ -72,6 +72,57 @@ func TestGoCDTInt8Array(t *testing.T) {
 	}
 }
 
+func TestGoCDTUInt8CArray(t *testing.T) {
+
+	input := Get2DUInt8ArrayCDTS()
+	output := FromCDTToGo(unsafe.Pointer(input.pcdt), 0)
+
+	output_data, ok := output.([]interface{})
+	if !ok {
+		t.Errorf("output is not of type int8")
+	}
+
+	if len(output_data) != 3 {
+		t.Errorf("length of input and output are not equal. input: %v, output: %v", 3, len(output_data))
+	}
+
+	if output_data[0].([]interface{})[0].(uint8) != 0 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 0, output_data[0].([]interface{})[0].(int8))
+	}
+
+	if output_data[0].([]interface{})[1].(uint8) != 1 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 1, output_data[0].([]interface{})[1].(int8))
+	}
+
+	if output_data[0].([]interface{})[2].(uint8) != 2 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 2, output_data[0].([]interface{})[2].(int8))
+	}
+
+	if output_data[1].([]interface{})[0].(uint8) != 3 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 3, output_data[1].([]interface{})[0].(int8))
+	}
+
+	if output_data[1].([]interface{})[1].(uint8) != 4 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 4, output_data[1].([]interface{})[1].(int8))
+	}
+
+	if output_data[1].([]interface{})[2].(uint8) != 5 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 5, output_data[1].([]interface{})[2].(int8))
+	}
+
+	if output_data[2].([]interface{})[0].(uint8) != 6 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 6, output_data[2].([]interface{})[0].(int8))
+	}
+
+	if output_data[2].([]interface{})[1].(uint8) != 7 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 7, output_data[2].([]interface{})[1].(int8))
+	}
+
+	if output_data[2].([]interface{})[2].(uint8) != 8 {
+		t.Errorf("input and output are not equal. input: %v, output: %v", 8, output_data[2].([]interface{})[2].(int8))
+	}
+}
+
 func TestGoCDTInt82DArray(t *testing.T) {
 	pcdts := GetCDTS()
 
