@@ -805,76 +805,59 @@ func setHandleElement(p *C.struct_cdt_metaffi_handle, val interface{}) {
 
 // For int8 and C.metaffi_int8
 func setElementInt8ToMetaffiInt8(p *C.metaffi_int8, val interface{}) {
-	v := val.(int8)
-	*p = C.metaffi_int8(v)
+	*p = C.metaffi_int8(reflect.ValueOf(val).Convert(reflect.TypeOf(int8(0))).Interface().(int8))
 }
 
 // For uint8 and C.metaffi_uint8
 func setElementUint8ToMetaffiUint8(p *C.metaffi_uint8, val interface{}) {
-	v := val.(uint8)
-	*p = C.metaffi_uint8(v)
+	*p = C.metaffi_uint8(reflect.ValueOf(val).Convert(reflect.TypeOf(uint8(0))).Interface().(uint8))
 }
 
 // For int16 and C.metaffi_int16
 func setElementInt16ToMetaffiInt16(p *C.metaffi_int16, val interface{}) {
-	v := val.(int16)
-	*p = C.metaffi_int16(v)
+	*p = C.metaffi_int16(reflect.ValueOf(val).Convert(reflect.TypeOf(int16(0))).Interface().(int16))
 }
 
 // For uint16 and C.metaffi_uint16
 func setElementUint16ToMetaffiUint16(p *C.metaffi_uint16, val interface{}) {
-	v := val.(uint16)
-	*p = C.metaffi_uint16(v)
+	*p = C.metaffi_uint16(reflect.ValueOf(val).Convert(reflect.TypeOf(uint16(0))).Interface().(uint16))
 }
 
 // For int32 and C.metaffi_int32
 func setElementInt32ToMetaffiInt32(p *C.metaffi_int32, val interface{}) {
-	v := val.(int32)
-	*p = C.metaffi_int32(v)
+	*p = C.metaffi_int32(reflect.ValueOf(val).Convert(reflect.TypeOf(int32(0))).Interface().(int32))
 }
 
 // For uint32 and C.metaffi_uint32
 func setElementUint32ToMetaffiUint32(p *C.metaffi_uint32, val interface{}) {
-	v := val.(uint32)
-	*p = C.metaffi_uint32(v)
+	*p = C.metaffi_uint32(reflect.ValueOf(val).Convert(reflect.TypeOf(uint32(0))).Interface().(uint32))
 }
 
 // For int64 and C.metaffi_int64
 func setElementInt64ToMetaffiInt64(p *C.metaffi_int64, val interface{}) {
-
 	*p = C.metaffi_int64(reflect.ValueOf(val).Convert(reflect.TypeOf(int64(0))).Interface().(int64))
-
-	//if v, ok := val.(int64); ok {
-	//	*p = C.metaffi_int64(v)
-	//} else if v, ok := val.(int); ok {
-	//	*p = C.metaffi_int64(v)
-	//}
-
 }
 
 // For uint64 and C.metaffi_uint64
 func setElementUint64ToMetaffiUint64(p *C.metaffi_uint64, val interface{}) {
-	if v, ok := val.(uint64); ok {
-		*p = C.metaffi_uint64(v)
-	} else if v, ok := val.(uint); ok {
-		*p = C.metaffi_uint64(uint64(v))
-	}
+	*p = C.metaffi_uint64(reflect.ValueOf(val).Convert(reflect.TypeOf(uint64(0))).Interface().(uint64))
 }
 
 // For float32 and C.metaffi_float32
 func setElementFloat32ToMetaffiFloat32(p *C.metaffi_float32, val interface{}) {
-	v := val.(float32)
-	*p = C.metaffi_float32(v)
+	*p = C.metaffi_float32(reflect.ValueOf(val).Convert(reflect.TypeOf(float32(0))).Interface().(float32))
 }
 
 // For float64 and C.metaffi_float64
 func setElementFloat64ToMetaffiFloat64(p *C.metaffi_float64, val interface{}) {
-	v := val.(float64)
-	*p = C.metaffi_float64(v)
+	*p = C.metaffi_float64(reflect.ValueOf(val).Convert(reflect.TypeOf(float64(0))).Interface().(float64))
 }
 
 func setBoolElement(p *C.metaffi_bool, val interface{}) {
-	if val.(bool) {
+
+	b := reflect.ValueOf(val).Convert(reflect.TypeOf(true)).Interface().(bool)
+
+	if b {
 		*p = C.metaffi_bool(1)
 	} else {
 		*p = C.metaffi_bool(0)
@@ -882,8 +865,11 @@ func setBoolElement(p *C.metaffi_bool, val interface{}) {
 }
 
 func setCDTStringElement(p *C.struct_cdt_metaffi_string8, val interface{}) {
-	p.val = C.CString(val.(string))
-	p.length = C.metaffi_size(len(val.(string)))
+
+	s := reflect.ValueOf(val).Convert(reflect.TypeOf("")).Interface().(string)
+
+	p.val = C.CString(s)
+	p.length = C.metaffi_size(len(s))
 }
 
 func setStringElement(p *C.metaffi_string8, l *C.metaffi_size, val string) {
