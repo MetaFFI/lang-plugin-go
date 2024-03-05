@@ -842,7 +842,7 @@ func setElementUint32ToMetaffiUint32(p *C.metaffi_uint32, val interface{}) {
 // For int64 and C.metaffi_int64
 func setElementInt64ToMetaffiInt64(p *C.metaffi_int64, val interface{}) {
 
-	*p = C.metaffi_int64(reflect.ValueOf(val).Convert(reflect.TypeOf(int64(0))).Interface().(int64))
+	*p = C.metaffi_int64(reflect.ValueOf(val).Convert(reflect.TypeOf(int64(0))))
 
 	//if v, ok := val.(int64); ok {
 	//	*p = C.metaffi_int64(v)
@@ -857,7 +857,7 @@ func setElementUint64ToMetaffiUint64(p *C.metaffi_uint64, val interface{}) {
 	if v, ok := val.(uint64); ok {
 		*p = C.metaffi_uint64(v)
 	} else if v, ok := val.(uint); ok {
-		*p = uint64(v)
+		*p = C.metaffi_uint64(uint64(v))
 	}
 }
 
