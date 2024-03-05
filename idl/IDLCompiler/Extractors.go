@@ -79,6 +79,8 @@ func goTypeToMFFI(typename string) IDL.MetaFFIType {
 		} else {
 			return IDL.INT32_ARRAY
 		}
+	case "uintptr":
+		fallthrough
 	case "int64":
 		if !isArray {
 			return IDL.INT64
