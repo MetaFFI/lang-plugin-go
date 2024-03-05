@@ -857,7 +857,7 @@ func setElementUint64ToMetaffiUint64(p *C.metaffi_uint64, val interface{}) {
 	if v, ok := val.(uint64); ok {
 		*p = C.metaffi_uint64(v)
 	} else if v, ok := val.(uint); ok {
-		*p = uint(v)
+		*p = uint64(v)
 	}
 }
 
