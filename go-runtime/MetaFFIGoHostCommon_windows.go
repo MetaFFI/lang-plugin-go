@@ -54,6 +54,11 @@ struct cdt* get_cdts_index_pcdt(struct cdts* p, int index)
 	return p[index].pcdt;
 }
 
+void set_cdt_string8(struct cdt* p, metaffi_string8 val)
+{
+	p->cdt_val.metaffi_string8_val = val;
+}
+
 void set_cdt_type(struct cdt* p, metaffi_type t)
 {
 	p->type = t;
@@ -395,143 +400,126 @@ func LoadCDTCAPI() {
 	}
 }
 
-func createMultiDimSliceOfHandles(pcdt_arr *C.struct_cdt_metaffi_handle_array, dims []int, index int) []interface{} {
+//--------------------------------------------------------------------
 
-	if index == len(dims)-1 {
-		// Base case: create a 1D slice
-		slice := make([]interface{}, dims[index])
-		for i := range slice {
-			metaffi_handle_instance := (*C.struct_cdt_metaffi_handle)(unsafe.Pointer(uintptr(unsafe.Pointer(pcdt_arr.vals)) + uintptr(i)*unsafe.Sizeof(*pcdt_arr.vals)))
-			var mhandle interface{}
-			if metaffi_handle_instance.val == C.get_null_handle().val {
-				mhandle = nil
-			} else if metaffi_handle_instance.runtime_id == GO_RUNTIME_ID {
-				mhandle = GetObject(Handle(metaffi_handle_instance.val))
+func setValAtIndices(arr interface{}, indices []int, val interface{}) error {
+	v := reflect.ValueOf(arr)
+	if v.Kind() != reflect.Slice {
+		return fmt.Errorf("arr is not a slice. Kind: %v", v.Kind())
+	}
+
+	valRef := reflect.ValueOf(val)
+	if valRef.Kind() != reflect.Slice {
+		return fmt.Errorf("val is not a slice. Kind: %v", valRef.Kind())
+	}
+
+	for i, index := range indices {
+		if v.Kind() != reflect.Slice {
+			return fmt.Errorf("invalid index: not a slice")
+		}
+		if index < 0 || index >= v.Len() {
+			return fmt.Errorf("invalid index: out of range")
+		}
+
+		if i == len(indices)-1 {
+			v.Index(index).Set(valRef)
+		} else {
+			v = v.Index(index)
+		}
+	}
+	return nil
+}
+
+func createMultidimArray(dimensions int, elementType reflect.Type, length int) interface{} {
+	if dimensions <= 0 {
+		return nil
+	}
+
+	// Start with a single-dimensional slice
+	sliceType := reflect.SliceOf(elementType)
+
+	// Add more dimensions
+	for i := 1; i < dimensions; i++ {
+		sliceType = reflect.SliceOf(sliceType)
+	}
+
+	// Create a slice of the final type
+	slice := reflect.MakeSlice(sliceType, length, length)
+
+	return slice.Interface()
+}
+
+type QueueItem struct {
+	Array unsafe.Pointer
+	Index []int
+}
+
+type cdtArray[T any] interface {
+	getVals(pointer unsafe.Pointer) unsafe.Pointer
+	getArr(pointer unsafe.Pointer, index int) unsafe.Pointer
+	allocArr(pointer unsafe.Pointer, length int)
+	getDimension(pointer unsafe.Pointer) int
+	getLength(pointer unsafe.Pointer) int
+	getElement(pointer unsafe.Pointer, index int) T
+	setVals(pointer unsafe.Pointer, vals unsafe.Pointer, length int)
+	setDimension(pointer unsafe.Pointer, dimension int)
+	setLength(pointer unsafe.Pointer, length int)
+}
+
+func traverseMultiDimArray[T any](arr unsafe.Pointer, t reflect.Type, cdtFields cdtArray[T]) interface{} {
+	queue := make([]QueueItem, 0)
+	index := make([]int, cdtFields.getDimension(arr))
+	var otherArray interface{}
+	queue = append(queue, QueueItem{Array: arr, Index: index})
+
+	for len(queue) > 0 {
+		currentItem := queue[0]
+		current := currentItem.Array
+		index = currentItem.Index
+		queue = queue[1:]
+
+		if cdtFields.getDimension(current) == 1 {
+			// Get the vals from the C struct
+			vals := cdtFields.getVals(current)
+			// Convert the C array to a Go slice
+			goVals := make([]T, cdtFields.getLength(current))
+			for i := range goVals {
+				goVals[i] = cdtFields.getElement(vals, i)
+			}
+
+			if otherArray == nil {
+				otherArray = goVals // In the case we're traversing a 1D array
 			} else {
-				mhandle = MetaFFIHandle{
-					Val:       Handle(metaffi_handle_instance.val),
-					RuntimeID: uint64(metaffi_handle_instance.runtime_id),
+				// Navigate to the correct position in the otherArray and append the goVals
+				err := setValAtIndices(otherArray, index[:len(index)-1], goVals)
+				if err != nil {
+					panic(err)
 				}
 			}
-			slice[i] = mhandle
+
+		} else {
+			// Create a new slice with the specified length
+			newArray := createMultidimArray(cdtFields.getDimension(current), t, cdtFields.getLength(current))
+
+			// Navigate to the correct position in the otherArray
+			if otherArray == nil {
+				otherArray = newArray
+			} else {
+				err := setValAtIndices(otherArray, index[:len(index)-cdtFields.getDimension(current)], newArray)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			for i := 0; i < cdtFields.getLength(current); i++ {
+				newIndex := make([]int, cdtFields.getDimension(arr))
+				copy(newIndex, index)
+				newIndex[len(index)-cdtFields.getDimension(current)] = i
+				queue = append(queue, QueueItem{Array: cdtFields.getArr(current, i), Index: newIndex})
+			}
 		}
-		return slice
 	}
-
-	// Recursive case: create a multi-dimensional slice
-	slice := make([]interface{}, dims[index])
-	for i := range slice {
-		slice[i] = createMultiDimSliceOfHandles(pcdt_arr, dims, index+1)
-	}
-	return slice
-}
-
-func convertToMultiDimSliceOfHandles(cdt_arr *C.struct_cdt_metaffi_handle_array) []interface{} {
-	dims := make([]int, cdt_arr.dimensions)
-	for i := range dims {
-		dims[i] = int(C.get_int_item(cdt_arr.dimensions_lengths, C.int(i)))
-	}
-	return createMultiDimSliceOfHandles(cdt_arr, dims, 0)
-}
-
-type GoNumber interface {
-	int | uint | int8 | uint8 | int16 | uint16 | int32 | uint32 | int64 | uint64 | float32 | float64
-}
-
-type CNumber interface {
-	C.int8_t | C.uint8_t | C.int16_t | C.uint16_t | C.int32_t | C.uint32_t | C.int64_t | C.uint64_t | C.float | C.double
-}
-
-func createMultiDimSlice[ctype_t CNumber, gotype_t GoNumber](data_arr *ctype_t, dims []int, index int, sizeofPointer uintptr, sizeofElement uintptr) []interface{} {
-	if index == len(dims)-1 {
-		// Base case: create a 1D slice
-		slice := make([]interface{}, dims[index])
-
-		for i := range slice {
-			elem := (*ctype_t)(unsafe.Pointer(uintptr(unsafe.Pointer(data_arr)) + uintptr(i)*sizeofElement))
-			slice[i] = *(*gotype_t)(unsafe.Pointer(elem))
-		}
-		return slice
-	}
-
-	// Recursive case: create a multi-dimensional slice
-	slice := make([]interface{}, dims[index])
-	for i := range slice {
-		// *(int8_t**)(data_arr + i*sizeof(pointer))
-		dereferenced := (*ctype_t)(*((**ctype_t)(unsafe.Pointer(uintptr(unsafe.Pointer(data_arr)) + uintptr(i)*sizeofPointer))))
-		slice[i] = createMultiDimSlice[ctype_t, gotype_t](dereferenced, dims, index+1, sizeofPointer, sizeofElement)
-	}
-	return slice
-}
-
-func convertToMultiDimSliceOfNumbers[ctype_t CNumber, gotype_t GoNumber](dimensions C.metaffi_size, dimensions_length *C.metaffi_size, vals *ctype_t, sizeofElement uintptr) []interface{} {
-	dims := make([]int, dimensions)
-	for i := range dims {
-		dims[i] = int(C.get_int_item(dimensions_length, C.int(i)))
-	}
-	x := 0
-	return createMultiDimSlice[ctype_t, gotype_t](vals, dims, 0, unsafe.Sizeof(&x), sizeofElement)
-}
-
-// For string
-func createMultiDimSliceOfString(strings *C.metaffi_string8, strings_lengths *C.metaffi_size, sizeofPointer uintptr, dims []int, index int) []interface{} {
-	if index == len(dims)-1 {
-		// Base case: create a 1D slice
-		slice := make([]interface{}, dims[index])
-		for i := range slice {
-			str := *(*C.metaffi_string8)(unsafe.Pointer(uintptr(unsafe.Pointer(strings)) + uintptr(i)*sizeofPointer))
-			strLen := *(*C.metaffi_size)(unsafe.Pointer(uintptr(unsafe.Pointer(strings_lengths)) + uintptr(i)*sizeofPointer))
-			slice[i] = C.GoStringN(str, C.int(strLen))
-		}
-		return slice
-	}
-
-	// Recursive case: create a multi-dimensional slice
-	slice := make([]interface{}, dims[index])
-	for i := range slice {
-		dereferenced_strings := (*C.metaffi_string8)(*((**C.metaffi_string8)(unsafe.Pointer(uintptr(unsafe.Pointer(strings)) + uintptr(i)*sizeofPointer))))
-		dereferenced_lengths := (*C.metaffi_size)(*((**C.metaffi_size)(unsafe.Pointer(uintptr(unsafe.Pointer(strings_lengths)) + uintptr(i)*sizeofPointer))))
-		slice[i] = createMultiDimSliceOfString(dereferenced_strings, dereferenced_lengths, sizeofPointer, dims, index+1)
-	}
-	return slice
-}
-
-func convertToMultiDimSliceOfStrings(cdt_arr *C.struct_cdt_metaffi_string8_array) []interface{} {
-	dims := make([]int, cdt_arr.dimensions)
-	for i := range dims {
-		dims[i] = int(C.get_int_item(cdt_arr.dimensions_lengths, C.int(i)))
-	}
-
-	x := 0
-	return createMultiDimSliceOfString(cdt_arr.vals, cdt_arr.vals_sizes, unsafe.Sizeof(&x), dims, 0)
-}
-
-// For bool
-func createMultiDimSliceOfBool(cdt_arr *C.struct_cdt_metaffi_bool_array, dims []int, index int) []interface{} {
-	if index == len(dims)-1 {
-		// Base case: create a 1D slice
-		slice := make([]interface{}, dims[index])
-		for i := range slice {
-			bool_instance := (*C.struct_cdt_metaffi_bool)(unsafe.Pointer(uintptr(unsafe.Pointer(cdt_arr.vals)) + uintptr(i)*unsafe.Sizeof(*cdt_arr.vals)))
-			slice[i] = bool(bool_instance.val != 0)
-		}
-		return slice
-	}
-
-	// Recursive case: create a multi-dimensional slice
-	slice := make([]interface{}, dims[index])
-	for i := range slice {
-		slice[i] = createMultiDimSliceOfBool(cdt_arr, dims, index+1)
-	}
-	return slice
-}
-
-func convertToMultiDimSliceOfBools(cdt_arr *C.struct_cdt_metaffi_bool_array) []interface{} {
-	dims := make([]int, cdt_arr.dimensions)
-	for i := range dims {
-		dims[i] = int(C.get_int_item(cdt_arr.dimensions_lengths, C.int(i)))
-	}
-	return createMultiDimSliceOfBool(cdt_arr, dims, 0)
+	return otherArray
 }
 
 func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
@@ -544,337 +532,145 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 
 	switch uint64(res_type) {
 
-	case IDL.METAFFI_TYPE_HANDLE: // handle
-		pcdt_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		var h C.metaffi_handle = pcdt_handle_res.val
-
-		if h == C.get_null_handle().val {
-			res = nil
-		}
-
-		if pcdt_handle_res.runtime_id == GO_RUNTIME_ID {
-			res = GetObject(Handle(h))
-		} else {
-			res = MetaFFIHandle{
-				Val:       Handle(h),
-				RuntimeID: uint64(pcdt_handle_res.runtime_id),
-			}
-		}
-
-	case IDL.METAFFI_TYPE_HANDLE_ARRAY:
-		cdt_handles_arr := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfHandles(cdt_handles_arr)
-
-	case IDL.METAFFI_TYPE_FLOAT64:
-		pcdt_float64 := ((*C.struct_cdt_metaffi_float64)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = float64(pcdt_float64.val)
-
-	case IDL.METAFFI_TYPE_FLOAT64_ARRAY:
-		pcdt_float64_arr := ((*C.struct_cdt_metaffi_float64_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_float64, float64](pcdt_float64_arr.dimensions, pcdt_float64_arr.dimensions_lengths, pcdt_float64_arr.vals, C.sizeof_metaffi_float64)
-
 	case IDL.METAFFI_TYPE_FLOAT32:
-		pcdt_float32 := ((*C.struct_cdt_metaffi_float32)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = float32(pcdt_float32.val)
+		pfloat32 := (*C.metaffi_float32)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = float32(*pfloat32)
 
 	case IDL.METAFFI_TYPE_FLOAT32_ARRAY:
-		pcdt_float32_arr := ((*C.struct_cdt_metaffi_float32_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_float32, float32](pcdt_float32_arr.dimensions, pcdt_float32_arr.dimensions_lengths, pcdt_float32_arr.vals, C.sizeof_metaffi_float32)
+		pcdt_float32_arr := unsafe.Pointer((*C.struct_cdt_metaffi_float32_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = traverseMultiDimArray[float32](pcdt_float32_arr, reflect.TypeOf(float32(0)), &CDTMetaFFIFloat32Array{})
+
+	case IDL.METAFFI_TYPE_FLOAT64:
+		pfloat64 := (*C.metaffi_float64)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = float64(*pfloat64)
+
+	case IDL.METAFFI_TYPE_FLOAT64_ARRAY:
+		pcdt_float64_arr := unsafe.Pointer((*C.struct_cdt_metaffi_float64_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = traverseMultiDimArray[float64](pcdt_float64_arr, reflect.TypeOf(float64(0)), &CDTMetaFFIFloat64Array{})
 
 	case IDL.METAFFI_TYPE_INT8:
-		pcdt_int8 := ((*C.struct_cdt_metaffi_int8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = int8(pcdt_int8.val)
+		pint8 := (*C.metaffi_int8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = int8(*pint8)
 
 	case IDL.METAFFI_TYPE_INT8_ARRAY:
-		pcdt_int8_arr := ((*C.struct_cdt_metaffi_int8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_int8, int8](pcdt_int8_arr.dimensions, pcdt_int8_arr.dimensions_lengths, pcdt_int8_arr.vals, C.sizeof_int8_t)
+		pcdt_int8_arr := unsafe.Pointer((*C.struct_cdt_metaffi_int8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = traverseMultiDimArray[int8](pcdt_int8_arr, reflect.TypeOf(int8(0)), &CDTMetaFFIInt8Array{})
 
-		// For uint8
 	case IDL.METAFFI_TYPE_UINT8:
-		pcdt_uint8 := ((*C.struct_cdt_metaffi_uint8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = uint8(pcdt_uint8.val)
+		puint8 := (*C.metaffi_uint8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = uint8(*puint8)
 
 	case IDL.METAFFI_TYPE_UINT8_ARRAY:
-		pcdt_uint8_arr := ((*C.struct_cdt_metaffi_uint8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_uint8, uint8](pcdt_uint8_arr.dimensions, pcdt_uint8_arr.dimensions_lengths, pcdt_uint8_arr.vals, C.sizeof_uint8_t)
+		pcdt_uint8_arr := unsafe.Pointer((*C.struct_cdt_metaffi_uint8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = traverseMultiDimArray[uint8](pcdt_uint8_arr, reflect.TypeOf(uint8(0)), &CDTMetaFFIUint8Array{})
 
 		// For int16
 	case IDL.METAFFI_TYPE_INT16:
-		pcdt_int16 := ((*C.struct_cdt_metaffi_int16)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = int16(pcdt_int16.val)
+		pint16 := (*C.metaffi_int16)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = int16(*pint16)
 
 	case IDL.METAFFI_TYPE_INT16_ARRAY:
-		pcdt_int16_arr := ((*C.struct_cdt_metaffi_int16_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_int16, int16](pcdt_int16_arr.dimensions, pcdt_int16_arr.dimensions_lengths, pcdt_int16_arr.vals, C.sizeof_int16_t)
+		pcdt_int16_arr := (*C.struct_cdt_metaffi_int16_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[int16](unsafe.Pointer(pcdt_int16_arr), reflect.TypeOf(int16(0)), &CDTMetaFFIInt16Array{})
 
 		// For uint16
 	case IDL.METAFFI_TYPE_UINT16:
-		pcdt_uint16 := ((*C.struct_cdt_metaffi_uint16)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = uint16(pcdt_uint16.val)
+		puint16 := ((*C.metaffi_uint16)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = uint16(*puint16)
 
 	case IDL.METAFFI_TYPE_UINT16_ARRAY:
-		pcdt_uint16_arr := ((*C.struct_cdt_metaffi_uint16_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_uint16, uint16](pcdt_uint16_arr.dimensions, pcdt_uint16_arr.dimensions_lengths, pcdt_uint16_arr.vals, C.sizeof_uint16_t)
+		pcdt_uint16_arr := (*C.struct_cdt_metaffi_uint16_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[uint16](unsafe.Pointer(pcdt_uint16_arr), reflect.TypeOf(uint16(0)), &CDTMetaFFIUint16Array{})
 
 		// For int32
 	case IDL.METAFFI_TYPE_INT32:
-		pcdt_int32 := ((*C.struct_cdt_metaffi_int32)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = int32(pcdt_int32.val)
+		pint32 := ((*C.metaffi_int32)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = int32(*pint32)
 
 	case IDL.METAFFI_TYPE_INT32_ARRAY:
-		pcdt_int32_arr := ((*C.struct_cdt_metaffi_int32_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_int32, int32](pcdt_int32_arr.dimensions, pcdt_int32_arr.dimensions_lengths, pcdt_int32_arr.vals, C.sizeof_int32_t)
+		pcdt_int32_arr := (*C.struct_cdt_metaffi_int32_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[int32](unsafe.Pointer(pcdt_int32_arr), reflect.TypeOf(int32(0)), &CDTMetaFFIInt32Array{})
 
 		// For uint32
 	case IDL.METAFFI_TYPE_UINT32:
-		pcdt_uint32 := ((*C.struct_cdt_metaffi_uint32)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = uint32(pcdt_uint32.val)
+		puint32 := ((*C.metaffi_uint32)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = uint32(*puint32)
 
 	case IDL.METAFFI_TYPE_UINT32_ARRAY:
-		pcdt_uint32_arr := ((*C.struct_cdt_metaffi_uint32_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_uint32, uint32](pcdt_uint32_arr.dimensions, pcdt_uint32_arr.dimensions_lengths, pcdt_uint32_arr.vals, C.sizeof_uint32_t)
+		pcdt_uint32_arr := (*C.struct_cdt_metaffi_uint32_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[uint32](unsafe.Pointer(pcdt_uint32_arr), reflect.TypeOf(uint32(0)), &CDTMetaFFIUint32Array{})
 
 		// For int64
 	case IDL.METAFFI_TYPE_INT64:
-		pcdt_int64 := (*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = int64(pcdt_int64.val)
+		pint64 := (*C.metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = int64(*pint64)
 
 	case IDL.METAFFI_TYPE_INT64_ARRAY:
 		pcdt_int64_arr := (*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_int64, int64](pcdt_int64_arr.dimensions, pcdt_int64_arr.dimensions_lengths, pcdt_int64_arr.vals, C.sizeof_metaffi_int64)
+		res = traverseMultiDimArray[int64](unsafe.Pointer(pcdt_int64_arr), reflect.TypeOf(int64(0)), &CDTMetaFFIInt64Array{})
 
 		// For uint64
 	case IDL.METAFFI_TYPE_UINT64:
-		pcdt_uint64 := (*C.struct_cdt_metaffi_uint64)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = uint64(pcdt_uint64.val)
+		puint64 := (*C.metaffi_uint64)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = uint64(*puint64)
 
 	case IDL.METAFFI_TYPE_UINT64_ARRAY:
 		pcdt_uint64_arr := (*C.struct_cdt_metaffi_uint64_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = convertToMultiDimSliceOfNumbers[C.metaffi_uint64, uint64](pcdt_uint64_arr.dimensions, pcdt_uint64_arr.dimensions_lengths, pcdt_uint64_arr.vals, C.sizeof_metaffi_uint64)
-
-	case IDL.METAFFI_TYPE_STRING8: // string8
-		pcdt_string8_res := (*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = C.GoStringN(pcdt_string8_res.val, C.int(pcdt_string8_res.length))
-
-	case IDL.METAFFI_TYPE_STRING8_ARRAY: // []string8
-		pcdt_string8_res_arr := (*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = convertToMultiDimSliceOfStrings(pcdt_string8_res_arr)
+		res = traverseMultiDimArray[uint64](unsafe.Pointer(pcdt_uint64_arr), reflect.TypeOf(uint64(0)), &CDTMetaFFIUint64Array{})
 
 	case IDL.METAFFI_TYPE_BOOL: // bool
-		pcdt_bool_res := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
-		res = pcdt_bool_res.val != C.metaffi_bool(0)
+		pbool := ((*C.metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = *pbool != C.metaffi_bool(0)
 
 	case IDL.METAFFI_TYPE_BOOL_ARRAY: // []bool
-		pcdt_bool_res_arr := (*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		res = convertToMultiDimSliceOfBools(pcdt_bool_res_arr)
+		pcdt_bool_arr := (*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[bool](unsafe.Pointer(pcdt_bool_arr), reflect.TypeOf(false), &CDTMetaFFIBoolArray{})
+
+	case IDL.METAFFI_TYPE_CHAR8: // char8
+		pchar8 := (*C.metaffi_char8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = rune(*pchar8)
+
+	case IDL.METAFFI_TYPE_CHAR8_ARRAY: // []char8
+		pcdt_char8_arr := (*C.struct_cdt_metaffi_char8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[rune](unsafe.Pointer(pcdt_char8_arr), reflect.TypeOf(' '), &CDTMetaFFIChar8Array{})
+
+	case IDL.METAFFI_TYPE_STRING8: // string8
+		pstring8 := (*C.metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = C.GoString((*C.char)(unsafe.Pointer(*pstring8)))
+
+	case IDL.METAFFI_TYPE_STRING8_ARRAY: // []string8
+		pcdt_string8_arr := (*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[string](unsafe.Pointer(pcdt_string8_arr), reflect.TypeOf(""), &CDTMetaFFIString8Array{})
+
+	case IDL.METAFFI_TYPE_CHAR16: // char16
+		pchar16 := (*C.metaffi_char16)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = GetRuneFromUTF16(unsafe.Pointer(pchar16))
+
+	case IDL.METAFFI_TYPE_STRING16: // string16
+		pstring16 := (*C.metaffi_string16)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = ConvertUTF16ToGoString(unsafe.Pointer(pstring16))
+
+	case IDL.METAFFI_TYPE_STRING16_ARRAY: // string16
+		pcdt_string16_arr := (*C.struct_cdt_metaffi_string16_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		res = traverseMultiDimArray[string](unsafe.Pointer(pcdt_string16_arr), reflect.TypeOf(""), &CDTMetaFFIString16Array{})
+
+	case IDL.METAFFI_TYPE_HANDLE: // handle
+		pcdt_handle_res := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val))))
+		res = GetGoObject(pcdt_handle_res)
+
+	case IDL.METAFFI_TYPE_HANDLE_ARRAY:
+		pcdt_handle_arr := (*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
+		t := reflect.TypeOf((*interface{})(nil)).Elem()
+		res = traverseMultiDimArray[interface{}](unsafe.Pointer(pcdt_handle_arr), t, &CDTMetaFFIHandleArray{})
+
+	case IDL.METAFFI_TYPE_CALLABLE:
+		panic("Callable type not implemented yet")
 
 	default:
 		panic(fmt.Errorf("Converting from CDT to Go failed at index %v. supported type: %v", index, res_type))
 	}
 
 	return res
-}
-
-func internalCopySliceToArray[T any](input interface{}, dims int, lengths []int, sizeOfT uintptr, setElement func(*T, interface{})) *T {
-	val := reflect.ValueOf(input)
-
-	arr := (*T)(C.malloc(C.size_t(lengths[0]) * C.size_t(sizeOfT)))
-
-	for i := 0; i < val.Len(); i++ {
-		if dims == 1 {
-			setElement((*T)(unsafe.Pointer(uintptr(unsafe.Pointer(arr))+uintptr(i)*sizeOfT)), val.Index(i).Interface())
-		} else {
-			// Recurse into the next dimension
-			for i := 0; i < val.Len(); i++ {
-
-				// TODO: pass size of pointer
-				var x *C.int
-				p := (**T)(unsafe.Pointer(uintptr(unsafe.Pointer(arr)) + uintptr(i)*unsafe.Sizeof(x)))
-
-				// TODO: pass another parameter - current dim, instead of shortening "lengths"
-				*p = internalCopySliceToArray(val.Index(i).Interface(), dims-1, lengths[1:], sizeOfT, setElement)
-			}
-		}
-	}
-
-	return arr
-}
-
-func copySliceToArray[T any](input interface{}, dimensions int, lengths **C.metaffi_size, setElement func(*T, interface{})) *T {
-
-	var dummy T
-	sliceVal := reflect.ValueOf(input)
-	if sliceVal.Kind() != reflect.Slice {
-		panic("Given input is not a slice")
-	}
-
-	dimsInInput := 0
-	*lengths = (*C.metaffi_size)(C.malloc(C.size_t(dimensions) * C.sizeof_metaffi_size))
-	goLength := make([]int, dimensions)
-	for sliceVal.Kind() == reflect.Slice {
-		if dimsInInput >= dimensions {
-			panic(fmt.Sprintf("Given slice dimensions (%v) is larger than expected dimensions (%v)", dimsInInput, dimensions))
-		}
-
-		C.set_metaffi_size_item(*lengths, C.int(dimsInInput), C.metaffi_size(sliceVal.Len())) // store dimensions length
-		goLength[dimsInInput] = sliceVal.Len()
-		sliceVal = sliceVal.Index(0)
-
-		dimsInInput++
-	}
-
-	if dimsInInput != dimensions {
-		panic(fmt.Sprintf("Given slice dimensions (%v) is not equal to expected dimensions (%v)", dimsInInput, dimensions))
-	}
-
-	return internalCopySliceToArray(input, dimensions, goLength, unsafe.Sizeof(dummy), setElement)
-
-}
-
-func internalCopyStringSliceToStringArray(input interface{}, dims int, lengths []int, curDim int, sizeOfPointer uintptr, setElement func(p *C.metaffi_string8, l *C.metaffi_size, val string)) (*C.metaffi_string8, *C.metaffi_size) {
-	val := reflect.ValueOf(input)
-
-	arr_str := (*C.metaffi_string8)(C.malloc(C.size_t(lengths[0]) * C.size_t(sizeOfPointer)))
-	arr_str_lens := (*C.metaffi_size)(C.malloc(C.size_t(lengths[0]) * C.size_t(sizeOfPointer)))
-
-	for i := 0; i < val.Len(); i++ {
-		if dims == 1 {
-			setElement((*C.metaffi_string8)(unsafe.Pointer(uintptr(unsafe.Pointer(arr_str))+uintptr(i)*sizeOfPointer)), (*C.metaffi_size)(unsafe.Pointer(uintptr(unsafe.Pointer(arr_str_lens))+uintptr(i)*C.sizeof_metaffi_size)), val.Index(i).Interface().(string))
-		} else {
-			// Recurse into the next dimension
-			for i := 0; i < val.Len(); i++ {
-
-				// TODO: pass size of pointer
-				p := (**C.metaffi_string8)(unsafe.Pointer(uintptr(unsafe.Pointer(arr_str)) + uintptr(i)*unsafe.Sizeof(sizeOfPointer)))
-				l := (**C.metaffi_size)(unsafe.Pointer(uintptr(unsafe.Pointer(arr_str_lens)) + uintptr(i)*unsafe.Sizeof(sizeOfPointer)))
-
-				// TODO: pass another parameter - current dim, instead of shortening "lengths"
-				*p, *l = internalCopyStringSliceToStringArray(val.Index(i).Interface(), dims-1, lengths, curDim+1, sizeOfPointer, setElement)
-			}
-		}
-	}
-
-	return arr_str, arr_str_lens
-}
-
-func copyStringSliceToStringArray(input interface{}, dimensions int, lengths **C.metaffi_size, setElement func(p *C.metaffi_string8, l *C.metaffi_size, val string)) (*C.metaffi_string8, *C.metaffi_size) {
-	sliceVal := reflect.ValueOf(input)
-	if sliceVal.Kind() != reflect.Slice {
-		panic("Given input is not a slice")
-	}
-
-	dimsInInput := 0
-	*lengths = (*C.metaffi_size)(C.malloc(C.size_t(dimensions) * C.sizeof_metaffi_size))
-	goLength := make([]int, dimensions)
-	for sliceVal.Kind() == reflect.Slice {
-		if dimsInInput >= dimensions {
-			panic(fmt.Sprintf("Given slice dimensions (%v) is larger than expected dimensions (%v)", dimsInInput, dimensions))
-		}
-
-		C.set_metaffi_size_item(*lengths, C.int(dimsInInput), C.metaffi_size(sliceVal.Len())) // store dimensions length
-		goLength[dimsInInput] = sliceVal.Len()
-		sliceVal = sliceVal.Index(0)
-
-		dimsInInput++
-	}
-
-	if dimsInInput != dimensions {
-		panic(fmt.Sprintf("Given slice dimensions (%v) is not equal to expected dimensions (%v)", dimsInInput, dimensions))
-	}
-
-	x := C.int(0)
-	return internalCopyStringSliceToStringArray(input, dimensions, goLength, 0, unsafe.Sizeof(&x), setElement)
-}
-
-func setHandleElement(p *C.struct_cdt_metaffi_handle, val interface{}) {
-	if h, ok := val.(MetaFFIHandle); ok {
-		(*p).val = C.metaffi_handle(h.Val)
-		(*p).runtime_id = C.metaffi_size(h.RuntimeID)
-	} else {
-
-		if val == nil {
-			(*p).val = C.metaffi_handle(uintptr(0))
-			(*p).runtime_id = 0
-			return
-		} else {
-			(*p).val = C.metaffi_handle(SetObject(val))
-			(*p).runtime_id = GO_RUNTIME_ID
-		}
-	}
-}
-
-// For int8 and C.metaffi_int8
-func setElementInt8ToMetaffiInt8(p *C.metaffi_int8, val interface{}) {
-	*p = C.metaffi_int8(reflect.ValueOf(val).Convert(reflect.TypeOf(int8(0))).Interface().(int8))
-}
-
-// For uint8 and C.metaffi_uint8
-func setElementUint8ToMetaffiUint8(p *C.metaffi_uint8, val interface{}) {
-	*p = C.metaffi_uint8(reflect.ValueOf(val).Convert(reflect.TypeOf(uint8(0))).Interface().(uint8))
-}
-
-// For int16 and C.metaffi_int16
-func setElementInt16ToMetaffiInt16(p *C.metaffi_int16, val interface{}) {
-	*p = C.metaffi_int16(reflect.ValueOf(val).Convert(reflect.TypeOf(int16(0))).Interface().(int16))
-}
-
-// For uint16 and C.metaffi_uint16
-func setElementUint16ToMetaffiUint16(p *C.metaffi_uint16, val interface{}) {
-	*p = C.metaffi_uint16(reflect.ValueOf(val).Convert(reflect.TypeOf(uint16(0))).Interface().(uint16))
-}
-
-// For int32 and C.metaffi_int32
-func setElementInt32ToMetaffiInt32(p *C.metaffi_int32, val interface{}) {
-	*p = C.metaffi_int32(reflect.ValueOf(val).Convert(reflect.TypeOf(int32(0))).Interface().(int32))
-}
-
-// For uint32 and C.metaffi_uint32
-func setElementUint32ToMetaffiUint32(p *C.metaffi_uint32, val interface{}) {
-	*p = C.metaffi_uint32(reflect.ValueOf(val).Convert(reflect.TypeOf(uint32(0))).Interface().(uint32))
-}
-
-// For int64 and C.metaffi_int64
-func setElementInt64ToMetaffiInt64(p *C.metaffi_int64, val interface{}) {
-	*p = C.metaffi_int64(reflect.ValueOf(val).Convert(reflect.TypeOf(int64(0))).Interface().(int64))
-}
-
-// For uint64 and C.metaffi_uint64
-func setElementUint64ToMetaffiUint64(p *C.metaffi_uint64, val interface{}) {
-	*p = C.metaffi_uint64(reflect.ValueOf(val).Convert(reflect.TypeOf(uint64(0))).Interface().(uint64))
-}
-
-// For float32 and C.metaffi_float32
-func setElementFloat32ToMetaffiFloat32(p *C.metaffi_float32, val interface{}) {
-	*p = C.metaffi_float32(reflect.ValueOf(val).Convert(reflect.TypeOf(float32(0))).Interface().(float32))
-}
-
-// For float64 and C.metaffi_float64
-func setElementFloat64ToMetaffiFloat64(p *C.metaffi_float64, val interface{}) {
-	*p = C.metaffi_float64(reflect.ValueOf(val).Convert(reflect.TypeOf(float64(0))).Interface().(float64))
-}
-
-func setBoolElement(p *C.metaffi_bool, val interface{}) {
-
-	b := reflect.ValueOf(val).Convert(reflect.TypeOf(true)).Interface().(bool)
-
-	if b {
-		*p = C.metaffi_bool(1)
-	} else {
-		*p = C.metaffi_bool(0)
-	}
-}
-
-func setCDTStringElement(p *C.struct_cdt_metaffi_string8, val interface{}) {
-
-	s := reflect.ValueOf(val).Convert(reflect.TypeOf("")).Interface().(string)
-
-	p.val = C.CString(s)
-	p.length = C.metaffi_size(len(s))
-}
-
-func setStringElement(p *C.metaffi_string8, l *C.metaffi_size, val string) {
-	*p = C.CString(val)
-	*l = C.metaffi_size(len(val))
 }
 
 func GetMetaFFITypeInfo(input interface{}) (IDL.MetaFFITypeInfo, reflect.Type) {
@@ -941,245 +737,340 @@ func GetMetaFFITypeInfo(input interface{}) (IDL.MetaFFITypeInfo, reflect.Type) {
 	}, t
 }
 
+type getArrayFunc func(index []int, otherArray interface{}) int
+type get1DArrayFunc[T any] func(index []int, otherArray interface{}, elemSize int) (out1DArray unsafe.Pointer, out1DArrayLength int)
+
+func constructMultiDimArray[T any](arr unsafe.Pointer, cdtArrayFields cdtArray[T], elemSize int, dimensions int, otherArray interface{}, getArray getArrayFunc, get1DArray get1DArrayFunc[T]) {
+	queue := make([]struct {
+		Index      []int
+		CurrentArr unsafe.Pointer
+		CurrentDim int
+	}, 0)
+
+	index := make([]int, dimensions)
+	queue = append(queue, struct {
+		Index      []int
+		CurrentArr unsafe.Pointer
+		CurrentDim int
+	}{Index: index, CurrentArr: arr, CurrentDim: dimensions})
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if current.CurrentDim == 1 {
+			newArr, length := get1DArray(current.Index[:dimensions-1], otherArray, elemSize)
+			cdtArrayFields.setDimension(current.CurrentArr, 1)
+			cdtArrayFields.setVals(current.CurrentArr, newArr, length)
+		} else {
+			length := getArray(current.Index[:dimensions-current.CurrentDim], otherArray)
+			cdtArrayFields.setDimension(current.CurrentArr, current.CurrentDim)
+			cdtArrayFields.setLength(current.CurrentArr, length)
+			cdtArrayFields.allocArr(current.CurrentArr, length)
+			for i := 0; i < length; i++ {
+				newIndex := make([]int, dimensions)
+				copy(newIndex, current.Index)
+				newIndex[dimensions-current.CurrentDim] = i
+				queue = append(queue, struct {
+					Index      []int
+					CurrentArr unsafe.Pointer
+					CurrentDim int
+				}{Index: newIndex, CurrentArr: cdtArrayFields.getArr(current.CurrentArr, i), CurrentDim: current.CurrentDim - 1})
+			}
+		}
+	}
+}
+
+func getArray(index []int, otherArray interface{}) int {
+	v := reflect.ValueOf(otherArray)
+
+	if len(index) > 0 {
+		for _, idx := range index {
+			if v.Kind() != reflect.Slice {
+				panic("Error: Invalid index, not a slice. Kind: " + v.Kind().String())
+			}
+			if idx < 0 || idx >= v.Len() {
+				panic(fmt.Sprintf("Error: Invalid index, out of range. Requested index: %v, Length: %v", idx, v.Len()))
+			}
+			v = v.Index(idx)
+		}
+	}
+
+	if v.Kind() != reflect.Slice {
+		panic("Error: Final value is not a slice. Kind: " + v.Kind().String())
+	}
+
+	return v.Len()
+}
+
+func get1DArray[T any](index []int, otherArray interface{}, elemSize int) (out1DArray unsafe.Pointer, out1DArrayLength int) {
+
+	var t T
+	v := reflect.ValueOf(otherArray)
+
+	// Traverse the multidimensional slice according to the index
+	for _, idx := range index {
+		if v.Kind() != reflect.Slice {
+			panic("Error: Invalid index, not a slice. Kind: " + v.Kind().String())
+		}
+		if idx < 0 || idx >= v.Len() {
+			panic(fmt.Sprintf("Error: Invalid index, out of range. Requested index: %v, Length: %v", idx, v.Len()))
+		}
+		v = v.Index(idx)
+	}
+
+	// Ensure the final value is a slice
+	if v.Kind() != reflect.Slice {
+		panic("Error: Final value is not a slice. Kind: " + v.Kind().String())
+	}
+
+	// Create a C-array of the appropriate size
+	s := C.size_t(v.Len() * elemSize)
+	cArray := C.malloc(s)
+
+	// Copy the Go array to the C-array
+	for i := 0; i < v.Len(); i++ {
+		reflect.NewAt(reflect.TypeOf(t), unsafe.Pointer(uintptr(cArray)+uintptr(i)*uintptr(elemSize))).Elem().Set(v.Index(i))
+	}
+
+	return cArray, v.Len()
+}
+
 func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo, i int) {
 
 	pcdt := C.cast_to_cdt(pdata)
 	index := C.int(i)
 
+	if t.Type == IDL.METAFFI_TYPE_ANY {
+		// detect the type of the input
+		t, _ = GetMetaFFITypeInfo(input)
+	}
+
 	cdt_to_set := C.get_cdt_index(pcdt, index)
 
 	switch t.Type {
-
-	case IDL.METAFFI_TYPE_HANDLE:
-		cdt_to_set.free_required = 1
-		C.set_cdt_type(cdt_to_set, C.metaffi_handle_type)
-		pcdt_out_Handle_input := ((*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setHandleElement(pcdt_out_Handle_input, input)
-
-	case IDL.METAFFI_TYPE_HANDLE_ARRAY:
-		cdt_to_set.free_required = 1
-		C.set_cdt_type(cdt_to_set, C.metaffi_handle_array_type)
-		pcdt_handle_array := ((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_handle_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_handle_array.vals = copySliceToArray[C.struct_cdt_metaffi_handle](input, t.Dimensions, &pcdt_handle_array.dimensions_lengths, setHandleElement)
-		pcdt_handle_array.dimensions = C.metaffi_size(t.Dimensions)
-
-	case IDL.METAFFI_TYPE_FLOAT64:
-		cdt_to_set.free_required = 0
-		C.set_cdt_type(cdt_to_set, C.metaffi_float64_type)
-
-		pcdt_out_float64_input := ((*C.struct_cdt_metaffi_float64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementFloat64ToMetaffiFloat64(&pcdt_out_float64_input.val, input)
-
-	case IDL.METAFFI_TYPE_FLOAT64_ARRAY:
-		cdt_to_set.free_required = 1
-		C.set_cdt_type(cdt_to_set, C.metaffi_float64_array_type)
-		pcdt_float64_array := ((*C.struct_cdt_metaffi_float64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_float64_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_float64_array.vals = copySliceToArray[C.metaffi_float64](input, t.Dimensions, &pcdt_float64_array.dimensions_lengths, setElementFloat64ToMetaffiFloat64)
-		pcdt_float64_array.dimensions = C.metaffi_size(t.Dimensions)
-
 	case IDL.METAFFI_TYPE_FLOAT32:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_float32_type)
-
-		pcdt_out_float32_input := ((*C.struct_cdt_metaffi_float32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementFloat32ToMetaffiFloat32(&pcdt_out_float32_input.val, input)
+		pfloat32 := (*C.metaffi_float32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pfloat32 = GoFloat32ToMetaffiFloat32(input)
 
 	case IDL.METAFFI_TYPE_FLOAT32_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_float32_array_type)
-		pcdt_float32_array := ((*C.struct_cdt_metaffi_float32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		pcdt_float32_array := (*C.struct_cdt_metaffi_float32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		constructMultiDimArray[float32](unsafe.Pointer(pcdt_float32_array), &CDTMetaFFIFloat32Array{}, C.sizeof_metaffi_float32, t.Dimensions, input, getArray, get1DArray[float32])
 
-		pcdt_float32_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_float32_array.vals = copySliceToArray[C.metaffi_float32](input, t.Dimensions, &pcdt_float32_array.dimensions_lengths, setElementFloat32ToMetaffiFloat32)
-		pcdt_float32_array.dimensions = C.metaffi_size(t.Dimensions)
+	case IDL.METAFFI_TYPE_FLOAT64:
+		cdt_to_set.free_required = 0
+		C.set_cdt_type(cdt_to_set, C.metaffi_float64_type)
+		pfloat64 := (*C.metaffi_float64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pfloat64 = GoFloat64ToMetaffiFloat64(input)
+
+	case IDL.METAFFI_TYPE_FLOAT64_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_float64_array_type)
+		pcdt_float64_array := (*C.struct_cdt_metaffi_float64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		constructMultiDimArray[float64](unsafe.Pointer(pcdt_float64_array), &CDTMetaFFIFloat64Array{}, C.sizeof_metaffi_float64, t.Dimensions, input, getArray, get1DArray[float64])
 
 	case IDL.METAFFI_TYPE_INT8:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_int8_type)
-
-		pcdt_out_int8_input := ((*C.struct_cdt_metaffi_int8)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementInt8ToMetaffiInt8(&pcdt_out_int8_input.val, input)
+		pint8 := (*C.metaffi_int8)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pint8 = GoInt8ToMetaffiInt8(input)
 
 	case IDL.METAFFI_TYPE_INT8_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_int8_array_type)
-		pcdt_int8_array := ((*C.struct_cdt_metaffi_int8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_int8_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_int8_array.vals = copySliceToArray[C.metaffi_int8](input, t.Dimensions, &pcdt_int8_array.dimensions_lengths, setElementInt8ToMetaffiInt8)
-		pcdt_int8_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_int8_array := unsafe.Pointer((*C.struct_cdt_metaffi_int8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[int8](pcdt_int8_array, &CDTMetaFFIInt8Array{}, C.sizeof_metaffi_int8, t.Dimensions, input, getArray, get1DArray[int8])
 
 	case IDL.METAFFI_TYPE_UINT8:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint8_type)
-
-		pcdt_out_uint8_input := ((*C.struct_cdt_metaffi_uint8)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementUint8ToMetaffiUint8(&pcdt_out_uint8_input.val, input)
+		puint8 := (*C.metaffi_uint8)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*puint8 = GoUint8ToMetaffiUint8(input)
 
 	case IDL.METAFFI_TYPE_UINT8_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint8_array_type)
-		pcdt_uint8_array := ((*C.struct_cdt_metaffi_uint8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_uint8_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_uint8_array.vals = copySliceToArray[C.metaffi_uint8](input, t.Dimensions, &pcdt_uint8_array.dimensions_lengths, setElementUint8ToMetaffiUint8)
-		pcdt_uint8_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_uint8_array := unsafe.Pointer((*C.struct_cdt_metaffi_uint8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[uint8](pcdt_uint8_array, &CDTMetaFFIUint8Array{}, C.sizeof_metaffi_uint8, t.Dimensions, input, getArray, get1DArray[uint8])
 
 	case IDL.METAFFI_TYPE_INT16:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_int16_type)
-
-		pcdt_out_int16_input := ((*C.struct_cdt_metaffi_int16)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementInt16ToMetaffiInt16(&pcdt_out_int16_input.val, input)
+		pint16 := (*C.metaffi_int16)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pint16 = GoInt16ToMetaffiInt16(input)
 
 	case IDL.METAFFI_TYPE_INT16_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_int16_array_type)
-		pcdt_int16_array := ((*C.struct_cdt_metaffi_int16_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_int16_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_int16_array.vals = copySliceToArray[C.metaffi_int16](input, t.Dimensions, &pcdt_int16_array.dimensions_lengths, setElementInt16ToMetaffiInt16)
-		pcdt_int16_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_int16_array := unsafe.Pointer((*C.struct_cdt_metaffi_int16_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[int16](pcdt_int16_array, &CDTMetaFFIInt16Array{}, C.sizeof_metaffi_int16, t.Dimensions, input, getArray, get1DArray[int16])
 
 	case IDL.METAFFI_TYPE_UINT16:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint16_type)
-
-		pcdt_out_uint16_input := ((*C.struct_cdt_metaffi_uint16)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementUint16ToMetaffiUint16(&pcdt_out_uint16_input.val, input)
+		puint16 := (*C.metaffi_uint16)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*puint16 = GoUint16ToMetaffiUint16(input)
 
 	case IDL.METAFFI_TYPE_UINT16_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint16_array_type)
-		pcdt_uint16_array := ((*C.struct_cdt_metaffi_uint16_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_uint16_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_uint16_array.vals = copySliceToArray[C.metaffi_uint16](input, t.Dimensions, &pcdt_uint16_array.dimensions_lengths, setElementUint16ToMetaffiUint16)
-		pcdt_uint16_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_uint16_array := unsafe.Pointer((*C.struct_cdt_metaffi_uint16_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[uint16](pcdt_uint16_array, &CDTMetaFFIUint16Array{}, C.sizeof_metaffi_uint16, t.Dimensions, input, getArray, get1DArray[uint16])
 
 	case IDL.METAFFI_TYPE_INT32:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_int32_type)
-
-		pcdt_out_int32_input := ((*C.struct_cdt_metaffi_int32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementInt32ToMetaffiInt32(&pcdt_out_int32_input.val, input)
+		pint32 := (*C.metaffi_int32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pint32 = GoInt32ToMetaffiInt32(input)
 
 	case IDL.METAFFI_TYPE_INT32_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_int32_array_type)
-		pcdt_int32_array := ((*C.struct_cdt_metaffi_int32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_int32_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_int32_array.vals = copySliceToArray[C.metaffi_int32](input, t.Dimensions, &pcdt_int32_array.dimensions_lengths, setElementInt32ToMetaffiInt32)
-		pcdt_int32_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_int32_array := unsafe.Pointer((*C.struct_cdt_metaffi_int32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[int32](pcdt_int32_array, &CDTMetaFFIInt32Array{}, C.sizeof_metaffi_int32, t.Dimensions, input, getArray, get1DArray[int32])
 
 		// For uint32
 	case IDL.METAFFI_TYPE_UINT32:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint32_type)
-
-		pcdt_out_uint32_input := ((*C.struct_cdt_metaffi_uint32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementUint32ToMetaffiUint32(&pcdt_out_uint32_input.val, input)
+		puint32 := (*C.metaffi_uint32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*puint32 = GoUint32ToMetaffiUint32(input)
 
 	case IDL.METAFFI_TYPE_UINT32_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint32_array_type)
-		pcdt_uint32_array := ((*C.struct_cdt_metaffi_uint32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_uint32_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_uint32_array.vals = copySliceToArray[C.metaffi_uint32](input, t.Dimensions, &pcdt_uint32_array.dimensions_lengths, setElementUint32ToMetaffiUint32)
-		pcdt_uint32_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_uint32_array := unsafe.Pointer((*C.struct_cdt_metaffi_uint32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[uint32](pcdt_uint32_array, &CDTMetaFFIUint32Array{}, C.sizeof_metaffi_uint32, t.Dimensions, input, getArray, get1DArray[uint32])
 
 		// For int64
 	case IDL.METAFFI_TYPE_INT64:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_int64_type)
-
-		pcdt_out_int64_input := ((*C.struct_cdt_metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setElementInt64ToMetaffiInt64(&pcdt_out_int64_input.val, input)
+		pint64 := (*C.metaffi_int64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pint64 = GoInt64ToMetaffiInt64(input)
 
 	case IDL.METAFFI_TYPE_INT64_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_int64_array_type)
-		pcdt_int64_array := ((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		pcdt_int64_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-
-		// check if it is "int" or "int64" and set the appropriate setElementFunc
-		curVal := reflect.ValueOf(input)
-		for curVal.Kind() == reflect.Slice {
-			curVal = curVal.Index(0)
-		}
-
-		pcdt_int64_array.vals = copySliceToArray[C.metaffi_int64](input, t.Dimensions, &pcdt_int64_array.dimensions_lengths, setElementInt64ToMetaffiInt64)
-		pcdt_int64_array.dimensions = C.metaffi_size(t.Dimensions)
+		pcdt_int64_array := unsafe.Pointer((*C.struct_cdt_metaffi_int64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[int64](pcdt_int64_array, &CDTMetaFFIInt64Array{}, C.sizeof_metaffi_int64, t.Dimensions, input, getArray, get1DArray[int64])
 
 		// For uint64
 	case IDL.METAFFI_TYPE_UINT64:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint64_type)
-
-		pcdt_out_uint64_input := ((*C.struct_cdt_metaffi_uint64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-
-		setElementUint64ToMetaffiUint64(&pcdt_out_uint64_input.val, input)
+		puint64 := (*C.metaffi_uint64)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*puint64 = GoUint64ToMetaffiUint64(input)
 
 	case IDL.METAFFI_TYPE_UINT64_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint64_array_type)
-		pcdt_uint64_array := ((*C.struct_cdt_metaffi_uint64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		pcdt_uint64_array := unsafe.Pointer((*C.struct_cdt_metaffi_uint64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[uint64](pcdt_uint64_array, &CDTMetaFFIUint64Array{}, C.sizeof_metaffi_uint64, t.Dimensions, input, getArray, get1DArray[uint64])
 
-		// check if it is "uint" or "uint64" and set the appropriate setElementFunc
-		curVal := reflect.ValueOf(input)
-		for curVal.Kind() == reflect.Slice {
-			curVal = curVal.Index(0)
-		}
+	case IDL.METAFFI_TYPE_HANDLE:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_handle_type)
+		pcdt_handle := (*C.struct_cdt_metaffi_handle)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		GoObjectToMetaffiHandle(pcdt_handle, input)
 
-		pcdt_uint64_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_uint64_array.vals = copySliceToArray[C.metaffi_uint64](input, t.Dimensions, &pcdt_uint64_array.dimensions_lengths, setElementUint64ToMetaffiUint64)
-		pcdt_uint64_array.dimensions = C.metaffi_size(t.Dimensions)
+	case IDL.METAFFI_TYPE_HANDLE_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_handle_array_type)
+		pcdt_handle_array := unsafe.Pointer((*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[interface{}](pcdt_handle_array, &CDTMetaFFIHandleArray{}, C.sizeof_struct_cdt_metaffi_handle, t.Dimensions, input, getArray, Get1DGoObjectArray[interface{}])
 
 	case IDL.METAFFI_TYPE_BOOL:
 		cdt_to_set.free_required = 0
 		C.set_cdt_type(cdt_to_set, C.metaffi_bool_type)
-
-		pcdt_out_bool_input := ((*C.struct_cdt_metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setBoolElement(&pcdt_out_bool_input.val, input)
+		pbool := (*C.metaffi_bool)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pbool = GoBoolToMetaffiBool(input)
 
 	case IDL.METAFFI_TYPE_BOOL_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_bool_array_type)
-		pcdt_bool_array := ((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		pcdt_bool_array := unsafe.Pointer((*C.struct_cdt_metaffi_bool_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[bool](pcdt_bool_array, &CDTMetaFFIBoolArray{}, C.sizeof_metaffi_bool, t.Dimensions, input, getArray, get1DArray[bool])
 
-		pcdt_bool_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_bool_array.vals = copySliceToArray[C.metaffi_bool](input, t.Dimensions, &pcdt_bool_array.dimensions_lengths, setBoolElement)
-		pcdt_bool_array.dimensions = C.metaffi_size(t.Dimensions)
+	case IDL.METAFFI_TYPE_CHAR8:
+		cdt_to_set.free_required = 0
+		C.set_cdt_type(cdt_to_set, C.metaffi_char8_type)
+		pchar8 := (*C.metaffi_char8)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pchar8 = GoRuneToMetaffiChar8(input)
+
+	case IDL.METAFFI_TYPE_CHAR8_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_char8_array_type)
+		pcdt_char8_array := unsafe.Pointer((*C.struct_cdt_metaffi_char8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[rune](pcdt_char8_array, &CDTMetaFFIChar8Array{}, C.sizeof_metaffi_char8, t.Dimensions, input, getArray, Get1DGoChar8Array[rune])
 
 	case IDL.METAFFI_TYPE_STRING8:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_string8_type)
-
-		pcdt_out_string8_input := ((*C.struct_cdt_metaffi_string8)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
-		setCDTStringElement(pcdt_out_string8_input, input)
+		C.set_cdt_string8(cdt_to_set, GoStringToMetaffiString8(input))
 
 	case IDL.METAFFI_TYPE_STRING8_ARRAY:
 		cdt_to_set.free_required = 1
 		C.set_cdt_type(cdt_to_set, C.metaffi_string8_array_type)
-		pcdt_string8_array := ((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		pcdt_string8_array := unsafe.Pointer((*C.struct_cdt_metaffi_string8_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[string](pcdt_string8_array, &CDTMetaFFIString8Array{}, C.sizeof_metaffi_string8, t.Dimensions, input, getArray, Get1DGoString8Array[string])
 
-		pcdt_string8_array.dimensions_lengths = (*C.metaffi_size)(C.malloc(C.size_t(unsafe.Sizeof(C.metaffi_size(0))) * C.size_t(t.Dimensions)))
-		pcdt_string8_array.vals, pcdt_string8_array.vals_sizes = copyStringSliceToStringArray(input, t.Dimensions, &pcdt_string8_array.dimensions_lengths, setStringElement)
-		pcdt_string8_array.dimensions = C.metaffi_size(t.Dimensions)
+	case IDL.METAFFI_TYPE_CHAR16:
+		cdt_to_set.free_required = 0
+		C.set_cdt_type(cdt_to_set, C.metaffi_char16_type)
+		pchar16 := (*C.metaffi_char16)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pchar16 = GoRuneToMetaffiChar16(input)
 
-	case IDL.METAFFI_TYPE_ANY:
-		// detect the underlying type and call recursively call with appropriate metaffi type
-		mtype, _ := GetMetaFFITypeInfo(input)
-		FromGoToCDT(input, pdata, mtype, i)
+	case IDL.METAFFI_TYPE_CHAR16_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_char16_array_type)
+		pcdt_char16_array := unsafe.Pointer((*C.struct_cdt_metaffi_char16_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[rune](pcdt_char16_array, &CDTMetaFFIChar16Array{}, C.sizeof_metaffi_char16, t.Dimensions, input, getArray, Get1DGoChar16Array[rune])
+
+	case IDL.METAFFI_TYPE_STRING16:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_string16_type)
+		pstring16 := (*C.metaffi_string16)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pstring16 = GoStringToMetaffiString16(input)
+
+	case IDL.METAFFI_TYPE_STRING16_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_string16_array_type)
+		pcdt_string16_array := unsafe.Pointer((*C.struct_cdt_metaffi_string16_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[string](pcdt_string16_array, &CDTMetaFFIString16Array{}, C.sizeof_metaffi_string16, t.Dimensions, input, getArray, Get1DGoString16Array[string])
+
+	case IDL.METAFFI_TYPE_CHAR32:
+		cdt_to_set.free_required = 0
+		C.set_cdt_type(cdt_to_set, C.metaffi_char32_type)
+		pchar32 := (*C.metaffi_char32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pchar32 = GoRuneToMetaffiChar32(input)
+
+	case IDL.METAFFI_TYPE_CHAR32_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_char32_array_type)
+		pcdt_char32_array := unsafe.Pointer((*C.struct_cdt_metaffi_char32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[rune](pcdt_char32_array, &CDTMetaFFIChar32Array{}, C.sizeof_metaffi_char32, t.Dimensions, input, getArray, Get1DGoChar32Array[rune])
+
+	case IDL.METAFFI_TYPE_STRING32:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_string32_type)
+		pstring32 := (*C.metaffi_string32)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val)))
+		*pstring32 = GoStringToMetaffiString32(input)
+
+	case IDL.METAFFI_TYPE_STRING32_ARRAY:
+		cdt_to_set.free_required = 1
+		C.set_cdt_type(cdt_to_set, C.metaffi_string32_array_type)
+		pcdt_string32_array := unsafe.Pointer((*C.struct_cdt_metaffi_string32_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
+		constructMultiDimArray[string](pcdt_string32_array, &CDTMetaFFIString32Array{}, C.sizeof_metaffi_string32, t.Dimensions, input, getArray, Get1DGoString32Array[string])
+
+	case IDL.METAFFI_TYPE_CALLABLE:
+		panic("Callable type not implemented yet")
 
 	default:
-		panic(fmt.Errorf("Input value %v is not of a supported type, but of type: %v", "input", t.Type))
+		panic(fmt.Errorf("%v MetaFFIType is not supported yet from Go", t.Type))
 	}
 }

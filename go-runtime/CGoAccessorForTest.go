@@ -41,22 +41,120 @@ struct cdts* get_2d_uint8_array_cdts()
 {
 	cdts* cdts_param_ret = get_cdts();
 	cdts_param_ret[0].pcdt->type = metaffi_uint8_array_type;
-	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.dimensions = 2;
-	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.dimensions_lengths = malloc(2 * sizeof(metaffi_size));
-	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.dimensions_lengths[0] = 3;
-	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.dimensions_lengths[1] = 3;
-	uint8_t data[3][3] = { {0,1,2}, {3,4,5}, {6,7,8} };
-	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.vals = (uint8_t*)malloc(3 * sizeof(uint8_t*));
-	for(int i = 0; i < 3; i++)
-	{
-		((uint8_t**)cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.vals)[i] = (uint8_t*)malloc(3 * sizeof(uint8_t));
-		for(int j = 0; j < 3; j++)
-		{
-			((uint8_t**)cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.vals)[i][j] = data[i][j];
-		}
-	}
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.dimension = 2;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr = (struct cdt_metaffi_uint8_array*)malloc(3 * sizeof(struct cdt_metaffi_uint8_array));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[0].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[0].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[0].vals = (uint8_t*)malloc(3 * sizeof(uint8_t));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[0].vals[0] = 0;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[0].vals[1] = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[0].vals[2] = 2;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[1].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[1].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[1].vals = (uint8_t*)malloc(3 * sizeof(uint8_t));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[1].vals[0] = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[1].vals[1] = 4;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[1].vals[2] = 5;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[2].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[2].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[2].vals = (uint8_t*)malloc(3 * sizeof(uint8_t));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[2].vals[0] = 6;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[2].vals[1] = 7;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_uint8_array_val.arr[2].vals[2] = 8;
+
 	return cdts_param_ret;
 }
+
+struct cdts* get_3d_float32_array_cdts()
+{
+	cdts* cdts_param_ret = get_cdts();
+	cdts_param_ret[0].pcdt->type = metaffi_float32_array_type;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.dimension = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr = (struct cdt_metaffi_float32_array*)malloc(3 * sizeof(struct cdt_metaffi_float32_array));
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].dimension = 2;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr = (struct cdt_metaffi_float32_array*)malloc(3 * sizeof(struct cdt_metaffi_float32_array));
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[0].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[0].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[0].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[0].vals[0] = 1.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[0].vals[1] = 2.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[0].vals[2] = 3.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[1].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[1].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[1].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[1].vals[0] = 4.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[1].vals[1] = 5.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[1].vals[2] = 6.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[2].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[2].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[2].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[2].vals[0] = 7.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[2].vals[1] = 8.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[0].arr[2].vals[2] = 9.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].dimension = 2;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr = (struct cdt_metaffi_float32_array*)malloc(3 * sizeof(struct cdt_metaffi_float32_array));
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[0].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[0].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[0].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[0].vals[0] = 10.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[0].vals[1] = 11.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[0].vals[2] = 12.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[1].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[1].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[1].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[1].vals[0] = 13.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[1].vals[1] = 14.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[1].vals[2] = 15.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[2].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[2].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[2].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[2].vals[0] = 16.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[2].vals[1] = 17.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[1].arr[2].vals[2] = 18.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].dimension = 2;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr = (struct cdt_metaffi_float32_array*)malloc(3 * sizeof(struct cdt_metaffi_float32_array));
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[0].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[0].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[0].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[0].vals[0] = 19.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[0].vals[1] = 20.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[0].vals[2] = 21.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[1].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[1].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[1].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[1].vals[0] = 22.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[1].vals[1] = 23.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[1].vals[2] = 24.0f;
+
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[2].dimension = 1;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[2].length = 3;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[2].vals = (float*)malloc(3 * sizeof(float));
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[2].vals[0] = 25.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[2].vals[1] = 26.0f;
+	cdts_param_ret[0].pcdt->cdt_val.metaffi_float32_array_val.arr[2].arr[2].vals[2] = 27.0f;
+
+	return cdts_param_ret;
+}
+
+
 */
 import "C"
 
@@ -75,4 +173,8 @@ func Print2DInt8(data *C.struct_cdts) {
 
 func Get2DUInt8ArrayCDTS() *C.cdts {
 	return C.get_2d_uint8_array_cdts()
+}
+
+func Get3DFloat32ArrayCDTS() *C.cdts {
+	return C.get_3d_float32_array_cdts()
 }

@@ -20,6 +20,7 @@ type Handle C.metaffi_handle
 type MetaFFIHandle struct {
 	Val       Handle
 	RuntimeID uint64
+	Releaser  func() error
 }
 
 var (

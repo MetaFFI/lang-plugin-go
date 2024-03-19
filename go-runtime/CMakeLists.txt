@@ -7,3 +7,5 @@ if("$ENV{CGO_CFLAGS}" STREQUAL "")
 	message(WARNING "CGO_CFLAGS must be set to METAFFI_HOME to use the Go plugin")
 	SET(ENV{CGO_CFLAGS} $ENV{METAFFI_HOME})
 endif()
+
+add_go_test("Go runtime test" WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})

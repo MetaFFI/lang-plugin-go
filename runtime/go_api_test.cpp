@@ -100,9 +100,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(params_count, retvals_count);
 		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
 		wrapper[0]->type = metaffi_int64_type;
-		wrapper[0]->cdt_val.metaffi_int64_val.val = 10;
+		wrapper[0]->cdt_val.metaffi_int64_val = 10;
 		wrapper[1]->type = metaffi_int64_type;
-		wrapper[1]->cdt_val.metaffi_int64_val.val = 2;
+		wrapper[1]->cdt_val.metaffi_int64_val = 2;
 
 		uint64_t long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))pdiv_integers[0])(pdiv_integers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -111,7 +111,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_ret[0]->type == metaffi_float32_type);
-		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_float32_val.val == 5.0);
+		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_float32_val == 5.0f);
 
 		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
 			free(cdts_param_ret);
@@ -139,14 +139,11 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 1);
 		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
 		metaffi_size array_dimensions;
-		metaffi_size array_length[] = {3};
-		metaffi_string8 values[] = {(metaffi_string8)"one", (metaffi_string8)"two", (metaffi_string8)"three"};
-		metaffi_size vals_length[] = {strlen("one"), strlen("two"), strlen("three")};
+		metaffi_string8 values[] = {(metaffi_string8)u8"one", (metaffi_string8)u8"two", (metaffi_string8)u8"three"};
 		wrapper[0]->type = metaffi_string8_array_type;
-		wrapper[0]->cdt_val.metaffi_string8_array_val.dimensions = 1;
-		wrapper[0]->cdt_val.metaffi_string8_array_val.dimensions_lengths = (metaffi_size*)array_length;
+		wrapper[0]->cdt_val.metaffi_string8_array_val.dimension = 1;
+		wrapper[0]->cdt_val.metaffi_string8_array_val.length = 3;
 		wrapper[0]->cdt_val.metaffi_string8_array_val.vals = values;
-		wrapper[0]->cdt_val.metaffi_string8_array_val.vals_sizes = vals_length;
 
 		uint64_t long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))join_strings[0])(join_strings[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -156,8 +153,8 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_ret[0]->type == metaffi_string8_type);
 
-		std::string returned(wrapper_ret[0]->cdt_val.metaffi_string8_val.val, wrapper_ret[0]->cdt_val.metaffi_string8_val.length);
-		REQUIRE(returned == "one,two,three");
+		std::u8string returned(wrapper_ret[0]->cdt_val.metaffi_string8_val);
+		REQUIRE(returned == u8"one,two,three");
 
 		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
 			free(cdts_param_ret);
@@ -217,8 +214,8 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_handle_array_type);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimensions == 1);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimensions_lengths[0] == 3);
+		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimension == 1);
+		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.length == 3);
 
 		auto arr = wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val;
 
@@ -282,26 +279,28 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
 		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
 		wrapper_get_ret[0]->type = metaffi_uint8_array_type;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimensions = 2;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimension = 2;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.length = 3;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr = new cdt_metaffi_uint8_array[3];
 		
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths = (metaffi_size*)malloc(2 * sizeof(metaffi_size));
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths[0] = 3;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths[1] = 3;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].length = 3;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals = new metaffi_uint8[3];
 		
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals = (metaffi_uint8*)malloc(3 * sizeof(metaffi_uint8*));
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[0] = (metaffi_uint8*)malloc(3 * sizeof(metaffi_uint8));
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[1] = (metaffi_uint8*)malloc(3 * sizeof(metaffi_uint8));
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[2] = (metaffi_uint8*)malloc(3 * sizeof(metaffi_uint8));
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].length = 3;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals = new metaffi_uint8[3];
 		
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[0][0] = 0;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[0][1] = 1;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[0][2] = 2;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[1][0] = 3;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[1][1] = 4;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[1][2] = 5;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[2][0] = 6;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[2][1] = 7;
-		((metaffi_uint8**)wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.vals)[2][2] = 8;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].length = 3;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals = new metaffi_uint8[3];
+		
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[0] = 0;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[1] = 1;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[2] = 2;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[0] = 3;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[1] = 4;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[2] = 5;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[0] = 6;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[1] = 7;
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[2] = 8;
 		
 		uint64_t long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeBuffers[0])(pexpectThreeBuffers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -317,18 +316,24 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		metaffi::runtime::cdts_wrapper wrapper_get_buffers(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		
 		REQUIRE(wrapper_get_buffers[0]->type == metaffi_uint8_array_type);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimensions == 2);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths[0] == 3);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimensions_lengths[1] == 3);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[0])[0] == 1);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[0])[1] == 2);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[0])[2] == 3);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[1])[0] == 1);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[1])[1] == 2);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[1])[2] == 3);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[2])[0] == 1);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[2])[1] == 2);
-		REQUIRE((((metaffi_uint8**)(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.vals))[2])[2] == 3);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimension == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.length == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].dimension == 1);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].length == 3);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].dimension == 1);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].length == 3);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].dimension == 1);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].length == 3);
+		
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[0] == 1);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[1] == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[2] == 3);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[0] == 1);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[1] == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[2] == 3);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[0] == 1);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[1] == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[2] == 3);
 	}
 
 	SECTION("runtime_test_target.testmap.set_get_contains")
@@ -387,10 +392,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper[0]->type = metaffi_handle_type;
 		wrapper[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper[1]->type = metaffi_string8_type;
-		wrapper[1]->cdt_val.metaffi_string8_val.val = (char*)"key";
-		wrapper[1]->cdt_val.metaffi_string8_val.length = strlen("key");
+		wrapper[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
 		wrapper[2]->type = metaffi_int64_type;
-		wrapper[2]->cdt_val.metaffi_int64_val.val = 42;
+		wrapper[2]->cdt_val.metaffi_int64_val = 42;
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_set[0])(p_testmap_set[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -423,8 +427,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_contains_params[0]->type = metaffi_handle_type;
 		wrapper_contains_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper_contains_params[1]->type = metaffi_string8_type;
-		wrapper_contains_params[1]->cdt_val.metaffi_string8_val.val = (char*)"key";
-		wrapper_contains_params[1]->cdt_val.metaffi_string8_val.length = strlen("key");
+		wrapper_contains_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_contains[0])(p_testmap_contains[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -433,7 +436,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_contains_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_contains_ret[0]->type == metaffi_bool_type);
-		REQUIRE(wrapper_contains_ret[0]->cdt_val.metaffi_bool_val.val != 0);
+		REQUIRE(wrapper_contains_ret[0]->cdt_val.metaffi_bool_val != 0);
 
 		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
 			free(cdts_param_ret);
@@ -461,8 +464,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_get_params[0]->type = metaffi_handle_type;
 		wrapper_get_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper_get_params[1]->type = metaffi_string8_type;
-		wrapper_get_params[1]->cdt_val.metaffi_string8_val.val = (char*)"key";
-		wrapper_get_params[1]->cdt_val.metaffi_string8_val.length = strlen("key");
+		wrapper_get_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_get[0])(p_testmap_get[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -471,7 +473,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_int64_type);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_int64_val.val == 42);
+		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_int64_val == 42);
 
 		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
 			free(cdts_param_ret);
@@ -536,8 +538,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper[0]->type = metaffi_handle_type;
 		wrapper[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper[1]->type = metaffi_string8_type;
-		wrapper[1]->cdt_val.metaffi_string8_val.val = (char*)"key";
-		wrapper[1]->cdt_val.metaffi_string8_val.length = strlen("key");
+		wrapper[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
 		wrapper[2]->type = metaffi_handle_type;
 		wrapper[2]->cdt_val.metaffi_handle_val.val = &input;
 		wrapper[2]->cdt_val.metaffi_handle_val.runtime_id = 123;
@@ -573,8 +574,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_contains_params[0]->type = metaffi_handle_type;
 		wrapper_contains_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper_contains_params[1]->type = metaffi_string8_type;
-		wrapper_contains_params[1]->cdt_val.metaffi_string8_val.val = (char*)"key";
-		wrapper_contains_params[1]->cdt_val.metaffi_string8_val.length = strlen("key");
+		wrapper_contains_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_contains[0])(p_testmap_contains[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -583,7 +583,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_contains_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_contains_ret[0]->type == metaffi_bool_type);
-		REQUIRE(wrapper_contains_ret[0]->cdt_val.metaffi_bool_val.val != 0);
+		REQUIRE(wrapper_contains_ret[0]->cdt_val.metaffi_bool_val != 0);
 
 		// get
 		function_path = "callable=TestMap.Get,instance_required";
@@ -607,8 +607,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_get_params[0]->type = metaffi_handle_type;
 		wrapper_get_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper_get_params[1]->type = metaffi_string8_type;
-		wrapper_get_params[1]->cdt_val.metaffi_string8_val.val = (char*)"key";
-		wrapper_get_params[1]->cdt_val.metaffi_string8_val.length = strlen("key");
+		wrapper_get_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_get[0])(p_testmap_get[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -714,7 +713,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val.val, wrapper_get_ret[0]->cdt_val.metaffi_string8_val.length) == "TestMap Name");
+		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val) == u8"TestMap Name");
 
 		// set name to "name is my name"
 
@@ -723,8 +722,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_set_params[0]->type = metaffi_handle_type;
 		wrapper_set_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
 		wrapper_set_params[1]->type = metaffi_string8_type;
-		wrapper_set_params[1]->cdt_val.metaffi_string8_val.val = (char*)"name is my name";
-		wrapper_set_params[1]->cdt_val.metaffi_string8_val.length = strlen("name is my name");
+		wrapper_set_params[1]->cdt_val.metaffi_string8_val = (char8_t*)"name is my name";
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))pset_name[0])(pset_name[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -744,7 +742,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper last_get_wrapper(last_get_params[1].pcdt, last_get_params[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val.val, last_get_wrapper[0]->cdt_val.metaffi_string8_val.length) == "name is my name");
+		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val) == u8"name is my name");
 	}
 
 	SECTION("runtime_test_target.testmap.get_set_name_from_empty_struct")
@@ -831,7 +829,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val.val, wrapper_get_ret[0]->cdt_val.metaffi_string8_val.length) == "");
+		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val).empty());
 
 		// set name to "name is my name"
 
@@ -840,8 +838,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_set_params[0]->type = metaffi_handle_type;
 		wrapper_set_params[0]->cdt_val.metaffi_handle_val = testmap_instance;
 		wrapper_set_params[1]->type = metaffi_string8_type;
-		wrapper_set_params[1]->cdt_val.metaffi_string8_val.val = (char*)"name is my name";
-		wrapper_set_params[1]->cdt_val.metaffi_string8_val.length = strlen("name is my name");
+		wrapper_set_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"name is my name";
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))pset_name[0])(pset_name[1], (cdts*)cdts_param_ret, &err, &long_err_len);
@@ -861,7 +858,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 
 		metaffi::runtime::cdts_wrapper last_get_wrapper(last_get_params[1].pcdt, last_get_params[1].len, false);
 		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val.val, last_get_wrapper[0]->cdt_val.metaffi_string8_val.length) == "name is my name");
+		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val) == u8"name is my name");
 	}
 
 	SECTION("runtime_test_target.wait_a_bit")
@@ -886,9 +883,9 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		if(err){ FAIL(err); }
 
 		REQUIRE(getter_ret->pcdt->type == metaffi_int64_type);
-		REQUIRE(getter_ret->pcdt->cdt_val.metaffi_int64_val.val == 5000000000);
+		REQUIRE(getter_ret->pcdt->cdt_val.metaffi_int64_val == 5000000000);
 
-		int64_t five = getter_ret->pcdt->cdt_val.metaffi_int64_val.val;
+		int64_t five = getter_ret->pcdt->cdt_val.metaffi_int64_val;
 
 		// call wait_a_bit
 		std::string function_path = "callable=WaitABit";
@@ -909,7 +906,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
 		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
 		wrapper[0]->type = metaffi_int64_type;
-		wrapper[0]->cdt_val.metaffi_int64_val.val = five;
+		wrapper[0]->cdt_val.metaffi_int64_val = five;
 
 		long_err_len = 0;
 		((void(*)(void*,cdts*,char**,uint64_t*))pwait_a_bit[0])(pwait_a_bit[1], (cdts*)cdts_param_ret, &err, &long_err_len);
