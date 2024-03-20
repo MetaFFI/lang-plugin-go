@@ -610,40 +610,10 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 	if elem.Dimensions > 0 {
 		/*
 			{{if gt $f.Dimensions 0}}
-			{{$f.Name}} := make({{Repeat [] $f.Dimensions}}{{ConvertToGoType $f.ArgDefinition $m}}, {{$f.Dimensions}})
-			{{range $curDimIndex := Iterate $f.Dimensions}}
-			for i{{$curDimIndex}}, {{$f.Name}}_v{{add $curDimIndex 1}} := range {{$f.Name}}_v{{$curDimIndex}}.(interface{}[]) {
-			{{end}} {{/ * end if dimensions > 0 * /}}
-			{{$f.Name}}{{range $curDimIndex := Iterate $f.Dimensions}}[i{{$curDimIndex}}]{{end}} = {{$f.Name}}_v{{$f.Dimensions}}.({{ConvertToGoType $f.ArgDefinition $m}})
-			{{range $curDimIndex := Iterate $f.Dimensions}} } {{end}}
+			{{$f.Name}} := {{$f.Name}}AsInterface.({{Repeat [] $f.Dimensions}}{{ConvertToGoType $f.ArgDefinition $m}})
 		*/
-		code := fmt.Sprintf("%v_v0 := %vAsInterface\n", elem.Name, elem.Name)
-		if outputVarExists {
-			code += fmt.Sprintf("%v = make(%v, len(%v_v0.([]interface{})))\n", elem.Name, convertToGoType(elem, mod), elem.Name)
-		} else {
-			code += fmt.Sprintf("%v := make(%v, len(%v_v0.([]interface{})))\n", elem.Name, convertToGoType(elem, mod), elem.Name)
-		}
+		code := fmt.Sprintf("%v_v0 := %vAsInterface.(%v%v)\n", elem.Name, elem.Name, strings.Repeat("[]", elem.Dimensions), convertToGoType(elem, mod))
 
-		for i := 0; i < elem.Dimensions; i++ {
-			code += fmt.Sprintf("for i%v, %v_v%v := range %v_v%v.([]interface{}) {\n", i, elem.Name, i+1, elem.Name, i)
-			if i+1 < elem.Dimensions { // create the next dimension
-
-				indexCode := ""
-				for j := 0; j < i+1; j++ {
-					indexCode += fmt.Sprintf("[i%v]", j)
-				}
-
-				code += fmt.Sprintf("%v%v = make(%v%v, len(%v_v%v.([]interface{})))\n", elem.Name, indexCode, strings.Repeat("[]", i+1), strings.ReplaceAll(convertToGoType(elem, mod), "[]", ""), elem.Name, i)
-			}
-		}
-
-		indexCode := ""
-		for i := 0; i < elem.Dimensions; i++ {
-			indexCode += fmt.Sprintf("[i%v]", i)
-		}
-
-		code += fmt.Sprintf("%v%v = %v_v%v.(%v)\n", elem.Name, indexCode, elem.Name, elem.Dimensions, strings.ReplaceAll(convertToGoType(elem, mod), "[]", ""))
-		code += strings.Repeat("}", elem.Dimensions)
 		return code
 	} else {
 		// if casting is needed
@@ -663,10 +633,12 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 			assertion = convertToGoType(elem, mod)
 		}
 
+		assignOrDeclare := "="
 		if outputVarExists {
-			return fmt.Sprintf("%v = %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
-		} else {
-			return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
+			assignOrDeclare = ":="
 		}
+
+		return fmt.Sprintf("%v %v %v(%vAsInterface.(%v))", elem.Name, assignOrDeclare, castingCode, elem.Name, assertion)
+
 	}
 }
