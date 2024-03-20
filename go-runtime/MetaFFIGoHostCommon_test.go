@@ -2,6 +2,7 @@ package metaffi
 
 import (
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"reflect"
 	"testing"
 	"unsafe"
 )
@@ -10,7 +11,7 @@ func TestFloat32Array(t *testing.T) {
 
 	input := Get3DFloat32ArrayCDTS()
 
-	res := FromCDTToGo(unsafe.Pointer(input.pcdt), 0)
+	res := FromCDTToGo(unsafe.Pointer(input.pcdt), 0, nil)
 
 	if GetCDTSType(input, 0) != IDL.METAFFI_TYPE_FLOAT32_ARRAY {
 		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_FLOAT32_ARRAY")
@@ -60,7 +61,7 @@ func TestGoCDTInt8(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_INT8")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil)
 
 	output_data, ok := output.(int8)
 	if !ok {
@@ -90,7 +91,7 @@ func TestGoCDTInt8Array(t *testing.T) {
 		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_INT8")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0).([]int8)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil).([]int8)
 
 	if len(output) != len(input) {
 		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
@@ -106,7 +107,7 @@ func TestGoCDTInt8Array(t *testing.T) {
 func TestGoCDTUInt8CArray(t *testing.T) {
 
 	input := Get2DUInt8ArrayCDTS()
-	output := FromCDTToGo(unsafe.Pointer(input.pcdt), 0).([][]uint8)
+	output := FromCDTToGo(unsafe.Pointer(input.pcdt), 0, nil).([][]uint8)
 
 	if len(output) != 3 {
 		t.Errorf("length of input and output are not equal. input: %v, output: %v", 3, len(output))
@@ -171,7 +172,7 @@ func TestGoCDTInt82DArray(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_INT8")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0).([][]int8)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil).([][]int8)
 
 	if len(output) != len(input) {
 		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
@@ -208,7 +209,7 @@ func TestGoCDTString(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_INT8")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil)
 
 	output_data, ok := output.(string)
 	if !ok {
@@ -238,7 +239,7 @@ func TestGoCDTStringArray(t *testing.T) {
 		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_STRING8_ARRAY")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0).([]string)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil).([]string)
 
 	if len(output) != len(input) {
 		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
@@ -272,7 +273,7 @@ func TestGoCDT3DStringArray(t *testing.T) {
 		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_STRING8_ARRAY")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0).([][][]string)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil).([][][]string)
 
 	if len(output) != len(input) {
 		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
@@ -312,7 +313,7 @@ func TestGoCDTHandleGoObject(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_HANDLE")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil)
 
 	output_data, ok := output.(test)
 	if !ok {
@@ -346,7 +347,7 @@ func TestGoCDTHandleNonGoObject(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_HANDLE")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil)
 
 	output_data, ok := output.(MetaFFIHandle)
 	if !ok {
@@ -383,11 +384,11 @@ func TestGoCDTHandleArray(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil)
 
 	output_data, ok := output.([]interface{})
 	if !ok {
-		t.Errorf("output is not of type int8")
+		t.Errorf("output is not of type []interface{}")
 	}
 
 	if input[0].(test) != output_data[0].(test) {
@@ -400,6 +401,39 @@ func TestGoCDTHandleArray(t *testing.T) {
 
 	if input[2].(test) != output_data[2].(test) {
 		t.Errorf("input and output are not equal. input: %v, output: %v", input[2].(test), output_data[2].(test))
+	}
+}
+
+func TestGoCDTHandleArraySameType(t *testing.T) {
+	pcdts := GetCDTS()
+
+	type test struct {
+		A int
+	}
+
+	input := []test{{A: 26}, {A: 27}}
+
+	typeInfo := IDL.MetaFFITypeInfo{
+		StringType: IDL.HANDLE,
+		Alias:      "",
+		Type:       IDL.METAFFI_TYPE_HANDLE_ARRAY,
+		Dimensions: 1,
+	}
+
+	FromGoToCDT(input, unsafe.Pointer(pcdts.pcdt), typeInfo, 0)
+
+	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_HANDLE_ARRAY {
+		t.Errorf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY")
+	}
+
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, reflect.TypeFor[test]()).([]test)
+
+	if input[0] != output[0] {
+		t.Errorf("input and output are not equal. input: %v, output: %v", input[0], output[0])
+	}
+
+	if input[1] != output[1] {
+		t.Errorf("input and output are not equal. input: %v, output: %v", input[1], output[1])
 	}
 }
 
@@ -438,7 +472,7 @@ func TestGoCDTHandle3DArray(t *testing.T) {
 		t.Errorf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY")
 	}
 
-	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0)
+	output := FromCDTToGo(unsafe.Pointer(pcdts.pcdt), 0, nil)
 
 	_, ok := output.([][][]interface{})
 	if !ok {

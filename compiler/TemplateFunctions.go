@@ -55,7 +55,7 @@ func getTypeForCDTToGo(arg *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string
 
 	// if arg is an array of handles - "reflect.TypeOf(name of the type without [])"
 	if arg.Type == IDL.HANDLE_ARRAY {
-		return fmt.Sprintf("reflect.TypeOf(%v)", strings.ReplaceAll(convertToGoType(arg, mod), "[]", ""))
+		return fmt.Sprintf("reflect.TypeFor[%v]()", strings.ReplaceAll(convertToGoType(arg, mod), "[]", ""))
 	}
 
 	// otherwise return "nil"

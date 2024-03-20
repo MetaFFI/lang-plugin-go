@@ -482,16 +482,17 @@ func traverseMultiDimArray[T any](arr unsafe.Pointer, t reflect.Type, cdtFields 
 			// Get the vals from the C struct
 			vals := cdtFields.getVals(current)
 			// Convert the C array to a Go slice
-			goVals := make([]T, cdtFields.getLength(current))
-			for i := range goVals {
-				goVals[i] = cdtFields.getElement(vals, i)
+			curLen := cdtFields.getLength(current)
+			goVals := reflect.MakeSlice(reflect.SliceOf(t), curLen, curLen)
+			for i := 0; i < curLen; i++ {
+				goVals.Index(i).Set(reflect.ValueOf(cdtFields.getElement(vals, i)))
 			}
 
 			if otherArray == nil {
-				otherArray = goVals // In the case we're traversing a 1D array
+				otherArray = goVals.Interface() // In the case we're traversing a 1D array
 			} else {
 				// Navigate to the correct position in the otherArray and append the goVals
-				err := setValAtIndices(otherArray, index[:len(index)-1], goVals)
+				err := setValAtIndices(otherArray, index[:len(index)-1], goVals.Interface())
 				if err != nil {
 					panic(err)
 				}
@@ -522,7 +523,7 @@ func traverseMultiDimArray[T any](arr unsafe.Pointer, t reflect.Type, cdtFields 
 	return otherArray
 }
 
-func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
+func FromCDTToGo(pdata unsafe.Pointer, i int, objectType reflect.Type) interface{} {
 
 	data := C.cast_to_cdt(pdata)
 	var res interface{}
@@ -660,8 +661,10 @@ func FromCDTToGo(pdata unsafe.Pointer, i int) interface{} {
 
 	case IDL.METAFFI_TYPE_HANDLE_ARRAY:
 		pcdt_handle_arr := (*C.struct_cdt_metaffi_handle_array)(C.convert_union_to_ptr(unsafe.Pointer(&pcdt.cdt_val)))
-		t := reflect.TypeOf((*interface{})(nil)).Elem()
-		res = traverseMultiDimArray[interface{}](unsafe.Pointer(pcdt_handle_arr), t, &CDTMetaFFIHandleArray{})
+		if objectType == nil {
+			objectType = reflect.TypeOf((*interface{})(nil)).Elem()
+		}
+		res = traverseMultiDimArray[interface{}](unsafe.Pointer(pcdt_handle_arr), objectType, &CDTMetaFFIHandleArray{})
 
 	case IDL.METAFFI_TYPE_CALLABLE:
 		panic("Callable type not implemented yet")
