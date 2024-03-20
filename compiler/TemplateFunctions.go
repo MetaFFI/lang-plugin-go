@@ -612,7 +612,7 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 			{{if gt $f.Dimensions 0}}
 			{{$f.Name}} := {{$f.Name}}AsInterface.({{Repeat [] $f.Dimensions}}{{ConvertToGoType $f.ArgDefinition $m}})
 		*/
-		code := fmt.Sprintf("%v_v0 := %vAsInterface.(%v%v)\n", elem.Name, elem.Name, strings.Repeat("[]", elem.Dimensions), convertToGoType(elem, mod))
+		code := fmt.Sprintf("%v := %vAsInterface.(%v%v)\n", elem.Name, elem.Name, convertToGoType(elem, mod))
 
 		return code
 	} else {
