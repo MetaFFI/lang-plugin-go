@@ -48,6 +48,18 @@ var templatesFuncMap = map[string]interface{}{
 	"Iterate":                                    Iterate,
 	"GetMetaFFINumericType":                      GetMetaFFINumericType,
 	"AssertAndConvert":                           assertAndConvert,
+	"GetTypeForCDTToGo":                          getTypeForCDTToGo,
+}
+
+func getTypeForCDTToGo(arg *IDL.ArgDefinition, mod *IDL.ModuleDefinition) string {
+
+	// if arg is an array of handles - "reflect.TypeOf(name of the type without [])"
+	if arg.Type == IDL.HANDLE_ARRAY {
+		return fmt.Sprintf("reflect.TypeOf(%v)", strings.ReplaceAll(convertToGoType(arg, mod), "[]", ""))
+	}
+
+	// otherwise return "nil"
+	return "nil"
 }
 
 func GetMetaFFINumericType(typeName IDL.MetaFFIType) uint64 {
@@ -612,7 +624,7 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 			{{if gt $f.Dimensions 0}}
 			{{$f.Name}} := {{$f.Name}}AsInterface.({{Repeat [] $f.Dimensions}}{{ConvertToGoType $f.ArgDefinition $m}})
 		*/
-		code := fmt.Sprintf("%v := %vAsInterface.(%v%v)\n", elem.Name, elem.Name, convertToGoType(elem, mod))
+		code := fmt.Sprintf("%v := %vAsInterface.(%v)\n", elem.Name, elem.Name, convertToGoType(elem, mod))
 
 		return code
 	} else {
@@ -633,12 +645,7 @@ func convertEmptyInterfaceFromCDTSToCorrectType(elem *IDL.ArgDefinition, mod *ID
 			assertion = convertToGoType(elem, mod)
 		}
 
-		assignOrDeclare := "="
-		if outputVarExists {
-			assignOrDeclare = ":="
-		}
-
-		return fmt.Sprintf("%v %v %v(%vAsInterface.(%v))", elem.Name, assignOrDeclare, castingCode, elem.Name, assertion)
+		return fmt.Sprintf("%v := %v(%vAsInterface.(%v))", elem.Name, castingCode, elem.Name, assertion)
 
 	}
 }

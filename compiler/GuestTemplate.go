@@ -213,7 +213,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}
-	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), {{$index}}, {{GetTypeForCDTToGo $elem}})
 	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m false}}
 	{{end}} {{/* end range params */}}
 	
@@ -269,7 +269,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
-	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), {{$index}}, {{GetTypeForCDTToGo $elem}})
 	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m false}}
 	{{end}} {{/* end range params */}}
 	
@@ -313,7 +313,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 
 	// parameters from C to Go
 	{{range $index, $elem := $f.Parameters}}	
-	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), {{$index}})
+	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), {{$index}}, {{GetTypeForCDTToGo $elem}})
 	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m false}}
 	{{end}} {{/* end range params */}}
 	
@@ -359,7 +359,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Gett
 
 	// get object
 	{{ $elem := index $f.Getter.Parameters 0 }}
-	objAsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), 0)
+	objAsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), 0, {{GetTypeForCDTToGo $elem}})
 	obj := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}objAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 
 	{{ $receiver_pointer := index $f.Getter.Tags "receiver_pointer"}}
@@ -396,12 +396,12 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Setter.Name $f.Sett
 
 	// get object
 	{{ $elem := index $f.Setter.Parameters 0 }}
-	thisAsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), 0)
+	thisAsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), 0, {{GetTypeForCDTToGo $elem}})
 	this := {{if not $elem.IsAny}}{{if $elem.IsTypeAlias}}{{$elem.GetTypeOrAlias}}{{else}}{{ConvertToGoType $elem $m}}{{end}}({{end}}thisAsInterface{{if not $elem.IsAny}}.({{ConvertToGoType $elem $m}})){{end}}
 
 	// get val
 	{{ $elem = index $f.Setter.Parameters 1 }}
-	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), 1)
+	{{$elem.Name}}AsInterface := FromCDTToGo(unsafe.Pointer(parameters_CDTS), 1, {{GetTypeForCDTToGo $elem}})
 	{{ConvertEmptyInterfaceFromCDTSToCorrectType $elem $m false}}
 	
 	// set new data
