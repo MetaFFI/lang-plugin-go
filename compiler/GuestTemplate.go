@@ -10,6 +10,8 @@ package main
 const GuestImportsTemplate = `
 import "fmt"
 import "unsafe"
+import "reflect"
+import "runtime"
 import "github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 import . "github.com/MetaFFI/lang-plugin-go/go-runtime"
 {{range $mindex, $i := .Imports}}
@@ -134,10 +136,18 @@ func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
 	if rec := recover(); rec != nil{
 		msg := "Panic in Go function. Panic Data: "
 		switch recType := rec.(type){
-			case error: msg += (rec.(error)).Error()
-			case string: msg += rec.(string)
-			default: msg += fmt.Sprintf("Panic with type: %v - %v", recType, rec)
+		case error:
+			msg += (rec.(error)).Error()
+		case string:
+			msg += rec.(string)
+		default:
+			msg += fmt.Sprintf("Panic with type: %v - %v", recType, rec)
 		}
+
+		// Add stack trace to message
+		stack := make([]byte, 1024*8)
+		stack = stack[:runtime.Stack(stack, false)]
+		msg = fmt.Sprintf("%s\nStack Trace:\n%s", msg, string(stack))
 
 		*out_err = C.CString(msg)
 		*out_err_len = C.uint64_t(len(msg))
@@ -149,7 +159,7 @@ func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
 const (
 	GuestFunctionXLLRTemplate = `
 {{$def := .}}
-
+var dummyreflect reflect.Type
 {{range $mindex, $m := .Modules}}
 
 {{range $findex, $f := $m.Globals}}

@@ -283,12 +283,15 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.length = 3;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr = new cdt_metaffi_uint8_array[3];
 		
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].dimension = 1;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].length = 3;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals = new metaffi_uint8[3];
 		
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].dimension = 1;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].length = 3;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals = new metaffi_uint8[3];
 		
+		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].dimension = 1;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].length = 3;
 		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals = new metaffi_uint8[3];
 		
@@ -317,7 +320,7 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		
 		REQUIRE(wrapper_get_buffers[0]->type == metaffi_uint8_array_type);
 		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimension == 2);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.length == 2);
+		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.length == 3);
 		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].dimension == 1);
 		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].length == 3);
 		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].dimension == 1);
