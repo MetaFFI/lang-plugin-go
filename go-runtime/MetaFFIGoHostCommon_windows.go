@@ -677,6 +677,11 @@ func FromCDTToGo(pdata unsafe.Pointer, i int, objectType reflect.Type) interface
 }
 
 func GetMetaFFITypeInfo(input interface{}) (IDL.MetaFFITypeInfo, reflect.Type) {
+
+	if input == nil {
+		return IDL.MetaFFITypeInfo{IDL.NULL, "", IDL.METAFFI_TYPE_NULL, 0}, nil
+	}
+
 	t := reflect.TypeOf(input)
 	var metaFFIType IDL.MetaFFIType
 	var alias string
@@ -974,6 +979,10 @@ func FromGoToCDT(input interface{}, pdata unsafe.Pointer, t IDL.MetaFFITypeInfo,
 		C.set_cdt_type(cdt_to_set, C.metaffi_uint64_array_type)
 		pcdt_uint64_array := unsafe.Pointer((*C.struct_cdt_metaffi_uint64_array)(C.convert_union_to_ptr(unsafe.Pointer(&cdt_to_set.cdt_val))))
 		constructMultiDimArray[uint64](pcdt_uint64_array, &CDTMetaFFIUint64Array{}, C.sizeof_metaffi_uint64, t.Dimensions, input, getArray, get1DArray[uint64])
+
+	case IDL.METAFFI_TYPE_NULL:
+		cdt_to_set.free_required = 0
+		C.set_cdt_type(cdt_to_set, C.metaffi_null_type)
 
 	case IDL.METAFFI_TYPE_HANDLE:
 		cdt_to_set.free_required = 1
