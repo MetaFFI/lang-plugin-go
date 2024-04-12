@@ -106,7 +106,7 @@ import (
 )
 
 func init() {
-	err := C.load_cdt_capi()
+	err := C.load_xllr()
 	if err != nil {
 		panic("Failed to load MetaFFI XLLR functions: " + C.GoString(err))
 	}
@@ -360,7 +360,7 @@ func IntToMetaFFISize(i int) C.metaffi_size {
 }
 
 func LoadCDTCAPI() {
-	err := C.load_cdt_capi()
+	err := C.load_xllr()
 	if err != nil {
 		panic("Failed to load MetaFFI XLLR functions: " + C.GoString(err))
 	}

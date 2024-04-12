@@ -31,8 +31,8 @@ package main
 #cgo CFLAGS: -I"{{GetEnvVar "METAFFI_HOME" true}}"
 
 
-#include <include/cdt_structs.h>
-#include <include/cdt_capi_loader.c>
+#include <include/cdt.h>
+#include <include/xllr_capi_loader.c>
 
 {{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
 metaffi_size get_int_item(metaffi_size* array, int index)
@@ -61,7 +61,7 @@ metaffi_type get_cdt_type(struct cdt* p)
 {{/* TODO: Do this without item CGo https://stackoverflow.com/questions/53238602/accessing-c-array-in-golang*/}}
 struct cdt* get_cdt_element(struct cdts* pdata, int cdts_index)
 {
-	return pdata[cdts_index].pcdt;
+	return pdata[cdts_index].arr;
 }
 
 void set_go_runtime_flag()
@@ -92,8 +92,8 @@ const GuestCImportTemplate = `
 #cgo !windows LDFLAGS: -L. -ldl
 #cgo CFLAGS: -I"{{GetEnvVar "METAFFI_HOME" true}}"
 
-#include <include/cdt_structs.h>
-#include <include/cdt_capi_loader.h>
+#include <include/cdt.h>
+#include <include/xllr_capi_loader.h>
 
 metaffi_size get_int_item(metaffi_size* array, int index);
 void* convert_union_to_ptr(void* p);
@@ -115,7 +115,7 @@ import "C"
 const GuestMainFunction = `
 func main(){} // main function must be declared to create dynamic library
 func init(){
-	err := C.load_cdt_capi()
+	err := C.load_xllr()
 	if err != nil{
 		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
 	}
