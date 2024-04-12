@@ -5,7 +5,7 @@ package metaffi
 #cgo LDFLAGS: -Wl,--allow-multiple-definition
 
 #include <string.h>
-#include <./../plugin-sdk/runtime/cdts_traverse_construct.h>
+#include <include/cdts_traverse_construct.h>
 
 
 

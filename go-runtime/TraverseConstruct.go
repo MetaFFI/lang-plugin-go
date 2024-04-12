@@ -6,7 +6,7 @@ package metaffi
 
 #include <include/xllr_capi_loader.h>
 #include <include/xllr_capi_loader.c>
-#include <./../plugin-sdk/runtime/cdts_traverse_construct.h>
+#include <include/cdts_traverse_construct.h>
 #include <stdint.h>
 
 
