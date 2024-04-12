@@ -268,4 +268,5 @@ func FromGoToCDT(input interface{}, pvcdt unsafe.Pointer, t IDL.MetaFFITypeInfo,
 	ccc := NewConstructCDTSCallbacks()
 	fmt.Fprintf(os.Stderr, "FromGoToCDT 4\n")
 	ConstructCDT(pcdt, &ccc)
+	fmt.Fprintf(os.Stderr, "FromGoToCDT 5\n")
 }
