@@ -433,7 +433,7 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 	if index == nil { // root
 		fmt.Fprintf(os.Stderr, "getTypeInfo 3\n")
 		var mt C.struct_metaffi_type_info
-		mt.alias = C.CStringN(cctxt.TypeInfo.Alias, C.int(len(cctxt.TypeInfo.Alias)))
+		mt.alias = C.CString(cctxt.TypeInfo.Alias)
 		mt.is_free_alias = C.metaffi_bool(1)
 		C.set_metaffi_type_info_type(&mt, C.uint64_t(cctxt.TypeInfo.Type))
 		fmt.Fprintf(os.Stderr, "+++++ %v\n", cctxt.TypeInfo)
