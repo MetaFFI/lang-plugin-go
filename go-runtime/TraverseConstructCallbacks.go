@@ -465,8 +465,11 @@ func getFloat32(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointe
 
 //export getInt8
 func getInt8(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer) C.metaffi_int8 {
+	fmt.Fprintf(os.Stderr, "getInt8 1\n")
 	cctxt := constructContextTLS.Get()
+	fmt.Fprintf(os.Stderr, "getInt8 2\n")
 	val := getElement(index, indexSize, cctxt.Input)
+	fmt.Fprintf(os.Stderr, "getInt8 3\n")
 	return C.metaffi_int8(val.Interface().(int8))
 }
 
