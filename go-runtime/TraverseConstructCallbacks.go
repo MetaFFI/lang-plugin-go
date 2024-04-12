@@ -432,7 +432,9 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 		fmt.Fprintf(os.Stderr, "getTypeInfo 3\n")
 		idlTypeInfo := cctxt.TypeInfo.AsCMetaFFITypeInfo()
 		cTypeInfo := C.cast_to_metaffi_type_info(unsafe.Pointer(&idlTypeInfo))
-		fmt.Fprintf(os.Stderr, "getTypeInfo 3.1\n")
+		fmt.Fprintf(os.Stderr, "getTypeInfo 3.1+\n")
+		fmt.Fprintf(os.Stderr, "getTypeInfo 3.2 - %v\n", cTypeInfo)
+		fmt.Fprintf(os.Stderr, "getTypeInfo 3.3 - %v\n", *cTypeInfo)
 		return *cTypeInfo
 	} else {
 		fmt.Fprintf(os.Stderr, "getTypeInfo 4\n")
