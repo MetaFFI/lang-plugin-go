@@ -32,8 +32,10 @@ metaffi_string8 cast_to_metaffi_string8(char* input) {
 */
 import "C"
 import (
+	"fmt"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"golang.org/x/text/unicode/norm"
+	"os"
 	"reflect"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -420,14 +422,20 @@ func getRootElementsCount(context unsafe.Pointer) C.metaffi_size {
 //export getTypeInfo
 func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer) C.struct_metaffi_type_info {
 
+	fmt.Fprintf(os.Stderr, "getTypeInfo 1\n")
+
 	cctxt := constructContextTLS.Get()
 
+	fmt.Fprintf(os.Stderr, "getTypeInfo 2\n")
+
 	if index == nil { // root
+		fmt.Fprintf(os.Stderr, "getTypeInfo 3\n")
 		idlTypeInfo := cctxt.TypeInfo.AsCMetaFFITypeInfo()
 		cTypeInfo := C.cast_to_metaffi_type_info(unsafe.Pointer(&idlTypeInfo))
+		fmt.Fprintf(os.Stderr, "getTypeInfo 3.1\n")
 		return *cTypeInfo
 	} else {
-
+		fmt.Fprintf(os.Stderr, "getTypeInfo 4\n")
 		val := getElement(index, indexSize, cctxt.Input)
 
 		detectedType, _ := getMetaFFITypeFromGoType(val)
@@ -435,6 +443,7 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 
 		idlTypeInfo := ti.AsCMetaFFITypeInfo()
 		cTypeInfo := C.cast_to_metaffi_type_info(unsafe.Pointer(&idlTypeInfo))
+		fmt.Fprintf(os.Stderr, "getTypeInfo 4.1\n")
 		return *cTypeInfo
 
 	}
