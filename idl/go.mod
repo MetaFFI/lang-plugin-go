@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/GreenFuze/go-parser v0.0.0-20240113080500-83cff8210dd0
-	github.com/MetaFFI/plugin-sdk v0.0.0-20240412085519-d3a8fca4727b
+	github.com/MetaFFI/plugin-sdk v0.0.0-20240412135941-a50bb5071f9a
 	golang.org/x/tools v0.20.0 // indirect
 )
 
