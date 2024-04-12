@@ -1,412 +1,320 @@
-#define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
-#include <runtime/runtime_plugin_api.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "runtime_id.h"
+#include <doctest/doctest.h>
 #include <filesystem>
 #include <runtime/cdts_wrapper.h>
+#include <runtime/runtime_plugin_api.h>
+#include "runtime_id.h"
 
-TEST_CASE( "go runtime api", "[goruntime]" )
+std::string original;
+std::filesystem::path module_path;
+
+struct GlobalSetup
 {
-	std::filesystem::path module_path(__FILE__);
-	module_path = module_path.parent_path();
-	module_path.append("test");
-#ifdef _WIN32
-	module_path.append("TestRuntime_MetaFFIGuest.dll");
-#else
-	module_path.append("TestRuntime_MetaFFIGuest.so");
-#endif
-
-
-
-	char* err = nullptr;
-	uint32_t err_len = 0;
-	
-	SECTION("Load Go Runtime")
+	GlobalSetup()
 	{
+		module_path = std::filesystem::path(__FILE__);
+		module_path = module_path.parent_path();
+		module_path.append("test");
+#ifdef _WIN32
+		module_path.append("TestRuntime_MetaFFIGuest.dll");
+#else
+		module_path.append("TestRuntime_MetaFFIGuest.so");
+#endif
+	
 		REQUIRE(std::getenv("METAFFI_HOME") != nullptr);
-		
+		char* err = nullptr;
+		uint32_t err_len;
 		load_runtime(&err, &err_len);
-		
-		if(err){
-			FAIL(err);
+
+		if(err)
+		{
+			FAIL(std::string(err));
 		}
-		
+
 		REQUIRE(err_len == 0);
 	}
+	
+	~GlobalSetup()
+	{
+	}
+};
 
-	SECTION("HelloWorld")
+static GlobalSetup setup;
+
+char* err = nullptr;
+uint32_t err_len = 0;
+uint64_t long_err_len = 0;
+
+void** cppload_function(const std::string& module_path,
+                        const std::string& function_path,
+                        std::vector<metaffi_type_info> params_types,
+                        std::vector<metaffi_type_info> retvals_types)
+{
+	err = nullptr;
+	uint32_t err_len_load = 0;
+	
+	metaffi_type_info* params_types_arr = params_types.empty() ? nullptr : params_types.data();
+	metaffi_type_info* retvals_types_arr = retvals_types.empty() ? nullptr : retvals_types.data();
+
+	void** pfunction = load_function(module_path.c_str(), module_path.length(),
+	                                 function_path.c_str(), function_path.length(),
+	                                 params_types_arr, retvals_types_arr,
+	                                 params_types.size(), retvals_types.size(),
+	                                 &err, &err_len_load);
+
+	if(err)
+	{
+		FAIL(std::string(err));
+	}
+	REQUIRE(err_len_load == 0);
+	REQUIRE(pfunction[0] != nullptr);
+	REQUIRE(pfunction[1] == nullptr); // no context in Go
+
+	return pfunction;
+};
+
+
+
+TEST_SUITE("go runtime api")
+{
+	TEST_CASE("HelloWorld")
 	{
 		std::string function_path = "callable=HelloWorld";
-		void** phello_world = load_function(module_path.string().c_str(), module_path.string().length(),
-											function_path.c_str(), function_path.length(),
-											nullptr, nullptr,
-											  0, 0,
-											  &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(phello_world[0] != nullptr);
-		REQUIRE(phello_world[1] == nullptr); // no context
+		void** phello_world = cppload_function(module_path.string(), function_path, {}, {});
 
 		uint64_t long_err_len = 0;
-		((void(*)(void*,char**, uint64_t*))phello_world[0])(nullptr, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		((void (*)(void*, char**, uint64_t*)) phello_world[0])(nullptr, &err, &long_err_len);
+		if(err) { FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 	}
 
-	SECTION("runtime_test_target.returns_an_error")
+	TEST_CASE("runtime_test_target.returns_an_error")
 	{
 		std::string function_path = "callable=ReturnsAnError";
-		void** preturns_an_error = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-											nullptr, nullptr,
-		                                    0, 0,
-		                                    &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(preturns_an_error[0] != nullptr);
-		REQUIRE(preturns_an_error[1] == nullptr);
+		void** preturns_an_error = cppload_function(module_path.string(), function_path, {}, {});
 
 		uint64_t long_err_len = 0;
-		((void(*)(void*,char**, uint64_t*))preturns_an_error[0])(nullptr, &err, &long_err_len);
+		((void (*)(void*, char**, uint64_t*)) preturns_an_error[0])(nullptr, &err, &long_err_len);
 		REQUIRE(err != nullptr);
 		REQUIRE(long_err_len > 0);
-
-		SUCCEED(std::string(err, long_err_len).c_str());
+		
 	}
 
-	SECTION("runtime_test_target.div_integers")
+	TEST_CASE("runtime_test_target.div_integers")
 	{
 		std::string function_path = "callable=DivIntegers";
-		metaffi_type_info params_types[] = {metaffi::runtime::make_type_with_options(metaffi_int64_type),
-		                                          metaffi::runtime::make_type_with_options(metaffi_int64_type)};
-		metaffi_type_info retvals_types[] = {metaffi::runtime::make_type_with_options(metaffi_float32_type)};
+		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_int64_type),
+		                                    metaffi_type_info(metaffi_int64_type)};
+		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_float32_type)};
 
 		uint8_t params_count = 2;
 		uint8_t retvals_count = 1;
 
-		void** pdiv_integers = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                         function_path.c_str(), function_path.length(),
-		                                        params_types, retvals_types,
-		                                     params_count, retvals_count,
-		                                         &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pdiv_integers[0] != nullptr);
-		REQUIRE(pdiv_integers[1] == nullptr);
-
-
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(params_count, retvals_count);
-		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper[0]->type = metaffi_int64_type;
-		wrapper[0]->cdt_val.metaffi_int64_val = 10;
-		wrapper[1]->type = metaffi_int64_type;
-		wrapper[1]->cdt_val.metaffi_int64_val = 2;
-
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pdiv_integers[0])(pdiv_integers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		void** pdiv_integers = cppload_function(module_path.string(), function_path, params_types, retvals_types);
+		
+		cdts* pcdts = (cdts*) xllr_alloc_cdts_buffer(params_count, retvals_count);
+		cdts& params = pcdts[0];
+		cdts& retval = pcdts[1];
+		
+		params[0] = cdt((metaffi_int64) 10);
+		params[1] = cdt((metaffi_int64) 2);
+		
+		((void (*)(void*, cdts*, char**, uint64_t*)) pdiv_integers[0])(pdiv_integers[1], pcdts, &err, &long_err_len);
+		if(err) { FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
-		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_ret[0]->type == metaffi_float32_type);
-		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_float32_val == 5.0f);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
+		REQUIRE(retval[0].type == metaffi_float32_type);
+		REQUIRE(retval[0].cdt_val.float32_val == 5.0f);
 	}
 
-	SECTION("runtime_test_target.join_strings")
+	TEST_CASE("runtime_test_target.join_strings")
 	{
 		std::string function_path = "callable=JoinStrings";
-		metaffi_type_info params_types[] = {metaffi::runtime::make_type_with_options(metaffi_string8_array_type)};
-		metaffi_type_info retvals_types[] = {metaffi::runtime::make_type_with_options(metaffi_string8_type)};
+		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_string8_array_type)};
+		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_string8_type)};
 
-		void** join_strings = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                     function_path.c_str(), function_path.length(),
-		                                     params_types, retvals_types,
-		                                     1, 1,
-		                                     &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(join_strings[0] != nullptr);
-		REQUIRE(join_strings[1] == nullptr);
-
-
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 1);
-		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		metaffi_size array_dimensions;
-		metaffi_string8 values[] = {(metaffi_string8)u8"one", (metaffi_string8)u8"two", (metaffi_string8)u8"three"};
-		wrapper[0]->type = metaffi_string8_array_type;
-		wrapper[0]->cdt_val.metaffi_string8_array_val.dimension = 1;
-		wrapper[0]->cdt_val.metaffi_string8_array_val.length = 3;
-		wrapper[0]->cdt_val.metaffi_string8_array_val.vals = values;
-
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))join_strings[0])(join_strings[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		void** join_strings = cppload_function(module_path.string(), function_path, params_types, retvals_types);
+		
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(params_types.size(), retvals_types.size());
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+		pcdts_params[0] = cdt(3, 1, metaffi_string8_type);
+		pcdts_params[0].cdt_val.array_val[0] = cdt((metaffi_string8)u8"one", false);
+		pcdts_params[0].cdt_val.array_val[1] = cdt((metaffi_string8)u8"two", false);
+		pcdts_params[0].cdt_val.array_val[2] = cdt((metaffi_string8)u8"three", false);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))join_strings[0])(join_strings[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
-		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_ret[0]->type == metaffi_string8_type);
-
-		std::u8string returned(wrapper_ret[0]->cdt_val.metaffi_string8_val);
-		REQUIRE(returned == u8"one,two,three");
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
+		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
+		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val) == u8"one,two,three");
 	}
 
-	SECTION("runtime_test_target.SomeClass")
+	TEST_CASE("runtime_test_target.SomeClass")
 	{
 		std::string function_path = "callable=GetSomeClasses";
-		metaffi_type_info retvals_getSomeClasses_types[] = {{metaffi_handle_array_type, (char*)"SomeClass[]", strlen("SomeClass[]"), 1}};
-
-		void** pgetSomeClasses = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                       function_path.c_str(), function_path.length(),
-		                                       nullptr, retvals_getSomeClasses_types,
-		                                       0, 1,
-		                                       &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pgetSomeClasses[0] != nullptr);
-		REQUIRE(pgetSomeClasses[1] == nullptr);
+		std::vector<metaffi_type_info> retvals_getSomeClasses_types = {{metaffi_handle_array_type, (char*)"SomeClass[]", true, 1}};
+		void** pgetSomeClasses = cppload_function(module_path.string(), function_path, {}, retvals_getSomeClasses_types);
 
 		function_path = "callable=ExpectThreeSomeClasses";
-		metaffi_type_info params_expectThreeSomeClasses_types[] = {{metaffi_handle_array_type, (char*)"SomeClass[]", strlen("SomeClass[]"), 1}};
+		std::vector<metaffi_type_info> params_expectThreeSomeClasses_types = {{metaffi_handle_array_type, (char*)"SomeClass[]", true, 1}};
+		void** pexpectThreeSomeClasses = cppload_function(module_path.string(), function_path, params_expectThreeSomeClasses_types, {});
 
-		void** pexpectThreeSomeClasses = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                               function_path.c_str(), function_path.length(),
-		                                               params_expectThreeSomeClasses_types, nullptr,
-		                                               1, 0,
-		                                               &err, &err_len);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pexpectThreeSomeClasses[0] != nullptr);
-		REQUIRE(pexpectThreeSomeClasses[1] == nullptr);
-		
 		function_path = "callable=SomeClass.Print";
-		metaffi_type_info params_SomeClassPrint_types[] = {{metaffi_handle_type, nullptr, 0, 0}};
-		
-		void** pSomeClassPrint = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                               function_path.c_str(), function_path.length(),
-													   params_SomeClassPrint_types, nullptr,
-		                                               1, 0,
-		                                               &err, &err_len);
-		
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pSomeClassPrint[0] != nullptr);
-		REQUIRE(pSomeClassPrint[1] == nullptr);
-		
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		std::vector<metaffi_type_info> params_SomeClassPrint_types = {metaffi_type_info{metaffi_handle_type}};
 
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pgetSomeClasses[0])(pgetSomeClasses[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		void** pSomeClassPrint = cppload_function(module_path.string(), function_path, params_SomeClassPrint_types, {});
+		
+		cdts* cdts_param_ret = (cdts*) xllr_alloc_cdts_buffer(0, 1);
+
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+	
+		((void(*)(void*,cdts*,char**,uint64_t*))pgetSomeClasses[0])(pgetSomeClasses[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
+	
+		REQUIRE(pcdts_retvals[0].type == metaffi_handle_array_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.fixed_dimensions == 1);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.length == 3);
+		
+		std::vector<cdt_metaffi_handle> arr = { pcdts_retvals[0].cdt_val.array_val.arr[0].cdt_val.handle_val,
+		                                       pcdts_retvals[0].cdt_val.array_val.arr[1].cdt_val.handle_val,
+		                                       pcdts_retvals[0].cdt_val.array_val.arr[2].cdt_val.handle_val };
+		//--------------------------------------------------------------------
 
-		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_handle_array_type);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.dimension == 1);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.length == 3);
-
-		auto arr = wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val;
-
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 0);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+	
+		pcdts_params[0] = cdt(3, 1, metaffi_handle_type);
+		pcdts_params[0].cdt_val.array_val[0] = cdt(arr[0]);
+		pcdts_params[0].cdt_val.array_val[1] = cdt(arr[1]);
+		pcdts_params[0].cdt_val.array_val[2] = cdt(arr[2]);
+	
+		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeSomeClasses[0])(pexpectThreeSomeClasses[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
+		REQUIRE(long_err_len == 0);
+	
 		//--------------------------------------------------------------------
 		
-		cdts* cdts_param_ret_print = (cdts*)xllr_alloc_cdts_buffer(1, 0);
-		metaffi::runtime::cdts_wrapper wrapper_print(cdts_param_ret_print[0].pcdt, cdts_param_ret_print[0].len, false);
-		wrapper_print[0]->type = metaffi_handle_type;
-		wrapper_print[0]->cdt_val.metaffi_handle_val = wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val.vals[1]; // use the 2nd instance
-		
-		((void(*)(void*,cdts*,char**,uint64_t*))pSomeClassPrint[0])(pSomeClassPrint[1], (cdts*)cdts_param_ret_print, &err, &long_err_len);
-		if(err){ FAIL(err); }
-		REQUIRE(long_err_len == 0);
-		
-		//--------------------------------------------------------------------
-		
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
-		metaffi::runtime::cdts_wrapper wrapper_expect(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_get_ret[0]->type = metaffi_handle_array_type;
-		wrapper_get_ret[0]->cdt_val.metaffi_handle_array_val = arr;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeSomeClasses[0])(pexpectThreeSomeClasses[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 0);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+	
+		pcdts_params[0] = cdt(arr[1]); // use the 2nd instance
+	
+		((void(*)(void*,cdts*,char**,uint64_t*))pSomeClassPrint[0])(pSomeClassPrint[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 	}
 
-	
-	SECTION("runtime_test_target.ThreeBuffers")
+
+	TEST_CASE("runtime_test_target.ThreeBuffers")
 	{
 		std::string function_path = "callable=ExpectThreeBuffers";
-		metaffi_type_info params_expectThreeBuffers_types[] = {{metaffi_uint8_array_type, nullptr, 0, 2}};
-		
-		void** pexpectThreeBuffers = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                           function_path.c_str(), function_path.length(),
-		                                           params_expectThreeBuffers_types, nullptr,
-		                                           1, 0,
-		                                           &err, &err_len);
-		
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pexpectThreeBuffers[0] != nullptr);
-		REQUIRE(pexpectThreeBuffers[1] == nullptr);
-		
+		std::vector<metaffi_type_info> params_expectThreeBuffers_types = {{metaffi_uint8_array_type, nullptr, false, 2}};
+
+		void** pexpectThreeBuffers = cppload_function(module_path.string(), function_path, params_expectThreeBuffers_types, {});
+
 		function_path = "callable=GetThreeBuffers";
-		metaffi_type_info retval_getThreeBuffers_types[] = {{metaffi_uint8_array_type, nullptr, 0, 2}};
-		
-		void** pgetThreeBuffers = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                        function_path.c_str(), function_path.length(),
-		                                        nullptr, retval_getThreeBuffers_types,
-		                                        0, 1,
-		                                        &err, &err_len);
-		
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pgetThreeBuffers[0] != nullptr);
-		REQUIRE(pgetThreeBuffers[1] == nullptr);
-		
+		std::vector<metaffi_type_info> retval_getThreeBuffers_types = {{metaffi_uint8_array_type, nullptr, false, 2}};
+
+		void** pgetThreeBuffers = cppload_function(module_path.string(), function_path, {}, retval_getThreeBuffers_types);
+
 		// pass 3 buffers
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
-		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_get_ret[0]->type = metaffi_uint8_array_type;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.dimension = 2;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.length = 3;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr = new cdt_metaffi_uint8_array[3];
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 0);
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+	
+		pcdts_params[0] = cdt(3, 2, metaffi_uint8_array_type);
+		metaffi_uint8 data[3][3] = { {0,1,2}, {3,4,5}, {6,7,8} };
+		pcdts_params[0].cdt_val.array_val[0] = cdt(3, 1, metaffi_uint8_type);
+		pcdts_params[0].cdt_val.array_val[1] = cdt(3, 1, metaffi_uint8_type);
+		pcdts_params[0].cdt_val.array_val[2] = cdt(3, 1, metaffi_uint8_type);
 		
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].dimension = 1;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].length = 3;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals = new metaffi_uint8[3];
+		pcdts_params[0].cdt_val.array_val[0].cdt_val.array_val[0] = cdt(data[0][0]);
+		pcdts_params[0].cdt_val.array_val[0].cdt_val.array_val[1] = cdt(data[0][1]);
+		pcdts_params[0].cdt_val.array_val[0].cdt_val.array_val[2] = cdt(data[0][2]);
 		
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].dimension = 1;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].length = 3;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals = new metaffi_uint8[3];
+		pcdts_params[0].cdt_val.array_val[1].cdt_val.array_val[0] = cdt(data[1][0]);
+		pcdts_params[0].cdt_val.array_val[1].cdt_val.array_val[1] = cdt(data[1][1]);
+		pcdts_params[0].cdt_val.array_val[1].cdt_val.array_val[2] = cdt(data[1][2]);
 		
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].dimension = 1;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].length = 3;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals = new metaffi_uint8[3];
+		pcdts_params[0].cdt_val.array_val[2].cdt_val.array_val[0] = cdt(data[2][0]);
+		pcdts_params[0].cdt_val.array_val[2].cdt_val.array_val[1] = cdt(data[2][1]);
+		pcdts_params[0].cdt_val.array_val[2].cdt_val.array_val[2] = cdt(data[2][2]);
 		
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[0] = 0;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[1] = 1;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[2] = 2;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[0] = 3;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[1] = 4;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[2] = 5;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[0] = 6;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[1] = 7;
-		wrapper_get_ret[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[2] = 8;
-		
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeBuffers[0])(pexpectThreeBuffers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		((void(*)(void*,cdts*,char**,uint64_t*))pexpectThreeBuffers[0])(pexpectThreeBuffers[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-		
+	
 		// get 3 buffers
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
-		((void(*)(void*,cdts*,char**,uint64_t*))pgetThreeBuffers[0])(pgetThreeBuffers[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+	
+		((void(*)(void*,cdts*,char**,uint64_t*))pgetThreeBuffers[0])(pgetThreeBuffers[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-		
-		metaffi::runtime::cdts_wrapper wrapper_get_buffers(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		
-		REQUIRE(wrapper_get_buffers[0]->type == metaffi_uint8_array_type);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.dimension == 2);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.length == 3);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].dimension == 1);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].length == 3);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].dimension == 1);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].length == 3);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].dimension == 1);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].length == 3);
-		
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[0] == 1);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[1] == 2);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[0].vals[2] == 3);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[0] == 1);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[1] == 2);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[1].vals[2] == 3);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[0] == 1);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[1] == 2);
-		REQUIRE(wrapper_get_buffers[0]->cdt_val.metaffi_uint8_array_val.arr[2].vals[2] == 3);
+	
+		REQUIRE(pcdts_retvals[0].type == metaffi_uint8_array_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.fixed_dimensions == 2);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.length == 3);
+		for(int i = 0; i < 3; i++) {
+			REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[i].cdt_val.array_val.length == 3);
+			for(int j = 0; j < 3; j++) {
+				REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[i].cdt_val.array_val[j].cdt_val.uint8_val == j+1);
+			}
+		}
 	}
 
-	SECTION("runtime_test_target.testmap.set_get_contains")
+	TEST_CASE("runtime_test_target.testmap.set_get_contains")
 	{
 		// create new testmap
 		std::string function_path = "callable=NewTestMap";
-		metaffi_type_info retvals_types[] = {metaffi::runtime::make_type_with_options(metaffi_handle_type)};
+		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-		                                    nullptr, retvals_types,
-		                                    0, 1,
-		                                    &err, &err_len);
+		void** pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pnew_testmap[0] != nullptr);
-		REQUIRE(pnew_testmap[1] == nullptr);
-
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
-
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		cdts& params_cdts = pcdts[0];
+		cdts& retvals_cdts = pcdts[1];
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], (cdts*)pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
-		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_ret[0]->type == metaffi_handle_type);
-		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_handle_val.val != nullptr);
+		REQUIRE(retvals_cdts[0].type == metaffi_handle_type);
+		REQUIRE(retvals_cdts[0].cdt_val.handle_val.val != nullptr);
+		REQUIRE(retvals_cdts[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
 
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
-
-		metaffi_handle testmap_instance = wrapper_ret[0]->cdt_val.metaffi_handle_val.val;
+		cdt_metaffi_handle testmap_instance = retvals_cdts[0].cdt_val.handle_val;
 
 		// set
 		function_path = "callable=TestMap.Set,instance_required";
-		metaffi_type_info params_types[] = {metaffi::runtime::make_type_with_options(metaffi_handle_type),
-		                                          metaffi::runtime::make_type_with_options(metaffi_string8_type),
-												  metaffi::runtime::make_type_with_options(metaffi_any_type)};
+		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type),
+		                                    metaffi_type_info(metaffi_string8_type),
+		                                    metaffi_type_info(metaffi_any_type)};
 
-		void** p_testmap_set = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-		                                    nullptr, retvals_types,
-		                                    3, 0,
-		                                    &err, &err_len);
+		void** p_testmap_set = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(p_testmap_set[0] != nullptr);
-		REQUIRE(p_testmap_set[1] == nullptr);
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(3, 0);
-		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper[0]->type = metaffi_handle_type;
-		wrapper[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper[1]->type = metaffi_string8_type;
-		wrapper[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
-		wrapper[2]->type = metaffi_int64_type;
-		wrapper[2]->cdt_val.metaffi_int64_val = 42;
-
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(3, 0);
+		params_cdts = std::move(pcdts[0]);
+		retvals_cdts = std::move(pcdts[1]);
+		
+		params_cdts[0] = cdt(testmap_instance);
+		params_cdts[1] = cdt((metaffi_string8)std::u8string(u8"key").c_str(), true);
+		params_cdts[2] = cdt((int32_t)42);
+		
 		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_set[0])(p_testmap_set[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_set[0])(p_testmap_set[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
 
 		// contains
 		function_path = "callable=TestMap.Contains,instance_required";
@@ -414,36 +322,21 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_bool_type;
 
-		void** p_testmap_contains = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                     function_path.c_str(), function_path.length(),
-		                                     nullptr, retvals_types,
-		                                     2, 1,
-		                                     &err, &err_len);
+		void** p_testmap_contains = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(p_testmap_contains[0] != nullptr);
-		REQUIRE(p_testmap_contains[1] == nullptr);
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(2, 1);
-		metaffi::runtime::cdts_wrapper wrapper_contains_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_contains_params[0]->type = metaffi_handle_type;
-		wrapper_contains_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper_contains_params[1]->type = metaffi_string8_type;
-		wrapper_contains_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_contains[0])(p_testmap_contains[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(2, 1);
+		params_cdts = std::move(pcdts[0]);
+		retvals_cdts = std::move(pcdts[1]);
+		
+		params_cdts[0] = cdt(testmap_instance);
+		params_cdts[1] = cdt((metaffi_string8)u8"key", true);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_contains[0])(p_testmap_contains[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
-		metaffi::runtime::cdts_wrapper wrapper_contains_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_contains_ret[0]->type == metaffi_bool_type);
-		REQUIRE(wrapper_contains_ret[0]->cdt_val.metaffi_bool_val != 0);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
+		REQUIRE(retvals_cdts[0].type == metaffi_bool_type);
+		REQUIRE(retvals_cdts[0].cdt_val.bool_val != 0);
 
 		// get
 		function_path = "callable=TestMap.Get,instance_required";
@@ -451,474 +344,309 @@ TEST_CASE( "go runtime api", "[goruntime]" )
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_any_type;
 
-		void** p_testmap_get = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                          function_path.c_str(), function_path.length(),
-		                                          nullptr, retvals_types,
-		                                          1, 1,
-		                                          &err, &err_len);
+		void** p_testmap_get = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(p_testmap_get[0] != nullptr);
-		REQUIRE(p_testmap_get[1] == nullptr);
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(2, 1);
-		metaffi::runtime::cdts_wrapper wrapper_get_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_get_params[0]->type = metaffi_handle_type;
-		wrapper_get_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper_get_params[1]->type = metaffi_string8_type;
-		wrapper_get_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_get[0])(p_testmap_get[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(2, 1);
+		params_cdts = std::move(pcdts[0]);
+		retvals_cdts = std::move(pcdts[1]);
+		
+		params_cdts[0] = cdt(testmap_instance);
+		params_cdts[1] = cdt((char8_t*)u8"key", true);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_get[0])(p_testmap_get[1], (cdts*)pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
-		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_int64_type);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_int64_val == 42);
+		REQUIRE(retvals_cdts[0].type == metaffi_int32_type);
+		REQUIRE(retvals_cdts[0].cdt_val.int32_val == 42);
 
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
 	}
 
-	SECTION("runtime_test_target.testmap.set_get_contains_cpp_object")
+	TEST_CASE("runtime_test_target.testmap.set_get_contains_cpp_object")
 	{
 		// create new testmap
 		std::string function_path = "callable=NewTestMap";
-		metaffi_type_info retvals_types[] = {metaffi::runtime::make_type_with_options(metaffi_handle_type)};
+		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
+		
+		void** pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-		                                    nullptr, retvals_types,
-		                                    0, 1,
-		                                    &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pnew_testmap[0] != nullptr);
-		REQUIRE(pnew_testmap[1] == nullptr);
-
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
-
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], (cdts*)pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
-		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_ret[0]->type == metaffi_handle_type);
-		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_handle_val.val != nullptr);
+		REQUIRE(pcdts_retvals[0].type == metaffi_handle_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.handle_val.val != nullptr);
+		REQUIRE(pcdts_retvals[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
 
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
-
-		metaffi_handle testmap_instance = wrapper_ret[0]->cdt_val.metaffi_handle_val.val;
+		cdt_metaffi_handle testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
 
 		// set
 		function_path = "callable=TestMap.Set,instance_required";
-		metaffi_type_info params_types[] = {metaffi::runtime::make_type_with_options(metaffi_handle_type),
-		                                          metaffi::runtime::make_type_with_options(metaffi_string8_type),
-		                                          metaffi::runtime::make_type_with_options(metaffi_any_type)};
+		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type),
+		                                    metaffi_type_info(metaffi_string8_type),
+		                                    metaffi_type_info(metaffi_any_type)};
 
-		void** p_testmap_set = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                     function_path.c_str(), function_path.length(),
-		                                     nullptr, retvals_types,
-		                                     3, 0,
-		                                     &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(p_testmap_set[0] != nullptr);
-		REQUIRE(p_testmap_set[1] == nullptr);
-
-		std::vector<int> input = {1, 2, 3};
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(3, 0);
-		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper[0]->type = metaffi_handle_type;
-		wrapper[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper[1]->type = metaffi_string8_type;
-		wrapper[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
-		wrapper[2]->type = metaffi_handle_type;
-		wrapper[2]->cdt_val.metaffi_handle_val.val = &input;
-		wrapper[2]->cdt_val.metaffi_handle_val.runtime_id = 123;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_set[0])(p_testmap_set[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		void** p_testmap_set = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(3, 0);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		std::vector<int> vec_to_insert = {1,2,3};
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		pcdts_params[1] = cdt((metaffi_string8)u8"key", true);
+		pcdts_params[2] = cdt(cdt_metaffi_handle{&vec_to_insert, 733, nullptr});
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_set[0])(p_testmap_set[1], (cdts*)pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
-
+		
 		// contains
 		function_path = "callable=TestMap.Contains,instance_required";
 		params_types[0].type = metaffi_handle_type;
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_bool_type;
 
-		void** p_testmap_contains = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                          function_path.c_str(), function_path.length(),
-		                                          nullptr, retvals_types,
-		                                          2, 1,
-		                                          &err, &err_len);
+		void** p_testmap_contains = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(p_testmap_contains[0] != nullptr);
-		REQUIRE(p_testmap_contains[1] == nullptr);
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(2, 1);
-		metaffi::runtime::cdts_wrapper wrapper_contains_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_contains_params[0]->type = metaffi_handle_type;
-		wrapper_contains_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper_contains_params[1]->type = metaffi_string8_type;
-		wrapper_contains_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_contains[0])(p_testmap_contains[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(2, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		pcdts_params[1] = cdt((metaffi_string8)u8"key", true);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_contains[0])(p_testmap_contains[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper wrapper_contains_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_contains_ret[0]->type == metaffi_bool_type);
-		REQUIRE(wrapper_contains_ret[0]->cdt_val.metaffi_bool_val != 0);
-
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_bool_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.bool_val != 0);
+		
 		// get
 		function_path = "callable=TestMap.Get,instance_required";
 		params_types[0].type = metaffi_handle_type;
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_any_type;
 
-		void** p_testmap_get = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                     function_path.c_str(), function_path.length(),
-		                                     nullptr, retvals_types,
-		                                     1, 1,
-		                                     &err, &err_len);
+		void** p_testmap_get = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(p_testmap_get[0] != nullptr);
-		REQUIRE(p_testmap_get[1] == nullptr);
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(2, 1);
-		metaffi::runtime::cdts_wrapper wrapper_get_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_get_params[0]->type = metaffi_handle_type;
-		wrapper_get_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper_get_params[1]->type = metaffi_string8_type;
-		wrapper_get_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"key";
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_get[0])(p_testmap_get[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(2, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		pcdts_params[1] = cdt((char8_t*)u8"key", true);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))p_testmap_get[0])(p_testmap_get[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		std::vector<int>* from_go;
-		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_handle_type);
-		REQUIRE(wrapper_get_ret[0]->cdt_val.metaffi_handle_val.runtime_id == 123);
-
-		from_go = (std::vector<int>*)wrapper_get_ret[0]->cdt_val.metaffi_handle_val.val;
-		REQUIRE((*from_go)[0] == 1);
-		REQUIRE((*from_go)[1] == 2);
-		REQUIRE((*from_go)[2] == 3);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_handle_type);
+		auto& vector_pulled = *(std::vector<int>*)pcdts_retvals[0].cdt_val.handle_val.val;
+		
+		REQUIRE(vector_pulled[0] == 1);
+		REQUIRE(vector_pulled[1] == 2);
+		REQUIRE(vector_pulled[2] == 3);
 	}
 
-	SECTION("runtime_test_target.testmap.get_set_name")
+	TEST_CASE("runtime_test_target.testmap.get_set_name")
 	{
 		// load constructor
 		std::string function_path = "callable=NewTestMap";
-		metaffi_type_info retvals_types[] = {metaffi::runtime::make_type_with_options(metaffi_handle_type)};
+		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-		                                    nullptr, retvals_types,
-		                                    0, 1,
-		                                    &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pnew_testmap[0] != nullptr);
-		REQUIRE(pnew_testmap[1] == nullptr);
-
+		void** pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
 		// load getter
 		function_path = "field=TestMap.Name,instance_required,getter";
-		metaffi_type_info params_types[2] = {0};
-		params_types[0].type = metaffi_handle_type;
-		retvals_types[0].type = metaffi_string8_type;
+		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type)};
+		retvals_types = {metaffi_type_info(metaffi_string8_type)};
 
-		void** pget_name = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-		                                    nullptr, retvals_types,
-		                                    1, 1,
-		                                    &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pget_name[0] != nullptr);
-		REQUIRE(pget_name[1] == nullptr);
+		void** pget_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
 		// load setter
 		function_path = "field=TestMap.Name,instance_required,setter";
 		params_types[0].type = metaffi_handle_type;
 		retvals_types[0].type = metaffi_string8_type;
 
-		void** pset_name = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                 function_path.c_str(), function_path.length(),
-		                                 nullptr, retvals_types,
-		                                 2, 0,
-		                                 &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pset_name[0] != nullptr);
-		REQUIRE(pset_name[1] == nullptr);
-
+		void** pset_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		
 		// create new testmap
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-
-		if(err){ FAIL(err); }
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_ret[0]->type == metaffi_handle_type);
-		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_handle_val.val != nullptr);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
-
-		metaffi_handle testmap_instance = wrapper_ret[0]->cdt_val.metaffi_handle_val.val;
-
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_handle_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.handle_val.val != nullptr);
+		REQUIRE(pcdts_retvals[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
+		
+		cdt_metaffi_handle testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
+		
 
 		// get name
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 1);
-		metaffi::runtime::cdts_wrapper wrapper_get_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_get_params[0]->type = metaffi_handle_type;
-		wrapper_get_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val) == u8"TestMap Name");
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
+		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val).empty());
 
 		// set name to "name is my name"
 
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(2, 0);
-		metaffi::runtime::cdts_wrapper wrapper_set_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_set_params[0]->type = metaffi_handle_type;
-		wrapper_set_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-		wrapper_set_params[1]->type = metaffi_string8_type;
-		wrapper_set_params[1]->cdt_val.metaffi_string8_val = (char8_t*)"name is my name";
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pset_name[0])(pset_name[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(2, 0);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		pcdts_params[1] = cdt((metaffi_string8)u8"name is my name", true);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pset_name[0])(pset_name[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
 		// get name again and make sure it is "name is my name"
-		cdts* last_get_params = (cdts*)xllr_alloc_cdts_buffer(1, 1);
-		wrapper_get_params = metaffi::runtime::cdts_wrapper(last_get_params[0].pcdt, last_get_params[0].len, false);
-		wrapper_get_params[0]->type = metaffi_handle_type;
-		wrapper_get_params[0]->cdt_val.metaffi_handle_val.val = testmap_instance;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], (cdts*)last_get_params, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper last_get_wrapper(last_get_params[1].pcdt, last_get_params[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val) == u8"name is my name");
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
+		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val) == u8"name is my name");
 	}
 
-	SECTION("runtime_test_target.testmap.get_set_name_from_empty_struct")
+	TEST_CASE("runtime_test_target.testmap.get_set_name_from_empty_struct")
 	{
 		// load constructor
 		std::string function_path = "callable=TestMap.EmptyStruct";
-		metaffi_type_info retvals_types[] = {metaffi::runtime::make_type_with_options(metaffi_handle_type)};
+		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		void** pnew_testmap = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                    function_path.c_str(), function_path.length(),
-		                                    nullptr, retvals_types,
-		                                    0, 1,
-		                                    &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pnew_testmap[0] != nullptr);
-		REQUIRE(pnew_testmap[1] == nullptr);
-
+		void** pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
 		// load getter
 		function_path = "field=TestMap.Name,instance_required,getter";
-		metaffi_type_info params_types[2] = {0};
-		params_types[0].type = metaffi_handle_type;
-		retvals_types[0].type = metaffi_string8_type;
+		std::vector<metaffi_type_info> params_types = { metaffi_type_info{metaffi_handle_type} };
+		retvals_types = { metaffi_type_info{metaffi_string8_type} };
 
-		void** pget_name = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                 function_path.c_str(), function_path.length(),
-		                                 nullptr, retvals_types,
-		                                 1, 1,
-		                                 &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pget_name[0] != nullptr);
-		REQUIRE(pget_name[1] == nullptr);
+		void** pget_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
 		// load setter
 		function_path = "field=TestMap.Name,instance_required,setter";
-		params_types[0].type = metaffi_handle_type;
-		retvals_types[0].type = metaffi_string8_type;
-
-		void** pset_name = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                 function_path.c_str(), function_path.length(),
-		                                 nullptr, retvals_types,
-		                                 2, 0,
-		                                 &err, &err_len);
-
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pset_name[0] != nullptr);
-		REQUIRE(pset_name[1] == nullptr);
+		params_types = { metaffi_type_info{metaffi_handle_type}, metaffi_type_info{metaffi_string8_type} };
+		
+		void** pset_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
 
 		// create new testmap
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-
-		if(err){ FAIL(err); }
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pnew_testmap[0])(pnew_testmap[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper wrapper_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_ret[0]->type == metaffi_handle_type);
-		REQUIRE(wrapper_ret[0]->cdt_val.metaffi_handle_val.val != nullptr);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
-
-		cdt_metaffi_handle testmap_instance = wrapper_ret[0]->cdt_val.metaffi_handle_val;
-
-
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_handle_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.handle_val.val != nullptr);
+		REQUIRE(pcdts_retvals[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
+		
+		cdt_metaffi_handle testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
+		
 		// get name
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 1);
-		metaffi::runtime::cdts_wrapper wrapper_get_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_get_params[0]->type = metaffi_handle_type;
-		wrapper_get_params[0]->cdt_val.metaffi_handle_val = testmap_instance;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper wrapper_get_ret(cdts_param_ret[1].pcdt, cdts_param_ret[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val).empty());
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
+		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val).empty());
 
 		// set name to "name is my name"
-
-		cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(2, 0);
-		metaffi::runtime::cdts_wrapper wrapper_set_params(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper_set_params[0]->type = metaffi_handle_type;
-		wrapper_set_params[0]->cdt_val.metaffi_handle_val = testmap_instance;
-		wrapper_set_params[1]->type = metaffi_string8_type;
-		wrapper_set_params[1]->cdt_val.metaffi_string8_val = (char8_t*)u8"name is my name";
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pset_name[0])(pset_name[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(2, 0);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		pcdts_params[1] = cdt((metaffi_string8)u8"name is my name", true);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pset_name[0])(pset_name[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
 		// get name again and make sure it is "name is my name"
-		cdts* last_get_params = (cdts*)xllr_alloc_cdts_buffer(1, 1);
-		wrapper_get_params = metaffi::runtime::cdts_wrapper(last_get_params[0].pcdt, last_get_params[0].len, false);
-		wrapper_get_params[0]->type = metaffi_handle_type;
-		wrapper_get_params[0]->cdt_val.metaffi_handle_val = testmap_instance;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], (cdts*)last_get_params, &err, &long_err_len);
-		if(err){ FAIL(err); }
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 1);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
+		
+		pcdts_params[0] = cdt(testmap_instance);
+		
+		((void(*)(void*,cdts*,char**,uint64_t*))pget_name[0])(pget_name[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
-		metaffi::runtime::cdts_wrapper last_get_wrapper(last_get_params[1].pcdt, last_get_params[1].len, false);
-		REQUIRE(wrapper_get_ret[0]->type == metaffi_string8_type);
-		REQUIRE(std::u8string(wrapper_get_ret[0]->cdt_val.metaffi_string8_val) == u8"name is my name");
+		
+		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
+		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val) == u8"name is my name");
 	}
 
-	SECTION("runtime_test_target.wait_a_bit")
+	TEST_CASE("runtime_test_target.wait_a_bit")
 	{
 		// get five_seconds global
-		metaffi_type_info var_type[] = {metaffi::runtime::make_type_with_options(metaffi_int64_type)};
+		std::vector<metaffi_type_info> var_type = {metaffi_type_info(metaffi_int64_type)};
 		std::string variable_path = "global=FiveSeconds,getter";
-		void** pfive_seconds_getter = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                            variable_path.c_str(), variable_path.length(),
-		                                            nullptr, var_type,
-		                                            0, 1,
-		                                            &err, &err_len);
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pfive_seconds_getter[0] != nullptr);
-		REQUIRE(pfive_seconds_getter[1] == nullptr);
-
-		cdts* getter_ret = (cdts*)xllr_alloc_cdts_buffer(0, 1);
-
-		uint64_t long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pfive_seconds_getter[0])(pfive_seconds_getter[1], (cdts*)getter_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
-
-		REQUIRE(getter_ret->pcdt->type == metaffi_int64_type);
-		REQUIRE(getter_ret->pcdt->cdt_val.metaffi_int64_val == 5000000000);
-
-		int64_t five = getter_ret->pcdt->cdt_val.metaffi_int64_val;
-
+		void** pfive_seconds_getter = cppload_function(module_path.string(), variable_path, {}, var_type);
+		
+		cdts* pcdts = (cdts*)xllr_alloc_cdts_buffer(0, 1);
+		cdts& pcdts_params = pcdts[0];
+		cdts& pcdts_retvals = pcdts[1];
+	
+		((void(*)(void*,cdts*,char**,uint64_t*))pfive_seconds_getter[0])(pfive_seconds_getter[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
+		REQUIRE(long_err_len == 0);
+	
+		REQUIRE(pcdts_retvals[0].type == metaffi_int64_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.int64_val == 5000000000);
+	
+		metaffi_int64 five = pcdts_retvals[0].cdt_val.int64_val;
+		
 		// call wait_a_bit
 		std::string function_path = "callable=WaitABit";
-		metaffi_type_info params_types[] = {metaffi::runtime::make_type_with_options(metaffi_int64_type)};
+		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_int64_type)};
 
-		void** pwait_a_bit = load_function(module_path.string().c_str(), module_path.string().length(),
-		                                   function_path.c_str(), function_path.length(),
-		                                   params_types, nullptr,
-		                                   1, 0,
-		                                   &err, &err_len);
+		void** pwait_a_bit = cppload_function(module_path.string(), function_path, params_types, {});
 
-		if(err){ FAIL(err); }
-		REQUIRE(err_len == 0);
-		REQUIRE(pwait_a_bit[0] != nullptr);
-		REQUIRE(pwait_a_bit[1] == nullptr);
-
-
-		cdts* cdts_param_ret = (cdts*)xllr_alloc_cdts_buffer(1, 0);
-		metaffi::runtime::cdts_wrapper wrapper(cdts_param_ret[0].pcdt, cdts_param_ret[0].len, false);
-		wrapper[0]->type = metaffi_int64_type;
-		wrapper[0]->cdt_val.metaffi_int64_val = five;
-
-		long_err_len = 0;
-		((void(*)(void*,cdts*,char**,uint64_t*))pwait_a_bit[0])(pwait_a_bit[1], (cdts*)cdts_param_ret, &err, &long_err_len);
-		if(err){ FAIL(err); }
-		REQUIRE(long_err_len == 0);
-
-		if(cdts_param_ret[0].len + cdts_param_ret[1].len > cdts_cache_size){
-			free(cdts_param_ret);
-		}
-	}
+		pcdts = (cdts*)xllr_alloc_cdts_buffer(1, 0);
+		pcdts_params = std::move(pcdts[0]);
+		pcdts_retvals = std::move(pcdts[1]);
 	
+		pcdts_params[0] = cdt(five);
+	
+		((void(*)(void*,cdts*,char**,uint64_t*))pwait_a_bit[0])(pwait_a_bit[1], pcdts, &err, &long_err_len);
+		if(err){ FAIL(std::string(err)); }
+		REQUIRE(long_err_len == 0);
+	}
 }

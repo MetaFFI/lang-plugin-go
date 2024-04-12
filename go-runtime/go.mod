@@ -1,8 +1,11 @@
 module github.com/MetaFFI/lang-plugin-go/go-runtime
 
-go 1.18
+go 1.21
+
+toolchain go1.22.0
 
 require (
-	github.com/MetaFFI/plugin-sdk v0.0.0-20240319194700-7aa7e30c4fb3
+	github.com/MetaFFI/plugin-sdk v0.0.0-20240412085519-d3a8fca4727b
+	github.com/timandy/routine v1.1.3
 	golang.org/x/text v0.14.0
 )
