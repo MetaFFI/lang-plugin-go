@@ -7,7 +7,9 @@ package metaffi
 #include <string.h>
 #include <include/cdts_traverse_construct.h>
 
-
+void set_metaffi_type_info_type(struct metaffi_type_info* info, uint64_t type) {
+    info->type = type;
+}
 
 uint32_t* cast_char32_t_to_uint32_t(char32_t* input) {
     return (uint32_t*)input;
@@ -430,12 +432,14 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 
 	if index == nil { // root
 		fmt.Fprintf(os.Stderr, "getTypeInfo 3\n")
-		idlTypeInfo := cctxt.TypeInfo.AsCMetaFFITypeInfo()
-		cTypeInfo := C.cast_to_metaffi_type_info(unsafe.Pointer(&idlTypeInfo))
+		var mt C.struct_metaffi_type_info
+		mt.alias = nil
+		mt.is_free_alias = C.metaffi_bool(0)
+		C.set_metaffi_type_info_type(&mt, cctxt.TypeInfo.Type)
+
 		fmt.Fprintf(os.Stderr, "getTypeInfo 3.1+\n")
-		fmt.Fprintf(os.Stderr, "getTypeInfo 3.2 - %v\n", cTypeInfo)
-		fmt.Fprintf(os.Stderr, "getTypeInfo 3.3 - %v\n", *cTypeInfo)
-		return *cTypeInfo
+		fmt.Fprintf(os.Stderr, "getTypeInfo 3.2 - %v\n", mt)
+		return mt
 	} else {
 		fmt.Fprintf(os.Stderr, "getTypeInfo 4\n")
 		val := getElement(index, indexSize, cctxt.Input)
