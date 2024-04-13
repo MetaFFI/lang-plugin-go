@@ -237,7 +237,7 @@ func XLLRFreeRuntimePlugin(runtimePlugin string) error {
 
 func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callbacks) {
 
-	err := C.call_xllr_construct_cdts(cdts, callbacks)
+	err := C.xllr_construct_cdts(cdts, callbacks)
 
 	if err != nil {
 		panic(C.GoString(err))
