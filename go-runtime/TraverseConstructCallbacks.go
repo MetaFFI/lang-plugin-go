@@ -512,7 +512,9 @@ func getUInt32(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer
 func getInt64(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer) C.metaffi_int64 {
 	cctxt := constructContextTLS.Get()
 	val := getElement(index, indexSize, cctxt.Input)
-	return C.metaffi_int64(val.Interface().(int64))
+
+	// val might be an alias to int64
+	return C.metaffi_int64(val.Int())
 }
 
 //export getUInt64
