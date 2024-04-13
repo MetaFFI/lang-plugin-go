@@ -45,15 +45,6 @@ struct cdts* cast_to_cdts(void* p)
 	return (struct cdts*)p;
 }
 
-char* call_xllr_construct_cdt(struct cdt* cdt, struct construct_cdts_callbacks* callbacks)
-{
-	char* out_err = 0;
-	fprintf(stderr, "call_xllr_construct_cdt 1\n");
-	xllr_construct_cdt(cdt, callbacks, &out_err)
-	fprintf(stderr, "call_xllr_construct_cdt 2\n");
-	return out_err;
-}
-
 */
 import "C"
 import (
