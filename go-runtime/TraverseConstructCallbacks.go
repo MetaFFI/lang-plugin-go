@@ -657,7 +657,14 @@ func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer
 	val := getElement(index, indexSize, cctxt.Input)
 
 	var cdt_handle C.struct_cdt_metaffi_handle
-	GoObjectToMetaffiHandle(&cdt_handle, val.Interface())
+	if val.IsZero() {
+		cdt_handle.val = 0
+		cdt_handle.runtime_id = 0
+		cdt_handle.release = 0
+	} else {
+		GoObjectToMetaffiHandle(&cdt_handle, val.Interface())
+	}
+
 	return cdt_handle
 }
 
