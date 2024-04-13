@@ -13,58 +13,58 @@ package metaffi
 #include "traverse_construct_go_callbacks.h"
 
 
-struct traverse_cdts_callbacks initialize_traverse_cdts_callbacks(void* context) {
-    struct traverse_cdts_callbacks tcc;
-    tcc.context = (void*)context;
-    tcc.on_float64 = onFloat64;
-    tcc.on_float32 = onFloat32;
-    tcc.on_int8 = onInt8;
-    tcc.on_uint8 = onUInt8;
-    tcc.on_int16 = onInt16;
-    tcc.on_uint16 = onUInt16;
-    tcc.on_int32 = onInt32;
-    tcc.on_uint32 = onUInt32;
-    tcc.on_int64 = onInt64;
-    tcc.on_uint64 = onUInt64;
-    tcc.on_bool = onBool;
-    tcc.on_char8 = onChar8;
-    tcc.on_string8 = onString8;
-    tcc.on_char16 = onChar16;
-    tcc.on_string16 = onString16;
-    tcc.on_char32 = onChar32;
-    tcc.on_string32 = onString32;
-    tcc.on_handle = onHandle;
-    tcc.on_callable = onCallable;
-    tcc.on_null = onNull;
-    tcc.on_array = onArray;
+struct traverse_cdts_callbacks* initialize_traverse_cdts_callbacks() {
+    struct traverse_cdts_callbacks* tcc = malloc(sizeof(struct traverse_cdts_callbacks));
+    tcc->context = 0;
+    tcc->on_float64 = onFloat64;
+    tcc->on_float32 = onFloat32;
+    tcc->on_int8 = onInt8;
+    tcc->on_uint8 = onUInt8;
+    tcc->on_int16 = onInt16;
+    tcc->on_uint16 = onUInt16;
+    tcc->on_int32 = onInt32;
+    tcc->on_uint32 = onUInt32;
+    tcc->on_int64 = onInt64;
+    tcc->on_uint64 = onUInt64;
+    tcc->on_bool = onBool;
+    tcc->on_char8 = onChar8;
+    tcc->on_string8 = onString8;
+    tcc->on_char16 = onChar16;
+    tcc->on_string16 = onString16;
+    tcc->on_char32 = onChar32;
+    tcc->on_string32 = onString32;
+    tcc->on_handle = onHandle;
+    tcc->on_callable = onCallable;
+    tcc->on_null = onNull;
+    tcc->on_array = onArray;
     return tcc;
 }
 
 struct construct_cdts_callbacks* initialize_construct_cdts_callbacks() {
     struct construct_cdts_callbacks* ccc = malloc(sizeof(struct construct_cdts_callbacks));
     ccc->context = 0;
-    ccc->get_float64 = 0;//getFloat64;
-    ccc->get_float32 = 0;//getFloat32;
-    ccc->get_int8 = 0;//getInt8;
-    ccc->get_uint8 = 0;//getUInt8;
-    ccc->get_int16 = 0;//getInt16;
-    ccc->get_uint16 = 0;//getUInt16;
-    ccc->get_int32 = 0;//getInt32;
-    ccc->get_uint32 = 0;//getUInt32;
-    ccc->get_int64 = 0;//getInt64;
-    ccc->get_uint64 = 0;//getUInt64;
-    ccc->get_bool = 0;//getBool;
-    ccc->get_char8 = 0;//getChar8;
-    ccc->get_string8 = 0;//getString8;
-    ccc->get_char16 = 0;//getChar16;
-    ccc->get_string16 = 0;//getString16;
-    ccc->get_char32 = 0;//getChar32;
-    ccc->get_string32 = 0;//getString32;
-    ccc->get_handle = 0;//getHandle;
-    ccc->get_callable = 0;//getCallable;
-    ccc->get_array_metadata = 0;//getArrayMetadata;
-    ccc->construct_cdt_array = 0;//constructCDTArray;
-	ccc->get_type_info = 0;//getTypeInfo;
+    ccc->get_float64 = getFloat64;
+    ccc->get_float32 = getFloat32;
+    ccc->get_int8 = getInt8;
+    ccc->get_uint8 = getUInt8;
+    ccc->get_int16 = getInt16;
+    ccc->get_uint16 = getUInt16;
+    ccc->get_int32 = getInt32;
+    ccc->get_uint32 = getUInt32;
+    ccc->get_int64 = getInt64;
+    ccc->get_uint64 = getUInt64;
+    ccc->get_bool = getBool;
+    ccc->get_char8 = getChar8;
+    ccc->get_string8 = getString8;
+    ccc->get_char16 = getChar16;
+    ccc->get_string16 = getString16;
+    ccc->get_char32 = getChar32;
+    ccc->get_string32 = getString32;
+    ccc->get_handle = getHandle;
+    ccc->get_callable = getCallable;
+    ccc->get_array_metadata = getArrayMetadata;
+    ccc->construct_cdt_array = constructCDTArray;
+	ccc->get_type_info = getTypeInfo;
     return ccc;
 }
 

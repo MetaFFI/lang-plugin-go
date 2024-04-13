@@ -101,10 +101,8 @@ metaffi_size len_to_metaffi_size(long long i)
 */
 import "C"
 import (
-	"fmt"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"github.com/timandy/routine"
-	"os"
 	"reflect"
 	"unsafe"
 )
@@ -164,18 +162,11 @@ type traverseContext struct {
 var traverseContextTLS = routine.NewThreadLocal[*traverseContext]()
 
 func FromCDTToGo(pvcdt unsafe.Pointer, i int, objectType reflect.Type) interface{} {
-
-	fmt.Fprintf(os.Stderr, "FromCDTToGo 1\n")
 	pcdt := C.cast_to_cdt(pvcdt)
 	pcdt = C.get_cdt_index(pcdt, C.int(i))
-	fmt.Fprintf(os.Stderr, "FromCDTToGo 2\n")
 	ctxt := &traverseContext{ObjectType: objectType}
 	traverseContextTLS.Set(ctxt)
-	fmt.Fprintf(os.Stderr, "FromCDTToGo 3\n")
-	tcc := NewTraverseCDTSCallbacks()
-	fmt.Fprintf(os.Stderr, "FromCDTToGo 4\n")
-	TraverseCDT(pcdt, &tcc)
-	fmt.Fprintf(os.Stderr, "FromCDTToGo 5\n")
+	TraverseCDT(pcdt)
 	return ctxt.Result
 }
 
@@ -257,14 +248,9 @@ type constructContext struct {
 var constructContextTLS = routine.NewThreadLocal[*constructContext]()
 
 func FromGoToCDT(input interface{}, pvcdt unsafe.Pointer, t IDL.MetaFFITypeInfo, i int) {
-
-	fmt.Fprintf(os.Stderr, "FromGoToCDT 1\n")
 	pcdt := C.cast_to_cdt(pvcdt)
 	pcdt = C.get_cdt_index(pcdt, C.int(i))
-	fmt.Fprintf(os.Stderr, "FromGoToCDT 2\n")
 	ctxt := &constructContext{Input: input, TypeInfo: t, Cdt: CDT{c: pcdt}}
 	constructContextTLS.Set(ctxt)
-	fmt.Fprintf(os.Stderr, "FromGoToCDT 3\n")
 	ConstructCDT(pcdt)
-	fmt.Fprintf(os.Stderr, "FromGoToCDT 4\n")
 }

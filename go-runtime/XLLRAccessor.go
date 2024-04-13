@@ -50,7 +50,6 @@ import "C"
 import (
 	"fmt"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"os"
 	"unsafe"
 )
 
@@ -239,13 +238,10 @@ func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callb
 func ConstructCDT(cdt *C.struct_cdt) {
 	pccc := NewConstructCDTSCallbacks()
 	var err *C.char = nil
-	fmt.Fprintf(os.Stderr, "ConstructCDT 1 - +++ %v %v %v \n", pccc.context, pccc.get_float64, pccc.get_float32)
-	C.xllr_construct_cdt(cdt, pccc, &err) /////////////////////////
-	fmt.Fprintf(os.Stderr, "ConstructCDT 2 - %v\n", err)
+	C.xllr_construct_cdt(cdt, pccc, &err)
 	if err != nil {
 		panic(C.GoString(err))
 	}
-	fmt.Fprintf(os.Stderr, "ConstructCDT 3\n")
 	C.free(unsafe.Pointer(pccc))
 }
 
@@ -258,13 +254,15 @@ func TraverseCDTS(cdts *C.struct_cdts, callbacks *C.struct_traverse_cdts_callbac
 	}
 }
 
-func TraverseCDT(cdt *C.struct_cdt, callbacks *C.struct_traverse_cdts_callbacks) {
+func TraverseCDT(cdt *C.struct_cdt) {
+	tcc := NewConstructCDTSCallbacks()
 	var err *C.char = nil
-	C.xllr_traverse_cdt(cdt, callbacks, &err)
+	C.xllr_traverse_cdt(cdt, tcc, &err)
 
 	if err != nil {
 		panic(C.GoString(err))
 	}
+	C.free(unsafe.Pointer(tcc))
 }
 
 func CFree(p unsafe.Pointer) {
