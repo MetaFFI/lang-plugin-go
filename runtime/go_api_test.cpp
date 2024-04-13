@@ -25,7 +25,7 @@ struct GlobalSetup {
 			std::cerr << "METAFFI_HOME" << " is not set" << std::endl;
 			exit(1);
 		}
-		
+
 		char* err = nullptr;
 		uint32_t err_len = 0;
 		load_runtime(&err, &err_len);
@@ -112,12 +112,9 @@ TEST_SUITE("go runtime api")
 		                                               metaffi_type_info(metaffi_int64_type)};
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_float32_type)};
 
-		uint8_t params_count = 2;
-		uint8_t retvals_count = 1;
-
 		void** pdiv_integers = cppload_function(module_path.string(), function_path, params_types, retvals_types);
 
-		cdts* pcdts = (cdts*) xllr_alloc_cdts_buffer(params_count, retvals_count);
+		cdts* pcdts = (cdts*) xllr_alloc_cdts_buffer(params_types.size(), retvals_types.size());
 		cdts& params = pcdts[0];
 		cdts& retval = pcdts[1];
 

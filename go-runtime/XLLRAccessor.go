@@ -45,6 +45,15 @@ struct cdts* cast_to_cdts(void* p)
 	return (struct cdts*)p;
 }
 
+char* call_xllr_construct_cdt(struct cdt* cdt, struct construct_cdts_callbacks* callbacks)
+{
+	char* out_err = 0;
+	fprintf(stderr, "call_xllr_construct_cdt 1\n");
+	xllr_construct_cdt(cdt, callbacks, &out_err)
+	fprintf(stderr, "call_xllr_construct_cdt 2\n");
+	return out_err;
+}
+
 */
 import "C"
 import (
@@ -227,8 +236,8 @@ func XLLRFreeRuntimePlugin(runtimePlugin string) error {
 }
 
 func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callbacks) {
-	var err *C.char = nil
-	C.xllr_construct_cdts(cdts, callbacks, &err)
+
+	err := C.call_xllr_construct_cdts(cdts, callbacks)
 
 	if err != nil {
 		panic(C.GoString(err))
@@ -237,8 +246,8 @@ func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callb
 
 func ConstructCDT(cdt *C.struct_cdt, callbacks *C.struct_construct_cdts_callbacks) {
 	var err *C.char = nil
-	fmt.Fprintf(os.Stderr, "ConstructCDT 1 - +++%v\n", callbacks.context)
-	C.xllr_construct_cdt(cdt, callbacks, &err)
+	fmt.Fprintf(os.Stderr, "ConstructCDT 1 - +++\n")
+	C.xllr_construct_cdt(nil, nil, &err)
 	fmt.Fprintf(os.Stderr, "ConstructCDT 2 - %v\n", err)
 	if err != nil {
 		panic(C.GoString(err))
