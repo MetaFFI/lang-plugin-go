@@ -172,8 +172,8 @@ func getGoTypeFromMetaFFIType(metaffiType C.metaffi_type, commonGoType reflect.T
 
 type OnFloat64Func func(index *C.metaffi_size, indexSize C.metaffi_size, val C.metaffi_float64, context unsafe.Pointer)
 
-func NewTraverseCDTSCallbacks() C.struct_traverse_cdts_callbacks {
-	return C.initialize_traverse_cdts_callbacks(nil)
+func NewTraverseCDTSCallbacks() *C.struct_traverse_cdts_callbacks {
+	return C.initialize_traverse_cdts_callbacks()
 }
 
 //--------------------------------------------------------------------
