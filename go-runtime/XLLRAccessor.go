@@ -239,7 +239,7 @@ func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callb
 func ConstructCDT(cdt *C.struct_cdt, callbacks *C.struct_construct_cdts_callbacks) {
 	var err *C.char = nil
 	fmt.Fprintf(os.Stderr, "ConstructCDT 1 - +++\n")
-	C.xllr_construct_cdt(cdt, callbacks, &err)
+	C.xllr_construct_cdt(cdt, nil, &err)
 	fmt.Fprintf(os.Stderr, "ConstructCDT 2 - %v\n", err)
 	if err != nil {
 		panic(C.GoString(err))
