@@ -223,57 +223,56 @@ func onNull(index *C.metaffi_size, indexSize C.metaffi_size, context unsafe.Poin
 func onArray(index *C.metaffi_size, indexSize C.metaffi_size, val *C.struct_cdts, fixedDimensions C.metaffi_int64, commonType C.metaffi_type, context unsafe.Pointer) C.metaffi_bool {
 	tctxt := traverseContextTLS.Get()
 
-	tctxt.Result = make([]string, 3, 3)
-	//if commonType&C.metaffi_type(C.metaffi_array_type) != 0 {
-	//	commonType = commonType & ^C.metaffi_type(C.metaffi_array_type)
-	//}
-	//
-	//// if metaffi_any_type, get the common metaffi type
-	//var tempForAnyTempDynamicChecking C.metaffi_type = 0
-	//if commonType&C.metaffi_type(C.metaffi_any_type) != 0 {
-	//	cdts := CDTS{c: val}
-	//	for i := C.metaffi_size(0); i < cdts.GetLength(); i++ {
-	//		elem := cdts.GetCDT(int(i))
-	//		if tempForAnyTempDynamicChecking == 0 {
-	//			tempForAnyTempDynamicChecking = elem.GetTypeVal()
-	//		} else if tempForAnyTempDynamicChecking != elem.GetTypeVal() { // no common type - use metaffi_any_type
-	//			commonType = C.metaffi_any_type
-	//			break
-	//		}
-	//	}
-	//}
-	//
-	//var commonGoType reflect.Type = nil
-	//if commonType&C.metaffi_type(C.metaffi_handle_type) != 0 { // if metaffi_handle, get the Go common type
-	//
-	//	cdts := CDTS{c: val}
-	//	for i := C.metaffi_size(0); i < cdts.GetLength(); i++ {
-	//
-	//		if cdts.GetCDT(int(i)).GetTypeVal()&C.metaffi_array_type == 0 {
-	//			elem := GetGoObject(cdts.GetCDT(int(i)).GetHandleVal().Val)
-	//			curType := reflect.ValueOf(elem).Type()
-	//			if commonGoType == nil {
-	//				commonGoType = curType
-	//			} else if commonGoType != curType { // no common type - use interface{}
-	//				commonGoType = reflect.TypeFor[interface{}]()
-	//				break
-	//			}
-	//		} else {
-	//			commonGoType = reflect.TypeFor[interface{}]()
-	//		}
-	//	}
-	//} else if commonType == C.metaffi_any_type {
-	//	commonGoType = reflect.TypeFor[interface{}]()
-	//}
-	//
-	//if indexSize == 0 { // check roots
-	//
-	//	// if handle, get the common type
-	//	tctxt.Result = createMultiDimSlice(int(val.length), int(fixedDimensions), getGoTypeFromMetaFFIType(commonType, commonGoType))
-	//} else { // within an array
-	//	elem := getElement(index, indexSize, tctxt.Result)
-	//	elem.Set(reflect.ValueOf(createMultiDimSlice(int(val.length), int(fixedDimensions), getGoTypeFromMetaFFIType(commonType, commonGoType))))
-	//}
+	if commonType&C.metaffi_type(C.metaffi_array_type) != 0 {
+		commonType = commonType & ^C.metaffi_type(C.metaffi_array_type)
+	}
+
+	// if metaffi_any_type, get the common metaffi type
+	var tempForAnyTempDynamicChecking C.metaffi_type = 0
+	if commonType&C.metaffi_type(C.metaffi_any_type) != 0 {
+		cdts := CDTS{c: val}
+		for i := C.metaffi_size(0); i < cdts.GetLength(); i++ {
+			elem := cdts.GetCDT(int(i))
+			if tempForAnyTempDynamicChecking == 0 {
+				tempForAnyTempDynamicChecking = elem.GetTypeVal()
+			} else if tempForAnyTempDynamicChecking != elem.GetTypeVal() { // no common type - use metaffi_any_type
+				commonType = C.metaffi_any_type
+				break
+			}
+		}
+	}
+
+	var commonGoType reflect.Type = nil
+	if commonType&C.metaffi_type(C.metaffi_handle_type) != 0 { // if metaffi_handle, get the Go common type
+
+		cdts := CDTS{c: val}
+		for i := C.metaffi_size(0); i < cdts.GetLength(); i++ {
+
+			if cdts.GetCDT(int(i)).GetTypeVal()&C.metaffi_array_type == 0 {
+				elem := GetGoObject(cdts.GetCDT(int(i)).GetHandleVal().Val)
+				curType := reflect.ValueOf(elem).Type()
+				if commonGoType == nil {
+					commonGoType = curType
+				} else if commonGoType != curType { // no common type - use interface{}
+					commonGoType = reflect.TypeFor[interface{}]()
+					break
+				}
+			} else {
+				commonGoType = reflect.TypeFor[interface{}]()
+			}
+		}
+	} else if commonType == C.metaffi_any_type {
+		commonGoType = reflect.TypeFor[interface{}]()
+	}
+
+	if indexSize == 0 { // check roots
+
+		// if handle, get the common type
+		tctxt.Result = createMultiDimSlice(int(val.length), int(fixedDimensions), getGoTypeFromMetaFFIType(commonType, commonGoType))
+	} else { // within an array
+		elem := getElement(index, indexSize, tctxt.Result)
+		elem.Set(reflect.ValueOf(createMultiDimSlice(int(val.length), int(fixedDimensions), getGoTypeFromMetaFFIType(commonType, commonGoType))))
+	}
 
 	return C.metaffi_bool(1)
 }
