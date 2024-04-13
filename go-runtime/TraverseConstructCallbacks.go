@@ -305,16 +305,16 @@ func onString8(index *C.metaffi_size, indexSize C.metaffi_size, val *C.char, con
 
 	if indexSize == 0 {
 		// Convert C string to Go string
-		goBytes := C.GoBytes(unsafe.Pointer(val), C.int(C.strlen(val)))
-		goString := string(goBytes)
+		//goBytes := C.GoBytes(unsafe.Pointer(val), C.int(C.strlen(val)))
+		goString := "sdsd" //string(goBytes)
 
 		// If not Go, return CDTMetaFFIHandle
 		tctxt.Result = goString
 	} else { // within an array
 		elem := getElement(index, indexSize, tctxt.Result)
 
-		goBytes := C.GoBytes(unsafe.Pointer(val), C.int(C.strlen(val)))
-		goString := string(goBytes)
+		//goBytes := C.GoBytes(unsafe.Pointer(val), C.int(C.strlen(val)))
+		goString := "dfdf" //string(goBytes)
 
 		elem.Set(reflect.ValueOf(goString))
 	}
