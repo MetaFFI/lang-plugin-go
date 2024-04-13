@@ -40,9 +40,9 @@ struct traverse_cdts_callbacks initialize_traverse_cdts_callbacks(void* context)
     return tcc;
 }
 
-struct construct_cdts_callbacks initialize_construct_cdts_callbacks(void* context) {
+struct construct_cdts_callbacks initialize_construct_cdts_callbacks() {
     struct construct_cdts_callbacks ccc;
-    ccc.context = context;
+    ccc.context = 0;
     ccc.get_float64 = getFloat64;
     ccc.get_float32 = getFloat32;
     ccc.get_int8 = getInt8;
@@ -267,7 +267,7 @@ func getMetaFFITypeFromGoType(v reflect.Value) (detectedType C.metaffi_type, is1
 }
 
 func NewConstructCDTSCallbacks() C.struct_construct_cdts_callbacks {
-	return C.initialize_construct_cdts_callbacks(nil)
+	return C.initialize_construct_cdts_callbacks()
 }
 
 func GetGoObject(h *C.struct_cdt_metaffi_handle) interface{} {
