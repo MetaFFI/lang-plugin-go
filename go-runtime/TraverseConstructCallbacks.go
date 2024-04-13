@@ -658,7 +658,7 @@ func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer
 
 	var cdt_handle C.struct_cdt_metaffi_handle
 	if val.IsZero() {
-		cdt_handle.val = C.metaffi_type(0)
+		cdt_handle.val = C.metaffi_type(uint64(0))
 		cdt_handle.runtime_id = 0
 		cdt_handle.release = unsafe.Pointer(nil)
 	} else {
