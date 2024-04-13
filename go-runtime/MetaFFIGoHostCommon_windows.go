@@ -265,8 +265,6 @@ func FromGoToCDT(input interface{}, pvcdt unsafe.Pointer, t IDL.MetaFFITypeInfo,
 	ctxt := &constructContext{Input: input, TypeInfo: t, Cdt: CDT{c: pcdt}}
 	constructContextTLS.Set(ctxt)
 	fmt.Fprintf(os.Stderr, "FromGoToCDT 3\n")
-	ccc := NewConstructCDTSCallbacks()
+	ConstructCDT(pcdt)
 	fmt.Fprintf(os.Stderr, "FromGoToCDT 4\n")
-	ConstructCDT(pcdt, &ccc)
-	fmt.Fprintf(os.Stderr, "FromGoToCDT 5\n")
 }
