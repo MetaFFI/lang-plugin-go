@@ -255,7 +255,7 @@ func TraverseCDTS(cdts *C.struct_cdts, callbacks *C.struct_traverse_cdts_callbac
 }
 
 func TraverseCDT(cdt *C.struct_cdt) {
-	tcc := NewConstructCDTSCallbacks()
+	tcc := NewTraverseCDTSCallbacks()
 	var err *C.char = nil
 	C.xllr_traverse_cdt(cdt, tcc, &err)
 
