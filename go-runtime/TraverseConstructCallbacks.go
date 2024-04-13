@@ -11,6 +11,10 @@ void set_metaffi_type_info_type(struct metaffi_type_info* info, uint64_t type) {
     info->type = type;
 }
 
+metaffi_type get_metaffi_type(struct metaffi_type_info* info) {
+    return info->type;
+}
+
 uint32_t* cast_char32_t_to_uint32_t(char32_t* input) {
     return (uint32_t*)input;
 }
@@ -429,6 +433,12 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 		mt.alias = C.CString(cctxt.TypeInfo.Alias)
 		mt.is_free_alias = C.metaffi_bool(0)
 		C.set_metaffi_type_info_type(&mt, C.uint64_t(cctxt.TypeInfo.Type))
+
+		if C.get_metaffi_type(&mt) == C.metaffi_any_type {
+			mffitype, _ := getMetaFFITypeFromGoType(reflect.ValueOf(cctxt.Input))
+			C.set_metaffi_type_info_type(&mt, C.uint64_t(mffitype))
+		}
+
 		return mt
 	} else {
 		val := getElement(index, indexSize, cctxt.Input)
