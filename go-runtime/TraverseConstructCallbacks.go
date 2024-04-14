@@ -671,13 +671,11 @@ func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer
 		panic("Receives object in getHandle is not valid")
 	}
 
-	if val.IsZero() {
-		cdt_handle.val = C.metaffi_handle(unsafe.Pointer(nil))
-		cdt_handle.runtime_id = 0
-		cdt_handle.release = unsafe.Pointer(nil)
-	} else {
-		GoObjectToMetaffiHandle(&cdt_handle, val.Interface())
-	}
+	fmt.Fprintf(os.Stderr, "val is %v\n", val)
+	fmt.Fprintf(os.Stderr, "val.Interface() is %v\n", val.Interface())
+	fmt.Fprintf(os.Stderr, "val.Type() is %v\n", val.Type())
+
+	GoObjectToMetaffiHandle(&cdt_handle, val.Interface())
 
 	return cdt_handle
 }
