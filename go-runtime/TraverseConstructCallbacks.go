@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"golang.org/x/text/unicode/norm"
+	"os"
 	"reflect"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -660,11 +661,17 @@ func getString32(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer) C.struct_cdt_metaffi_handle {
 
 	cctxt := constructContextTLS.Get()
+	fmt.Fprintf(os.Stderr, "input is %v\n", cctxt.Input)
+	fmt.Fprintf(os.Stderr, "index is %v. Index size is %v\n", index, indexSize)
 	val := getElement(index, indexSize, cctxt.Input)
 
 	var cdt_handle C.struct_cdt_metaffi_handle
 
-	if !val.IsValid() || val.IsZero() {
+	if !val.IsValid() {
+		panic("Receives object in getHandle is not valid")
+	}
+
+	if val.IsZero() {
 		cdt_handle.val = C.metaffi_handle(unsafe.Pointer(nil))
 		cdt_handle.runtime_id = 0
 		cdt_handle.release = unsafe.Pointer(nil)
