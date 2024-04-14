@@ -38,6 +38,7 @@ metaffi_string8 cast_to_metaffi_string8(char* input) {
 */
 import "C"
 import (
+	"fmt"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"golang.org/x/text/unicode/norm"
 	"reflect"
@@ -254,6 +255,11 @@ func onArray(index *C.metaffi_size, indexSize C.metaffi_size, val *C.struct_cdts
 
 			if cdts.GetCDT(int(i)).GetTypeVal()&C.metaffi_array_type == 0 {
 				elem := GetGoObject(cdts.GetCDT(int(i)).GetHandleVal().Val)
+
+				if elem == nil {
+					panic(fmt.Sprintf("Go Object returned nil - Handle: %v", cdts.GetCDT(int(i)).GetHandleVal().Val.val, cdts.GetCDT(int(i)).GetHandleVal().Val.runtime_id))
+				}
+
 				curType := reflect.ValueOf(elem).Type()
 				if commonGoType == nil {
 					commonGoType = curType
