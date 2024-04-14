@@ -257,7 +257,7 @@ func onArray(index *C.metaffi_size, indexSize C.metaffi_size, val *C.struct_cdts
 				elem := GetGoObject(cdts.GetCDT(int(i)).GetHandleVal().Val)
 
 				if elem == nil {
-					panic(fmt.Sprintf("Go Object returned nil - Handle: %v", cdts.GetCDT(int(i)).GetHandleVal().Val.val, cdts.GetCDT(int(i)).GetHandleVal().Val.runtime_id))
+					panic(fmt.Sprintf("Go Object returned nil - Handle: %v %v", cdts.GetCDT(int(i)).GetHandleVal().Val.val, cdts.GetCDT(int(i)).GetHandleVal().Val.runtime_id))
 				}
 
 				curType := reflect.ValueOf(elem).Type()
