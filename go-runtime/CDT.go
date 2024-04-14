@@ -444,6 +444,10 @@ type CDTMetaFFIHandle struct {
 	Val *C.struct_cdt_metaffi_handle
 }
 
+func (handle *CDTMetaFFIHandle) GetHandle() C.metaffi_handle {
+	return handle.Val.val
+}
+
 //------------------------------------------------------------
 
 type MetaFFICallable struct {

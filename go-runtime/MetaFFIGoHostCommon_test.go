@@ -497,3 +497,28 @@ func TestGoCDTHandle3DArray(t *testing.T) {
 		}
 	}
 }
+
+func TestReturnErrWithNil(t *testing.T) {
+	var err error
+
+	pcdts := GetCDTS()
+
+	typeInfo := IDL.MetaFFITypeInfo{
+		StringType: IDL.HANDLE,
+		Alias:      "error",
+		Type:       IDL.METAFFI_TYPE_HANDLE,
+		Dimensions: 0,
+	}
+	FromGoToCDT(err, unsafe.Pointer(pcdts.arr), typeInfo, 0)
+
+	cdts := CDTS{c: pcdts}
+	cdt := cdts.GetCDT(0)
+
+	if uint64(cdt.GetTypeVal()) != IDL.METAFFI_TYPE_HANDLE {
+		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE")
+	}
+
+	if uintptr(cdt.GetHandleVal().GetHandle()) != uintptr(0) {
+		t.Fatalf("pcdt.handle is not nil")
+	}
+}
