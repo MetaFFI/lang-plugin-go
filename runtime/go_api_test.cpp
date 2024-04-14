@@ -141,16 +141,22 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params = pcdts[0];
 		cdts& pcdts_retvals = pcdts[1];
 		pcdts_params[0] = cdt(3, 1, metaffi_string8_type);
-		pcdts_params[0].cdt_val.array_val[0] = cdt((metaffi_string8) u8"one", false);
-		pcdts_params[0].cdt_val.array_val[1] = cdt((metaffi_string8) u8"two", false);
-		pcdts_params[0].cdt_val.array_val[2] = cdt((metaffi_string8) u8"three", false);
+		
+		std::u8string one = u8"one";
+		std::u8string two = u8"two";
+		std::u8string three = u8"three";
+		
+		pcdts_params[0].cdt_val.array_val[0] = cdt(one.c_str(), false);
+		pcdts_params[0].cdt_val.array_val[1] = cdt(two.c_str(), false);
+		pcdts_params[0].cdt_val.array_val[2] = cdt(three.c_str(), false);
 
 		((void (*)(void*, cdts*, char**, uint64_t*)) join_strings[0])(join_strings[1], pcdts, &err, &long_err_len);
 		if(err) { FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
 
 		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
-		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val) == u8"one,two,three");
+		REQUIRE(std::u8string_view(pcdts_retvals[0].cdt_val.string8_val) == u8"one,two,three");
+		
 	}
 
 	TEST_CASE("runtime_test_target.SomeClass")
@@ -169,8 +175,6 @@ TEST_SUITE("go runtime api")
 
 		void** pSomeClassPrint = cppload_function(module_path.string(), function_path, params_SomeClassPrint_types, {});
 
-		cdts* cdts_param_ret = (cdts*) xllr_alloc_cdts_buffer(0, 1);
-
 		cdts* pcdts = (cdts*) xllr_alloc_cdts_buffer(0, 1);
 		cdts& pcdts_params = pcdts[0];
 		cdts& pcdts_retvals = pcdts[1];
@@ -183,6 +187,18 @@ TEST_SUITE("go runtime api")
 		REQUIRE(pcdts_retvals[0].cdt_val.array_val.fixed_dimensions == 1);
 		REQUIRE(pcdts_retvals[0].cdt_val.array_val.length == 3);
 
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[0].type == metaffi_handle_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[1].type == metaffi_handle_type);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[2].type == metaffi_handle_type);
+		
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[1].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[2].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID);
+
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[0].cdt_val.handle_val.val != nullptr);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[1].cdt_val.handle_val.val != nullptr);
+		REQUIRE(pcdts_retvals[0].cdt_val.array_val.arr[2].cdt_val.handle_val.val != nullptr);
+		
 		std::vector<cdt_metaffi_handle> arr = {pcdts_retvals[0].cdt_val.array_val.arr[0].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val.arr[1].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val.arr[2].cdt_val.handle_val};
@@ -200,7 +216,6 @@ TEST_SUITE("go runtime api")
 		((void (*)(void*, cdts*, char**, uint64_t*)) pexpectThreeSomeClasses[0])(pexpectThreeSomeClasses[1], pcdts, &err, &long_err_len);
 		if(err) { FAIL(std::string(err)); }
 		REQUIRE(long_err_len == 0);
-
 		//--------------------------------------------------------------------
 
 		pcdts = (cdts*) xllr_alloc_cdts_buffer(1, 0);
@@ -507,7 +522,7 @@ TEST_SUITE("go runtime api")
 		REQUIRE(long_err_len == 0);
 
 		REQUIRE(pcdts_retvals[0].type == metaffi_string8_type);
-		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val).empty());
+		REQUIRE(std::u8string(pcdts_retvals[0].cdt_val.string8_val) == u8"TestMap Name");
 
 		// set name to "name is my name"
 
@@ -516,7 +531,7 @@ TEST_SUITE("go runtime api")
 		pcdts_retvals = std::move(pcdts[1]);
 
 		pcdts_params[0] = cdt(testmap_instance);
-		pcdts_params[1] = cdt((metaffi_string8) u8"name is my name", true);
+		pcdts_params[1] = cdt((metaffi_string8)u8"name is my name", true);
 
 		((void (*)(void*, cdts*, char**, uint64_t*)) pset_name[0])(pset_name[1], pcdts, &err, &long_err_len);
 		if(err) { FAIL(std::string(err)); }
@@ -618,7 +633,7 @@ TEST_SUITE("go runtime api")
 	TEST_CASE("runtime_test_target.wait_a_bit")
 	{
 		// get five_seconds global
-		std::vector<metaffi_type_info> var_type = {metaffi_type_info(metaffi_int64_type)};
+		std::vector<metaffi_type_info> var_type = {metaffi_type_info(metaffi_int64_type, "time.Duration", true)};
 		std::string variable_path = "global=FiveSeconds,getter";
 		void** pfive_seconds_getter = cppload_function(module_path.string(), variable_path, {}, var_type);
 
