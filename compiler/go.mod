@@ -6,14 +6,14 @@ toolchain go1.22.0
 
 require (
 	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240320181653-de27c21f7ebc
-	github.com/MetaFFI/lang-plugin-go/idl v0.0.0-20240414080913-f8caf2ac3042
-	github.com/MetaFFI/plugin-sdk v0.0.0-20240412145036-4daf20d36a1e
+	github.com/MetaFFI/lang-plugin-go/idl v0.0.0-20240414081443-554884cdc950
+	github.com/MetaFFI/plugin-sdk v0.0.0-20240416150902-5f975a29af46
 	github.com/pkg/profile v1.7.0
 	golang.org/x/text v0.14.0
 )
 
 require (
-	github.com/GreenFuze/go-parser v0.0.0-20240113080500-83cff8210dd0 // indirect
+	github.com/GreenFuze/go-parser v0.0.0-20240414081507-f3897e769e4c // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/tools v0.20.0 // indirect
