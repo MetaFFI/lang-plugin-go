@@ -4,10 +4,6 @@ import (
 	goruntime "github.com/MetaFFI/lang-plugin-go/go-runtime"
 )
 
-func init() {
-	goruntime.LoadCDTCAPI()
-}
-
 type MetaFFIRuntime struct {
 	runtimePlugin string
 }

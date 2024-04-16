@@ -66,7 +66,7 @@ func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes
 			return nil, fmt.Errorf("Expecting %v parameters, received %v parameters", len(paramsMetaFFITypes), len(params))
 		}
 
-		xcall_params, parametersCDTS, return_valuesCDTS := goruntime.XLLRAllocCDTSBuffer(goruntime.IntToMetaFFISize(len(params)), goruntime.IntToMetaFFISize(len(retvalMetaFFITypes)))
+		xcall_params, parametersCDTS, return_valuesCDTS := goruntime.XLLRAllocCDTSBuffer(uint64(len(params)), uint64(len(retvalMetaFFITypes)))
 
 		paramsCount := len(params)
 		retvalCount := len(retvalMetaFFITypes)
@@ -97,7 +97,7 @@ func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes
 
 		retvals = make([]interface{}, retvalCount)
 		for i := 0; i < int(retvalCount); i++ {
-			retvals[i] = goruntime.FromCDTToGo(return_valuesCDTS, i)
+			retvals[i] = goruntime.FromCDTToGo(return_valuesCDTS, i, nil)
 		}
 
 		if goruntime.GetCacheSize() < paramsCount+retvalCount {
