@@ -139,18 +139,6 @@ func freeMetaFFITypeInfoArray(metaffiArray *C.struct_metaffi_type_info, size int
 	C.free(unsafe.Pointer(metaffiArray))
 }
 
-func XLLRAllocCDTSBuffer(params C.metaffi_size, rets C.metaffi_size) (pcdts unsafe.Pointer, parametersCDTS unsafe.Pointer, return_valuesCDTS unsafe.Pointer) {
-	res := C.xllr_alloc_cdts_buffer(params, rets)
-	pcdts = unsafe.Pointer(res)
-
-	if res != nil {
-		parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
-		return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
-	}
-
-	return
-}
-
 //--------------------------------------------------------------------
 
 type traverseContext struct {

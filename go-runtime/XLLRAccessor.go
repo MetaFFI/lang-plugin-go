@@ -188,6 +188,18 @@ func XLLRXCallNoParamsNoRet(pff *unsafe.Pointer) error {
 	return nil
 }
 
+func XLLRAllocCDTSBuffer(paramsCount uint64, retsCount uint64) (pcdts unsafe.Pointer, parametersCDTS unsafe.Pointer, return_valuesCDTS unsafe.Pointer) {
+	res := C.xllr_alloc_cdts_buffer(C.metaffi_size(paramsCount), C.metaffi_size(retsCount))
+	pcdts = unsafe.Pointer(res)
+
+	if res != nil {
+		parametersCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 0))
+		return_valuesCDTS = unsafe.Pointer(C.get_cdts_index_pcdt(res, 1))
+	}
+
+	return
+}
+
 func XLLRLoadRuntimePlugin(runtimePlugin string) error {
 
 	pruntime_plugin := C.CString(runtimePlugin)
