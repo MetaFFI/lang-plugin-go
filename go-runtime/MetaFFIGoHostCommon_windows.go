@@ -49,11 +49,6 @@ struct cdt* cast_to_cdt(void* p)
 	return (struct cdt*)p;
 }
 
-struct cdt* get_cdts_index_pcdt(struct cdts* p, int index)
-{
-	return p[index].arr;
-}
-
 void set_cdt_string8(struct cdt* p, metaffi_string8 val)
 {
 	p->cdt_val.string8_val = val;

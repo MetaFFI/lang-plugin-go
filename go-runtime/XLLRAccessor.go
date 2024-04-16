@@ -45,6 +45,11 @@ struct cdts* cast_to_cdts(void* p)
 	return (struct cdts*)p;
 }
 
+struct cdt* get_cdts_index_pcdt(struct cdts* p, int index)
+{
+	return p[index].arr;
+}
+
 */
 import "C"
 import (
