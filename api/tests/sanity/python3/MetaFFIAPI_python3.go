@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -80,7 +79,7 @@ func TestDivIntegers() {
 		os.Exit(1)
 	}
 
-	if res[0].(float32) != float32(2) {
+	if res[0].(float64) != float64(2) {
 		fmt.Printf("Expected 2, got: %v", res[0].(float32))
 		os.Exit(1)
 	}

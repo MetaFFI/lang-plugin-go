@@ -236,30 +236,14 @@ func NewBeautifulSoup(source string, parser string) (*BeautifulSoup, error) {
 }
 
 func (this *BeautifulSoup) FindAll(tag string) ([]*Tag, error) {
-	listHandle, err := this.pfindAll(this.instance, tag)
+	returnVals, err := this.pfindAll(this.instance, tag)
 	if err != nil {
 		return nil, err
 	}
-
-	pylist, err := NewPyListFromHandle(listHandle[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		return nil, err
-	}
-
-	length, err := pylist.Len()
-	if err != nil {
-		return nil, err
-	}
-
+	handles := returnVals[0].([]metaffi.MetaFFIHandle)
 	tags := make([]*Tag, 0)
-	var i int64 = 0
-	for ; i < length.(int64); i++ {
-		tagHandle, err := pylist.Get(i)
-		if err != nil {
-			return nil, err
-		}
-
-		tag, err := NewTag(tagHandle.(metaffi.MetaFFIHandle))
+	for _, handle := range handles {
+		tag, err := NewTag(handle)
 		if err != nil {
 			return nil, err
 		}

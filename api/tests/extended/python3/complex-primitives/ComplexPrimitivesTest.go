@@ -283,7 +283,7 @@ func main() {
 	}
 
 	plist_args_without_default_and_varargs, err := module.Load("callable=extended_test.list_args,instance_required,varargs",
-		[]IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.HANDLE},
+		[]IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.STRING8_ARRAY},
 		[]IDL.MetaFFIType{IDL.HANDLE})
 	if err != nil {
 		panic(err)
@@ -353,15 +353,15 @@ func main() {
 	}
 
 	parg_positional_arg_named_without_default_with_varargs, err := module.Load("callable=extended_test.arg_positional_arg_named,instance_required,varargs",
-		[]IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.HANDLE},
-		[]IDL.MetaFFIType{IDL.HANDLE})
+		[]IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.STRING8_ARRAY},
+		[]IDL.MetaFFIType{IDL.STRING8_ARRAY})
 	if err != nil {
 		panic(err)
 	}
 
 	parg_positional_arg_named_without_default_with_varargs_and_kwargs, err := module.Load("callable=extended_test.arg_positional_arg_named,instance_required,varargs,named_args",
-		[]IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.HANDLE, IDL.HANDLE},
-		[]IDL.MetaFFIType{IDL.HANDLE})
+		[]IDL.MetaFFIType{IDL.HANDLE, IDL.STRING8, IDL.STRING8_ARRAY, IDL.HANDLE},
+		[]IDL.MetaFFIType{IDL.STRING8_ARRAY})
 	if err != nil {
 		panic(err)
 	}
@@ -412,17 +412,9 @@ func main() {
 		panic(err)
 	}
 
-	lst, err := NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
+	strings := val[0].([]string)
 
-	v, err := lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "default" {
+	if strings[0] != "default" {
 		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
 	}
 
@@ -433,86 +425,35 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
+	strings = val[0].([]string)
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "None Default" {
+	if strings[0] != "None Default" {
 		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
 	}
 
 	//---------------
 
-	lst, err = NewPyList()
+	val, err = plist_args_without_default_and_varargs(instance, "None-Default 2", []string{"arg1", "arg2", "arg3"})
 	if err != nil {
 		panic(err)
 	}
 
-	err = lst.Append("arg1")
-	if err != nil {
-		panic(err)
+	strings = val[0].([]string)
+
+	if strings[0] != "None-Default 2" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[0]))
 	}
 
-	err = lst.Append("arg2")
-	if err != nil {
-		panic(err)
+	if strings[1] != "arg1" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[1]))
 	}
 
-	err = lst.Append("arg3")
-	if err != nil {
-		panic(err)
+	if strings[2] != "arg2" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[2]))
 	}
 
-	val, err = plist_args_without_default_and_varargs(instance, "None-Default 2", lst.instance)
-	if err != nil {
-		panic(err)
-	}
-
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
-
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "None-Default 2" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v.(string)))
-	}
-
-	v, err = lst.Get(1)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "arg1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
-	}
-
-	v, err = lst.Get(2)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "arg2" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
-	}
-
-	v, err = lst.Get(3)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "arg3" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[3] != "arg3" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[3]))
 	}
 
 	//---------------
@@ -522,18 +463,10 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
+	strings = val[0].([]string)
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "default" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[0] != "default" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[0]))
 	}
 
 	//-------
@@ -543,18 +476,10 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
+	strings = val[0].([]string)
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "none-default" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[0] != "none-default" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[0]))
 	}
 
 	//-------
@@ -577,54 +502,26 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
+	strings = val[0].([]string)
+
+	if strings[0] != "none-default" {
+		panic(fmt.Sprintf("expected 'none-default', got '%v'", strings[0]))
 	}
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
+	if strings[1] != "key1" {
+		panic(fmt.Sprintf("expected 'key1', got '%v'", strings[1]))
 	}
 
-	if v.(string) != "none-default" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[2] != "val1" {
+		panic(fmt.Sprintf("expected 'val1', got '%v'", strings[2]))
 	}
 
-	v, err = lst.Get(1)
-	if err != nil {
-		panic(err)
+	if strings[3] != "key2" {
+		panic(fmt.Sprintf("expected 'key2', got '%v'", strings[3]))
 	}
 
-	if v.(string) != "key1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
-	}
-
-	v, err = lst.Get(2)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "val1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
-	}
-
-	v, err = lst.Get(3)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "key2" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
-	}
-
-	v, err = lst.Get(4)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "val2" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[4] != "val2" {
+		panic(fmt.Sprintf("expected 'val2', got '%v'", strings[4]))
 	}
 
 	//-------
@@ -642,6 +539,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	if val[0].(string) != "test" {
 		panic(fmt.Sprintf("expected 'test', got '%v'", val[0].(string)))
 	}
@@ -652,6 +550,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	if val[0].(string) != "word1 word2" {
 		panic(fmt.Sprintf("expected 'word1 word2', got '%v'", val[0].(string)))
 	}
@@ -663,18 +562,10 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
+	strings = val[0].([]string)
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "default" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[0] != "default" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[0]))
 	}
 
 	//-----
@@ -684,48 +575,27 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
-	}
+	strings = val[0].([]string)
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "positional arg" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[0] != "positional arg" {
+		panic(fmt.Sprintf("expected 'positional arg', got '%v'", strings[0]))
 	}
 
 	//-----
 
-	val, err = parg_positional_arg_named_without_default_with_varargs(instance, "positional arg", "var positional arg") // arg_positional_arg_named()
+	val, err = parg_positional_arg_named_without_default_with_varargs(instance, "positional arg", []string{"var positional arg"}) // arg_positional_arg_named()
 	if err != nil {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
+	strings = val[0].([]string)
+
+	if strings[0] != "positional arg" {
+		panic(fmt.Sprintf("expected 'positional arg', got '%v'", strings[0]))
 	}
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "positional arg" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
-	}
-
-	v, err = lst.Get(1)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "var positional arg" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", val[0].(string)))
+	if strings[1] != "var positional arg" {
+		panic(fmt.Sprintf("expected 'var positional arg', got '%v'", strings[1]))
 	}
 
 	//-----
@@ -743,36 +613,18 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
+	strings = val[0].([]string)
+
+	if strings[0] != "positional arg" {
+		panic(fmt.Sprintf("expected 'positional arg', got '%v'", strings[0]))
 	}
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
+	if strings[1] != "key1" {
+		panic(fmt.Sprintf("expected 'key1', got '%v'", strings[1]))
 	}
 
-	if v.(string) != "positional arg" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
-	v, err = lst.Get(1)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "key1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
-	v, err = lst.Get(2)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "val1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
+	if strings[2] != "val1" {
+		panic(fmt.Sprintf("expected 'val1', got '%v'", strings[2]))
 	}
 
 	//-----
@@ -791,36 +643,18 @@ func main() {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
+	strings = val[0].([]string)
+
+	if strings[0] != "default" {
+		panic(fmt.Sprintf("expected 'default', got '%v'", strings[0]))
 	}
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
+	if strings[1] != "key1" {
+		panic(fmt.Sprintf("expected 'key1', got '%v'", strings[1]))
 	}
 
-	if v.(string) != "default" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
-	v, err = lst.Get(1)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "key1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
-	v, err = lst.Get(2)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "val1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
+	if strings[2] != "val1" {
+		panic(fmt.Sprintf("expected 'val1', got '%v'", strings[2]))
 	}
 
 	//-----
@@ -834,50 +668,26 @@ func main() {
 		panic(err)
 	}
 
-	val, err = parg_positional_arg_named_without_default_with_varargs_and_kwargs(instance, "positional arg", pydict.Instance, "var positional arg") // arg_positional_arg_named()
+	val, err = parg_positional_arg_named_without_default_with_varargs_and_kwargs(instance, "positional arg", []string{"var positional arg"}, pydict.Instance) // arg_positional_arg_named()
 	if err != nil {
 		panic(err)
 	}
 
-	lst, err = NewPyListFromHandle(val[0].(metaffi.MetaFFIHandle))
-	if err != nil {
-		panic(err)
+	strings = val[0].([]string)
+
+	if strings[0] != "positional arg" {
+		panic(fmt.Sprintf("expected 'positional arg', got '%v'", strings[0]))
 	}
 
-	v, err = lst.Get(0)
-	if err != nil {
-		panic(err)
+	if strings[1] != "var positional arg" {
+		panic(fmt.Sprintf("expected 'var positional arg', got '%v'", strings[1]))
 	}
 
-	if v.(string) != "positional arg" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
+	if strings[2] != "key1" {
+		panic(fmt.Sprintf("expected 'key1', got '%v'", strings[2]))
 	}
 
-	v, err = lst.Get(1)
-	if err != nil {
-		panic(err)
+	if strings[3] != "val1" {
+		panic(fmt.Sprintf("expected 'val1', got '%v'", strings[3]))
 	}
-
-	if v.(string) != "var positional arg" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
-	v, err = lst.Get(2)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "key1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
-	v, err = lst.Get(3)
-	if err != nil {
-		panic(err)
-	}
-
-	if v.(string) != "val1" {
-		panic(fmt.Sprintf("expected 'default', got '%v'", v))
-	}
-
 }
