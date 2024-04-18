@@ -84,15 +84,6 @@ void set_metaffi_size_item(metaffi_size* array, int index, metaffi_size value)
 	array[index] = value;
 }
 
-
-#ifdef _WIN32
-metaffi_size len_to_metaffi_size(long long i)
-#else
-metaffi_size len_to_metaffi_size(long long i)
-#endif
-{
-	return (metaffi_size)i;
-}
 */
 import "C"
 import (
