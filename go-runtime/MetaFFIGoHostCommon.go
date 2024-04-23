@@ -110,6 +110,8 @@ func createMetaFFITypeInfoArray(paramsTypes []IDL.MetaFFITypeInfo) *C.struct_met
 		} else {
 			metaffi.alias = nil
 		}
+
+		metaffi.fixed_dimensions = C.int64(v.Dimensions)
 	}
 
 	return (*C.struct_metaffi_type_info)(metaffiArray)

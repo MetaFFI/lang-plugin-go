@@ -165,9 +165,14 @@ struct cdt* get_cdt_at_index(struct cdts* pcdts, int val) {
 }
 */
 import "C"
+import "unsafe"
 
 type CDTS struct {
 	c *C.struct_cdts
+}
+
+func NewCDTSFromCDTS(c unsafe.Pointer) *CDTS {
+	return &CDTS{c: (*C.struct_cdts)(c)}
 }
 
 func (cdts *CDTS) GetCDT(index int) *CDT {

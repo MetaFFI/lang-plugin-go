@@ -1,27 +1,45 @@
-package metaffi
+package main
 
 import (
+	"fmt"
+	. "github.com/MetaFFI/lang-plugin-go/go-runtime"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"os"
 	"reflect"
-	"testing"
 	"unsafe"
 )
 
-func TestFloat32Array(t *testing.T) {
+func main() {
+	TestGoCDTInt8()
+	TestGoCDTInt8Array()
+	TestGoCDTUInt8CArray()
+	TestGoCDTInt82DArray()
+	TestGoCDTString()
+	TestGoCDTStringArray()
+	TestGoCDT3DStringArray()
+	TestGoCDTHandleGoObject()
+	TestGoCDTHandleArray()
+	TestGoCDTHandleArraySameType()
+	TestGoCDTHandle3DArray()
+	TestReturnErrWithNil()
+	TestGoToCDTMetaFFIHandle()
+}
+
+func TestFloat32Array() {
 
 	input := Get3DFloat32ArrayCDTS()
 
 	res := FromCDTToGo(unsafe.Pointer(input.arr), 0, nil)
 
 	if GetCDTSType(input, 0) != IDL.METAFFI_TYPE_FLOAT32_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_FLOAT32_ARRAY")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_FLOAT32_ARRAY"))
 	}
 
 	output_data := res.([][][]float32)
 
 	// Check the outer array length
 	if len(output_data) != 3 {
-		t.Fatalf("Outer array lengths do not match. Expected: 3, Got: %v", len(output_data))
+		panic(fmt.Sprintf("Outer array lengths do not match. Expected: 3, Got: %v", len(output_data)))
 	}
 
 	// Define the expected 3D array
@@ -36,14 +54,14 @@ func TestFloat32Array(t *testing.T) {
 		for j, middle := range outer {
 			for k, val := range middle {
 				if val != expected[i][j][k] {
-					t.Errorf("Values at index [%v][%v][%v] do not match. Expected: %v, Got: %v", i, j, k, expected[i][j][k], val)
+					_, _ = fmt.Fprintf(os.Stderr, "Values at index [%v][%v][%v] do not match. Expected: %v, Got: %v", i, j, k, expected[i][j][k], val)
 				}
 			}
 		}
 	}
 }
 
-func TestGoCDTInt8(t *testing.T) {
+func TestGoCDTInt8() {
 	pcdts := GetCDTS()
 
 	var input int8 = 123
@@ -58,22 +76,22 @@ func TestGoCDTInt8(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_INT8 {
-		t.Errorf("pcdt.type is not of type METAFFI_TYPE_INT8")
+		_, _ = fmt.Fprintf(os.Stderr, "pcdt.type is not of type METAFFI_TYPE_INT8")
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil)
 
 	output_data, ok := output.(int8)
 	if !ok {
-		t.Errorf("output is not of type int8")
+		_, _ = fmt.Fprintf(os.Stderr, "output is not of type int8")
 	}
 
 	if input != output_data {
-		t.Errorf("input and output are not equal. input: %v, output: %v", input, output_data)
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", input, output_data)
 	}
 }
 
-func TestGoCDTInt8Array(t *testing.T) {
+func TestGoCDTInt8Array() {
 	pcdts := GetCDTS()
 
 	var input []int8 = []int8{123, 42, 54}
@@ -88,69 +106,69 @@ func TestGoCDTInt8Array(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_INT8_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_INT8")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_INT8"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil).([]int8)
 
 	if len(output) != len(input) {
-		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
+		panic(fmt.Sprintf("length of input and output are not equal. input: %v, output: %v", len(input), len(output)))
 	}
 
 	for i, v := range input {
 		if v != output[i] {
-			t.Errorf("input and output are not equal. input: %v, output: %v", v, output[i])
+			_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", v, output[i])
 		}
 	}
 }
 
-func TestGoCDTUInt8CArray(t *testing.T) {
+func TestGoCDTUInt8CArray() {
 
 	input := Get2DUInt8ArrayCDTS()
 	output := FromCDTToGo(unsafe.Pointer(input.arr), 0, nil).([][]uint8)
 
 	if len(output) != 3 {
-		t.Errorf("length of input and output are not equal. input: %v, output: %v", 3, len(output))
+		_, _ = fmt.Fprintf(os.Stderr, "length of input and output are not equal. input: %v, output: %v", 3, len(output))
 	}
 
 	if output[0][0] != 0 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 0, output[0][0])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 0, output[0][0])
 	}
 
 	if output[0][1] != 1 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 1, output[0][1])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 1, output[0][1])
 	}
 
 	if output[0][2] != 2 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 2, output[0][2])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 2, output[0][2])
 	}
 
 	if output[1][0] != 3 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 3, output[1][0])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 3, output[1][0])
 	}
 
 	if output[1][1] != 4 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 4, output[1][1])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 4, output[1][1])
 	}
 
 	if output[1][2] != 5 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 5, output[1][2])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 5, output[1][2])
 	}
 
 	if output[2][0] != 6 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 6, output[2][0])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 6, output[2][0])
 	}
 
 	if output[2][1] != 7 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 7, output[2][1])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 7, output[2][1])
 	}
 
 	if output[2][2] != 8 {
-		t.Errorf("input and output are not equal. input: %v, output: %v", 8, output[2][2])
+		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 8, output[2][2])
 	}
 }
 
-func TestGoCDTInt82DArray(t *testing.T) {
+func TestGoCDTInt82DArray() {
 	pcdts := GetCDTS()
 
 	var input [][]int8 = [][]int8{
@@ -169,29 +187,29 @@ func TestGoCDTInt82DArray(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_INT8_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_INT8_ARRAY (%d), but of type %v", IDL.METAFFI_TYPE_INT8_ARRAY, GetCDTSType(pcdts, 0))
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_INT8_ARRAY (%d), but of type %v", IDL.METAFFI_TYPE_INT8_ARRAY, GetCDTSType(pcdts, 0)))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil).([][]int8)
 
 	if len(output) != len(input) {
-		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
+		panic(fmt.Sprintf("length of input and output are not equal. input: %v, output: %v", len(input), len(output)))
 	}
 
 	// deep compare output to input
 	for i, v := range input {
 		if len(v) != len(output[i]) {
-			t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(v), len(output[i]))
+			panic(fmt.Sprintf("length of input and output are not equal. input: %v, output: %v", len(v), len(output[i])))
 		}
 		for j, v2 := range v {
 			if v2 != output[i][j] {
-				t.Errorf("input and output are not equal. input: %v, output: %v", v2, output[i][j])
+				_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", v2, output[i][j])
 			}
 		}
 	}
 }
 
-func TestGoCDTString(t *testing.T) {
+func TestGoCDTString() {
 	pcdts := GetCDTS()
 
 	var input string = "Hello, World!"
@@ -206,22 +224,22 @@ func TestGoCDTString(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_STRING8 {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_INT8")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_INT8"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil)
 
 	output_data, ok := output.(string)
 	if !ok {
-		t.Fatalf("output is not of type int8")
+		panic(fmt.Sprintf("output is not of type int8"))
 	}
 
 	if input != output_data {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input, output_data)
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input, output_data))
 	}
 }
 
-func TestGoCDTStringArray(t *testing.T) {
+func TestGoCDTStringArray() {
 	pcdts := GetCDTS()
 
 	input := []string{"one", "two", "three"}
@@ -236,23 +254,23 @@ func TestGoCDTStringArray(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_STRING8_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_STRING8_ARRAY")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_STRING8_ARRAY"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil).([]string)
 
 	if len(output) != len(input) {
-		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
+		panic(fmt.Sprintf("length of input and output are not equal. input: %v, output: %v", len(input), len(output)))
 	}
 
 	for i, v := range output {
 		if v != input[i] {
-			t.Errorf("input and output are not equal. output: %v, input: %v", v, input[i])
+			_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. output: %v, input: %v", v, input[i])
 		}
 	}
 }
 
-func TestGoCDT3DStringArray(t *testing.T) {
+func TestGoCDT3DStringArray() {
 	pcdts := GetCDTS()
 
 	input := [][][]string{
@@ -270,20 +288,20 @@ func TestGoCDT3DStringArray(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_STRING8_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_STRING8_ARRAY")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_STRING8_ARRAY"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil).([][][]string)
 
 	if len(output) != len(input) {
-		t.Fatalf("length of input and output are not equal. input: %v, output: %v", len(input), len(output))
+		panic(fmt.Sprintf("length of input and output are not equal. input: %v, output: %v", len(input), len(output)))
 	}
 
 	for i, v := range output {
 		for j, v2 := range v {
 			for k, v3 := range v2 {
 				if v3 != input[i][j][k] {
-					t.Errorf("input and output are not equal. output: %v, input: %v", v3, input[i][j][k])
+					_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. output: %v, input: %v", v3, input[i][j][k])
 				}
 			}
 
@@ -291,7 +309,7 @@ func TestGoCDT3DStringArray(t *testing.T) {
 	}
 }
 
-func TestGoCDTHandleGoObject(t *testing.T) {
+func TestGoCDTHandleGoObject() {
 	pcdts := GetCDTS()
 
 	type test struct {
@@ -310,22 +328,22 @@ func TestGoCDTHandleGoObject(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_HANDLE {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_HANDLE"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil)
 
 	output_data, ok := output.(test)
 	if !ok {
-		t.Fatalf("output is not of type int8")
+		panic(fmt.Sprintf("output is not of type int8"))
 	}
 
 	if input != output_data {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input, output_data)
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input, output_data))
 	}
 }
 
-func TestGoCDTHandleNonGoObject(t *testing.T) {
+func TestGoToCDTMetaFFIHandle() {
 	pcdts := GetCDTS()
 
 	type test struct {
@@ -344,22 +362,22 @@ func TestGoCDTHandleNonGoObject(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_HANDLE {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE")
+		panic("pcdt.type is not of type METAFFI_TYPE_HANDLE")
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil)
 
 	output_data, ok := output.(MetaFFIHandle)
 	if !ok {
-		t.Fatalf("output is not of type int8")
+		panic("output is not of type int8")
 	}
 
 	if input.Val != output_data.Val || input.RuntimeID != output_data.RuntimeID {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input, output_data)
+		panic("input and output are not equal. input: %v, output: %v")
 	}
 }
 
-func TestGoCDTHandleArray(t *testing.T) {
+func TestGoCDTHandleArray() {
 	pcdts := GetCDTS()
 
 	type test struct {
@@ -381,30 +399,30 @@ func TestGoCDTHandleArray(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0)&IDL.METAFFI_TYPE_HANDLE_ARRAY == 0 {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY. Returned: %v", GetCDTSType(pcdts, 0))
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY. Returned: %v", GetCDTSType(pcdts, 0)))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil)
 
 	output_data, ok := output.([]interface{})
 	if !ok {
-		t.Fatalf("output is not of type []interface{}")
+		panic(fmt.Sprintf("output is not of type []interface{}"))
 	}
 
 	if input[0].(test) != output_data[0].(test) {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input[0].(test), output_data[0].(test))
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input[0].(test), output_data[0].(test)))
 	}
 
 	if input[1].(MetaFFIHandle).Val != output_data[1].(MetaFFIHandle).Val || input[1].(MetaFFIHandle).RuntimeID != output_data[1].(MetaFFIHandle).RuntimeID {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input[1].(MetaFFIHandle), output_data[1].(MetaFFIHandle))
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input[1].(MetaFFIHandle), output_data[1].(MetaFFIHandle)))
 	}
 
 	if input[2].(test) != output_data[2].(test) {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input[2].(test), output_data[2].(test))
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input[2].(test), output_data[2].(test)))
 	}
 }
 
-func TestGoCDTHandleArraySameType(t *testing.T) {
+func TestGoCDTHandleArraySameType() {
 	pcdts := GetCDTS()
 
 	type test struct {
@@ -423,21 +441,21 @@ func TestGoCDTHandleArraySameType(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_HANDLE_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, reflect.TypeFor[test]()).([]test)
 
 	if input[0] != output[0] {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input[0], output[0])
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input[0], output[0]))
 	}
 
 	if input[1] != output[1] {
-		t.Fatalf("input and output are not equal. input: %v, output: %v", input[1], output[1])
+		panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", input[1], output[1]))
 	}
 }
 
-func TestGoCDTHandle3DArray(t *testing.T) {
+func TestGoCDTHandle3DArray() {
 	pcdts := GetCDTS()
 
 	type test struct {
@@ -469,14 +487,14 @@ func TestGoCDTHandle3DArray(t *testing.T) {
 	FromGoToCDT(input, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
 	if GetCDTSType(pcdts, 0) != IDL.METAFFI_TYPE_HANDLE_ARRAY {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_HANDLE_ARRAY"))
 	}
 
 	output := FromCDTToGo(unsafe.Pointer(pcdts.arr), 0, nil)
 
 	_, ok := output.([][][]interface{})
 	if !ok {
-		t.Fatalf("output is not of type []interface, but of type %v", output)
+		panic(fmt.Sprintf("output is not of type []interface, but of type %v", output))
 	}
 
 	for i, v := range output.([][][]interface{}) {
@@ -484,21 +502,21 @@ func TestGoCDTHandle3DArray(t *testing.T) {
 			for k, v3 := range v2 {
 				if d, ok := input[i][j][k].(test); ok {
 					if d != v3.(test) {
-						t.Fatalf("input and output are not equal. input: %v, output: %v", d, v3)
+						panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", d, v3))
 					}
 				} else if d, ok := input[i][j][k].(MetaFFIHandle); ok {
 					if d.Val != v3.(MetaFFIHandle).Val || d.RuntimeID != v3.(MetaFFIHandle).RuntimeID {
-						t.Fatalf("input and output are not equal. input: %v, output: %v", d, v3)
+						panic(fmt.Sprintf("input and output are not equal. input: %v, output: %v", d, v3))
 					}
 				} else {
-					t.Errorf("input and output are not equal. input: %v, output: %v", input[i][j][k], v3)
+					_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", input[i][j][k], v3)
 				}
 			}
 		}
 	}
 }
 
-func TestReturnErrWithNil(t *testing.T) {
+func TestReturnErrWithNil() {
 	var err error
 
 	pcdts := GetCDTS()
@@ -511,14 +529,14 @@ func TestReturnErrWithNil(t *testing.T) {
 	}
 	FromGoToCDT(err, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
-	cdts := CDTS{c: pcdts}
+	cdts := NewCDTSFromCDTS(unsafe.Pointer(pcdts))
 	cdt := cdts.GetCDT(0)
 
 	if uint64(cdt.GetTypeVal()) != IDL.METAFFI_TYPE_HANDLE {
-		t.Fatalf("pcdt.type is not of type METAFFI_TYPE_HANDLE")
+		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_HANDLE"))
 	}
 
 	if uintptr(cdt.GetHandleVal().GetHandle()) != uintptr(0) {
-		t.Fatalf("pcdt.handle is not nil")
+		panic(fmt.Sprintf("pcdt.handle is not nil"))
 	}
 }

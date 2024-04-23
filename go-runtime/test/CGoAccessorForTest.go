@@ -1,4 +1,4 @@
-package metaffi
+package main
 
 /*
 #cgo !windows LDFLAGS: -L. -ldl
@@ -10,10 +10,10 @@ package metaffi
 
 struct cdts* get_cdts()
 {
-	struct cdts* res = (struct cdts*)malloc(sizeof(struct cdts));
-	res->arr = (struct cdt*)malloc(sizeof(struct cdt));
+	struct cdts* res = (struct cdts*)calloc(1, sizeof(struct cdts));
+	res->arr = (struct cdt*)calloc(1, sizeof(struct cdt));
 	res->length = 1;
-	res->fixed_dimensions = 1;
+	res->fixed_dimensions = 0;
 }
 
 uint64_t get_cdts_type(struct cdts* pcdts, int index)

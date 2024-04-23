@@ -8,4 +8,14 @@ if("$ENV{CGO_CFLAGS}" STREQUAL "")
 	SET(ENV{CGO_CFLAGS} $ENV{METAFFI_HOME})
 endif()
 
-add_go_test("Go runtime test" WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
+
+if(WIN32)
+	set(PYEXEC "py")
+else()
+	set(PYEXEC "python3")
+endif()
+
+
+add_test(NAME GoRuntime
+		COMMAND ${PYEXEC} "run_test.py"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/test")

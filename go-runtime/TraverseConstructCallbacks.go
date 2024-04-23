@@ -6,6 +6,7 @@ package metaffi
 
 #include <string.h>
 #include <include/cdts_traverse_construct.h>
+#include <stdlib.h>
 
 void set_metaffi_type_info_type(struct metaffi_type_info* info, uint64_t type) {
     info->type = type;
@@ -35,6 +36,20 @@ metaffi_string8 cast_to_metaffi_string8(char* input) {
     return (metaffi_string8)input;
 }
 
+struct cdt_metaffi_handle get_null_handle(){
+	struct cdt_metaffi_handle res;
+	res.val = NULL;
+	res.runtime_id = 0;
+	res.release = NULL;
+	return res;
+}
+
+char* copy_string(char* s, int n) {
+	char* cstr = (char*)malloc(n*sizeof(char) + 1);
+	memcpy(cstr, s, n);
+	cstr[n] = 0;
+	return cstr;
+}
 */
 import "C"
 import (
@@ -436,7 +451,6 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 
 	if index == nil { // root
 		var mt C.struct_metaffi_type_info
-		mt.alias = C.CString(cctxt.TypeInfo.Alias)
 		mt.is_free_alias = C.metaffi_bool(0)
 		C.set_metaffi_type_info_type(&mt, C.uint64_t(cctxt.TypeInfo.Type))
 
@@ -444,7 +458,6 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 			mffitype, _ := getMetaFFITypeFromGoType(reflect.ValueOf(cctxt.Input))
 			C.set_metaffi_type_info_type(&mt, C.uint64_t(mffitype))
 		}
-
 		return mt
 	} else {
 		val := getElement(index, indexSize, cctxt.Input)
@@ -454,7 +467,9 @@ func getTypeInfo(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Point
 
 		idlTypeInfo := ti.AsCMetaFFITypeInfo()
 		cTypeInfo := C.cast_to_metaffi_type_info(unsafe.Pointer(&idlTypeInfo))
-		return *cTypeInfo
+
+		res := *cTypeInfo
+		return res
 	}
 }
 
@@ -665,7 +680,7 @@ func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, _ unsafe.Pointer
 	var cdt_handle C.struct_cdt_metaffi_handle
 
 	if !val.IsValid() {
-		// Return a null handle (for cases where the value is nil)
+
 		cdt_handle.val = nil
 		cdt_handle.runtime_id = 0
 		cdt_handle.release = nil
