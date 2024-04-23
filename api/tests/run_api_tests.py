@@ -1,5 +1,5 @@
 # python script to run unittests for api using subprocess
-
+import shutil
 import subprocess
 import os
 import sys
@@ -12,6 +12,19 @@ init()
 
 # Get the current path of this Python script
 current_path = os.path.dirname(os.path.abspath(__file__))
+
+def go_get_update():
+	# Get the current directory of the script
+	current_dir = os.path.dirname(os.path.abspath(__file__))
+	
+	# Walk through all directories from the current directory
+	for root, dirs, files in os.walk(current_dir):
+		# If 'go.mod' is in the list of files in the directory
+		if 'go.mod' in files:
+			# Change the current working directory
+			os.chdir(root)
+			# Run 'go get -u'
+			subprocess.run(['go', 'get', '-u'], check=True)
 
 
 def get_extension_by_platform() -> str:
@@ -28,7 +41,7 @@ def run_script(script_path):
 	
 	if script_path.endswith('.py'):
 		# Python script
-		python_command = 'py' if platform.system() == 'Windows' else 'python3'
+		python_command = 'py' if platform.system() == 'Windows' else 'python3.11'
 		command = [python_command, script_path]
 	else:
 		raise ValueError(f'Unsupported script file type: {script_path}')
@@ -50,7 +63,7 @@ def run_unittest(script_path):
 	
 	if script_path.endswith('.py'):
 		# Python unittest
-		python_command = 'py' if platform.system() == 'Windows' else 'python3'
+		python_command = 'py' if platform.system() == 'Windows' else 'python3.11'
 		command = [python_command, '-m', 'unittest', script_path]
 	elif script_path.endswith('.java'):
 		# Java JUnit test
@@ -98,6 +111,8 @@ def run_unittest(script_path):
 
 
 # --------------------------------------------
+# make sure the go.mod is up to date
+go_get_update()
 
 # --------------------------------------------
 
@@ -124,13 +139,27 @@ if platform.system() != 'Windows':
 	
 	# Define the paths to the scripts to be run
 	build_sanity_go_script_path = os.path.join(current_path, 'sanity', 'openjdk', 'compile_java.py')
+	
+	run_script(build_sanity_go_script_path)
+	
+	if os.path.exists(os.path.join(current_path, 'sanity', 'openjdk', 'TestRuntime.class')):
+		dest_dir = os.path.join(current_path, 'sanity', 'openjdk', 'sanity')
+		if not os.path.exists(dest_dir):
+			os.makedirs(dest_dir)
+		
+		src_file = os.path.join(current_path, 'sanity', 'openjdk', 'TestRuntime.class')
+		dest_file = os.path.join(dest_dir, 'TestRuntime.class')
+		shutil.move(src_file, dest_file)
+		
+		src_file = os.path.join(current_path, 'sanity', 'openjdk', 'TestMap.class')
+		dest_file = os.path.join(dest_dir, 'TestMap.class')
+		shutil.move(src_file, dest_file)
+		
 	test_sanity_go_path = os.path.join(current_path, 'sanity', 'openjdk', 'MetaFFIAPI_openjdk.go')
 	
-	# Run the scripts
-	run_script(build_sanity_go_script_path)
+	
 	run_unittest(test_sanity_go_path)
 	
-	os.remove(os.path.join(current_path, 'sanity', 'go', f'TestRuntime_MetaFFIGuest{get_extension_by_platform()}'))
 	print(f'{Fore.MAGENTA}Testing Sanity Go -> OpenJDK{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
 else:
 	print(f'{Fore.MAGENTA}Testing Sanity Go -> OpenJDK{Fore.RESET} - {Fore.RED}SKIPPING due to Go bug in loading JVM in windows (https://github.com/golang/go/issues/58542){Fore.RESET}')

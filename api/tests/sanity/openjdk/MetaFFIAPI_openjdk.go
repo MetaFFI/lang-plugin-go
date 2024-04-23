@@ -31,6 +31,7 @@ func main() {
 	}
 
 	TestHelloWorld()
+	TestReturnsAnError()
 	TestDivIntegers()
 	TestJoinStrings()
 	TestTestMapGetSet()
@@ -78,7 +79,7 @@ func TestDivIntegers() {
 		panic(err)
 	}
 
-	res, err := divIntegers(10, 5)
+	res, err := divIntegers(int32(10), int32(5))
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +98,9 @@ func TestDivIntegers() {
 
 func TestJoinStrings() {
 
-	joinStrings, err := testRuntimeModule.Load(`class=sanity.TestRuntime,callable=joinStrings`, []IDL.MetaFFIType{IDL.STRING8_ARRAY}, []IDL.MetaFFIType{IDL.STRING8})
+	joinStrings, err := testRuntimeModule.LoadWithAlias(`class=sanity.TestRuntime,callable=joinStrings`,
+		[]IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.STRING8_ARRAY, Type: IDL.METAFFI_TYPE_STRING8_ARRAY, Dimensions: 1}},
+		[]IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.STRING8, Type: IDL.METAFFI_TYPE_STRING8}})
 
 	if err != nil {
 		panic(err)

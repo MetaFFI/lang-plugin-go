@@ -3,8 +3,8 @@ module github.com/MetaFFI/lang-plugin-go/api
 go 1.21.4
 
 require (
-	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240416190441-68fe403e134e
-	github.com/MetaFFI/plugin-sdk v0.0.0-20240416150902-5f975a29af46
+	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240423100526-0167962be01e
+	github.com/MetaFFI/plugin-sdk v0.0.0-20240418113454-40cb0644f6c7
 )
 
 require (
