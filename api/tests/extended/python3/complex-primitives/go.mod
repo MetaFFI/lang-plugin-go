@@ -3,8 +3,8 @@ module ComplexPrimitives
 go 1.21.4
 
 require (
-	github.com/MetaFFI/lang-plugin-go/api v0.0.0-20240423100828-984fa5841fb4
-	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240423100828-984fa5841fb4
+	github.com/MetaFFI/lang-plugin-go/api v0.0.0-20240423121836-171589282d0a
+	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240423121836-171589282d0a
 	github.com/MetaFFI/plugin-sdk v0.0.0-20240418113454-40cb0644f6c7
 )
 
