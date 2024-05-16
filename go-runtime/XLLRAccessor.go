@@ -4,39 +4,41 @@ package metaffi
 #cgo !windows LDFLAGS: -L. -ldl
 #cgo LDFLAGS: -Wl,--allow-multiple-definition
 
+#include <stdlib.h>
 #include <include/xllr_capi_loader.h>
 #include <include/xllr_capi_loader.c>
+#include <include/xcall.h>
 
-void call_plugin_xcall_no_params_no_ret(void** ppv, char** err, uint64_t* out_err)
+void call_plugin_xcall_no_params_no_ret(struct xcall* pxcall, char** err)
 {
-	void* pvoidxcall = ppv[0];
-	void* pctxt = ppv[1];
+	void* pvoidxcall = pxcall->pxcall_and_context[0];
+	void* pctxt = pxcall->pxcall_and_context[1];
 
-	(((void(*)(void*,char**,uint64_t*))pvoidxcall)(pctxt, err, out_err));
+	(((void(*)(void*,char**))pvoidxcall)(pctxt, err));
 }
 
-void call_plugin_xcall_no_params_ret(void** ppv, struct cdts* cdts, char** err, uint64_t* out_err)
+void call_plugin_xcall_no_params_ret(struct xcall* pxcall, struct cdts* cdts, char** err)
 {
-	void* pvoidxcall = ppv[0];
-	void* pctxt = ppv[1];
+	void* pvoidxcall = pxcall->pxcall_and_context[0];
+	void* pctxt = pxcall->pxcall_and_context[1];
 
-	(((void(*)(void*,void*,char**,uint64_t*))pvoidxcall)(pctxt, cdts, err, out_err));
+	(((void(*)(void*,void*,char**))pvoidxcall)(pctxt, cdts, err));
 }
 
-void call_plugin_xcall_params_no_ret(void** ppv, struct cdts* cdts, char** err, uint64_t* out_err)
+void call_plugin_xcall_params_no_ret(struct xcall* pxcall, struct cdts* cdts, char** err)
 {
-	void* pvoidxcall = ppv[0];
-	void* pctxt = ppv[1];
+	void* pvoidxcall = pxcall->pxcall_and_context[0];
+	void* pctxt = pxcall->pxcall_and_context[1];
 
-	(((void(*)(void*,void*,char**,uint64_t*))pvoidxcall)(pctxt, cdts, err, out_err));
+	(((void(*)(void*,void*,char**))pvoidxcall)(pctxt, cdts, err));
 }
 
-void call_plugin_xcall_params_ret(void** ppv, struct cdts* cdts, char** err, uint64_t* out_err)
+void call_plugin_xcall_params_ret(struct xcall* pxcall, struct cdts* cdts, char** err)
 {
-	void* pvoidxcall = ppv[0];
-	void* pctxt = ppv[1];
+	void* pvoidxcall = pxcall->pxcall_and_context[0];
+	void* pctxt = pxcall->pxcall_and_context[1];
 
-	(((void(*)(void*,void*,char**,uint64_t*))pvoidxcall)(pctxt, cdts, err, out_err));
+	(((void(*)(void*,void*,char**))pvoidxcall)(pctxt, cdts, err));
 }
 
 
@@ -65,7 +67,7 @@ func init() {
 	}
 }
 
-func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (*unsafe.Pointer, error) {
+func XLLRLoadEntity(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (unsafe.Pointer, error) {
 
 	var params []IDL.MetaFFITypeInfo
 	if paramsTypes != nil {
@@ -83,23 +85,21 @@ func XLLRLoadFunction(runtimePlugin string, modulePath string, functionPath stri
 		}
 	}
 
-	return XLLRLoadFunctionWithAliases(runtimePlugin, modulePath, functionPath, params, retvals)
+	return XLLRLoadEntityWithAliases(runtimePlugin, modulePath, functionPath, params, retvals)
 }
 
-func XLLRLoadFunctionWithAliases(runtimePlugin string, modulePath string, functionPath string, paramsTypes []IDL.MetaFFITypeInfo, retvalsTypes []IDL.MetaFFITypeInfo) (*unsafe.Pointer, error) {
+func XLLRLoadEntityWithAliases(runtimePlugin string, modulePath string, functionPath string, paramsTypes []IDL.MetaFFITypeInfo, retvalsTypes []IDL.MetaFFITypeInfo) (unsafe.Pointer, error) {
 
 	pruntimePlugin := C.CString(runtimePlugin)
-	defer CFree(unsafe.Pointer(pruntimePlugin))
+	defer C.free(unsafe.Pointer(pruntimePlugin))
 
 	pmodulePath := C.CString(modulePath)
-	defer CFree(unsafe.Pointer(pmodulePath))
+	defer C.free(unsafe.Pointer(pmodulePath))
 
-	ppath := C.CString(functionPath)
-	defer CFree(unsafe.Pointer(ppath))
+	pfuncpath := C.CString(functionPath)
+	defer C.free(unsafe.Pointer(pfuncpath))
 
 	var out_err *C.char
-	var out_err_len C.uint32_t
-	out_err_len = C.uint32_t(0)
 
 	var pparamTypes *C.struct_metaffi_type_info
 	if paramsTypes != nil {
@@ -107,87 +107,95 @@ func XLLRLoadFunctionWithAliases(runtimePlugin string, modulePath string, functi
 		defer freeMetaFFITypeInfoArray(pparamTypes, len(paramsTypes))
 	}
 
-	pparamTypesLen := (C.uint8_t)(len(paramsTypes))
+	pparamTypesLen := (C.int8_t)(len(paramsTypes))
 
 	var ppretvalsTypes *C.struct_metaffi_type_info
 	if retvalsTypes != nil {
 		ppretvalsTypes = createMetaFFITypeInfoArray(retvalsTypes)
 		defer freeMetaFFITypeInfoArray(ppretvalsTypes, len(retvalsTypes))
 	}
-	pretvalsTypesLen := (C.uint8_t)(len(retvalsTypes))
+	pretvalsTypesLen := (C.int8_t)(len(retvalsTypes))
 
-	id := C.xllr_load_function(pruntimePlugin, C.uint(len(runtimePlugin)),
-		pmodulePath, C.uint(len(modulePath)),
-		ppath, C.uint(len(functionPath)),
-		pparamTypes, ppretvalsTypes,
-		pparamTypesLen, pretvalsTypesLen,
-		&out_err, &out_err_len)
+	xcall := C.xllr_load_entity(pruntimePlugin,
+		pmodulePath,
+		pfuncpath,
+		pparamTypes, pparamTypesLen,
+		ppretvalsTypes, pretvalsTypesLen,
+		&out_err)
 
-	if id == nil {
-		return nil, fmt.Errorf("Failed to load foreign entity entrypoint \"%v\": %v", functionPath, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	if out_err != nil {
+		defer C.xllr_free_error_message(out_err)
+		return nil, fmt.Errorf("Failed to xcall for \"%v\": %v", functionPath, C.GoString(out_err))
 	}
 
-	return id, nil
+	return unsafe.Pointer(xcall), nil
 }
 
-func XLLRXCallParamsRet(pff *unsafe.Pointer, parameters unsafe.Pointer) error {
-
-	// TODO: Free error message, in case of returned error
-	// 		 The problem is that some plugins return strings that cannot be freed - FIX THIS!
+func XLLRFreeXCall(runtimePlugin string, xcall unsafe.Pointer) error {
 
 	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
+	pruntimePlugin := C.CString(runtimePlugin)
+	defer C.free(unsafe.Pointer(pruntimePlugin))
+	C.xllr_free_xcall(pruntimePlugin, (*C.struct_xcall)(xcall), &out_err)
 
-	C.call_plugin_xcall_params_ret(pff, C.cast_to_cdts(parameters), &out_err, &out_err_len)
+	if out_err != nil {
+		defer C.xllr_free_error_message(out_err)
+		return fmt.Errorf("Failed to free xcall: %v", C.GoString(out_err))
+	}
 
-	if out_err_len != C.uint64_t(0) {
-		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	C.free(xcall)
+
+	return nil
+}
+
+func XLLRXCallParamsRet(xcall unsafe.Pointer, pcdts unsafe.Pointer) error {
+
+	var out_err *C.char
+
+	C.call_plugin_xcall_params_ret((*C.struct_xcall)(xcall), C.cast_to_cdts(pcdts), &out_err)
+
+	if out_err != nil {
+		defer C.free(unsafe.Pointer(out_err))
+		return fmt.Errorf("%v", C.GoString(out_err))
 	}
 
 	return nil
 }
 
-func XLLRXCallNoParamsRet(pff *unsafe.Pointer, return_values unsafe.Pointer) error {
+func XLLRXCallNoParamsRet(xcall unsafe.Pointer, cdts unsafe.Pointer) error {
 
 	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
+	C.call_plugin_xcall_no_params_ret((*C.struct_xcall)(xcall), C.cast_to_cdts(cdts), &out_err)
 
-	C.call_plugin_xcall_no_params_ret(pff, C.cast_to_cdts(return_values), &out_err, &out_err_len)
-
-	if out_err_len != C.uint64_t(0) {
-		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	if out_err != nil {
+		defer C.free(unsafe.Pointer(out_err))
+		return fmt.Errorf("%v", C.GoString(out_err))
 	}
 
 	return nil
 }
 
-func XLLRXCallParamsNoRet(pff *unsafe.Pointer, parameters unsafe.Pointer) error {
+func XLLRXCallParamsNoRet(xcall unsafe.Pointer, cdts unsafe.Pointer) error {
 
 	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
+	C.call_plugin_xcall_params_no_ret((*C.struct_xcall)(xcall), C.cast_to_cdts(cdts), &out_err)
 
-	C.call_plugin_xcall_params_no_ret(pff, C.cast_to_cdts(parameters), &out_err, &out_err_len)
-
-	if out_err_len != C.uint64_t(0) {
-		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	if out_err != nil {
+		defer C.free(unsafe.Pointer(out_err))
+		return fmt.Errorf("%v", C.GoString(out_err))
 	}
 
 	return nil
 }
 
-func XLLRXCallNoParamsNoRet(pff *unsafe.Pointer) error {
+func XLLRXCallNoParamsNoRet(xcall unsafe.Pointer) error {
 
 	var out_err *C.char
-	var out_err_len C.uint64_t
-	out_err_len = C.uint64_t(0)
+	C.call_plugin_xcall_no_params_no_ret((*C.struct_xcall)(xcall), &out_err)
 
-	C.call_plugin_xcall_no_params_no_ret(pff, &out_err, &out_err_len)
-
-	if out_err_len != C.uint64_t(0) {
-		return fmt.Errorf("%v", string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	if out_err != nil {
+		defer C.xllr_free_error_message(out_err)
+		return fmt.Errorf("%v", C.GoString(out_err))
 	}
 
 	return nil
@@ -205,20 +213,22 @@ func XLLRAllocCDTSBuffer(paramsCount uint64, retsCount uint64) (pcdts unsafe.Poi
 	return
 }
 
+func XLLRFreeCDTSBuffer(pcdts unsafe.Pointer) {
+	C.xllr_free_cdts_buffer((*C.struct_cdts)(pcdts))
+}
+
 func XLLRLoadRuntimePlugin(runtimePlugin string) error {
 
 	pruntime_plugin := C.CString(runtimePlugin)
-	defer CFree(unsafe.Pointer(pruntime_plugin))
+	defer C.free(unsafe.Pointer(pruntime_plugin))
 
 	// load foreign runtime
 	var out_err *C.char
-	var out_err_len C.uint32_t
-	out_err_len = C.uint32_t(0)
+	C.xllr_load_runtime_plugin(pruntime_plugin, &out_err)
 
-	C.xllr_load_runtime_plugin(pruntime_plugin, C.uint(len(runtimePlugin)), &out_err, &out_err_len)
-
-	if out_err_len != C.uint32_t(0) {
-		return fmt.Errorf("Failed to load runtime %v: %v", runtimePlugin, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	if out_err != nil {
+		defer C.xllr_free_error_message(out_err)
+		return fmt.Errorf("Failed to load runtime %v: %v", runtimePlugin, C.GoString(out_err))
 	}
 
 	return nil
@@ -227,61 +237,67 @@ func XLLRLoadRuntimePlugin(runtimePlugin string) error {
 func XLLRFreeRuntimePlugin(runtimePlugin string) error {
 
 	pruntime_plugin := C.CString(runtimePlugin)
-	defer CFree(unsafe.Pointer(pruntime_plugin))
+	defer C.free(unsafe.Pointer(pruntime_plugin))
 
 	var out_err *C.char
-	var out_err_len C.uint32_t
-	out_err_len = C.uint32_t(0)
+	C.xllr_free_runtime_plugin(pruntime_plugin, &out_err)
 
-	C.xllr_free_runtime_plugin(pruntime_plugin, C.uint(len(runtimePlugin)), &out_err, &out_err_len)
-
-	if out_err_len != C.uint32_t(0) {
-		return fmt.Errorf("Failed to free runtime %v: %v", runtimePlugin, string(C.GoBytes(unsafe.Pointer(out_err), C.int(out_err_len))))
+	if out_err != nil {
+		defer C.xllr_free_error_message(out_err)
+		return fmt.Errorf("Failed to free runtime %v: %v", runtimePlugin, C.GoString(out_err))
 	}
 
 	return nil
 }
 
-func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callbacks) {
+func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callbacks) error {
 
 	var err *C.char = nil
 	C.xllr_construct_cdts(cdts, callbacks, &err)
 
 	if err != nil {
-		panic(C.GoString(err))
+		defer C.free(unsafe.Pointer(err))
+		return fmt.Errorf("%v", C.GoString(err))
 	}
+
+	return nil
 }
 
-func ConstructCDT(cdt *C.struct_cdt) {
+func ConstructCDT(cdt *C.struct_cdt) error {
 	pccc := NewConstructCDTSCallbacks()
+	defer C.free(unsafe.Pointer(pccc))
 	var err *C.char = nil
 	C.xllr_construct_cdt(cdt, pccc, &err)
 	if err != nil {
-		panic(C.GoString(err))
+		defer C.free(unsafe.Pointer(err))
+		return fmt.Errorf("%v", C.GoString(err))
 	}
-	C.free(unsafe.Pointer(pccc))
+	return nil
 }
 
-func TraverseCDTS(cdts *C.struct_cdts, callbacks *C.struct_traverse_cdts_callbacks) {
+func TraverseCDTS(cdts *C.struct_cdts, callbacks *C.struct_traverse_cdts_callbacks) error {
 	var err *C.char = nil
 	C.xllr_traverse_cdts(cdts, callbacks, &err)
 
 	if err != nil {
-		panic(C.GoString(err))
+		defer C.free(unsafe.Pointer(err))
+		return fmt.Errorf("%v", C.GoString(err))
 	}
+
+	return nil
 }
 
-func TraverseCDT(cdt *C.struct_cdt) {
+func TraverseCDT(cdt *C.struct_cdt) error {
 	tcc := NewTraverseCDTSCallbacks()
+	defer C.free(unsafe.Pointer(tcc))
 	var err *C.char = nil
 	C.xllr_traverse_cdt(cdt, tcc, &err)
 
 	if err != nil {
-		panic(C.GoString(err))
+		defer C.xllr_free_error_message(err)
+		str := C.GoString(err)
+		return fmt.Errorf("%v", str)
 	}
-	C.free(unsafe.Pointer(tcc))
-}
 
-func CFree(p unsafe.Pointer) {
-	C.free(p)
+	return nil
 }

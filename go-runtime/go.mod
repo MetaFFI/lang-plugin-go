@@ -9,3 +9,5 @@ require (
 	github.com/timandy/routine v1.1.3
 	golang.org/x/text v0.14.0
 )
+
+replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk

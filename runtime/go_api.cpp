@@ -2,16 +2,15 @@
 #include <utils/scope_guard.hpp>
 #include <boost/thread.hpp>
 #include "functions_repository.h"
-#include <utils/xllr_api_wrapper.h>
 #include <utils/function_path_parser.h>
 
 using namespace metaffi::utils;
 
-#define handle_err(err, err_len, desc) \
-	*err_len = strlen( desc ); \
-	*err = (char*)malloc(*err_len + 1); \
-	strcpy(*err, desc ); \
-	memset((*err+*err_len), 0, 1);
+#define handle_err(err, desc) \
+	{auto err_len = strlen( desc ); \
+	*err = (char*)malloc(err_len + 1); \
+	std::copy(desc, desc + err_len, *err);   \
+    (*err)[err_len] = '\0';}
 
 #define catch_err(err, err_len, desc) \
 catch(std::exception& exc) \
@@ -36,14 +35,14 @@ boost::mutex runtime_flags_lock;
 
 
 //--------------------------------------------------------------------
-void load_runtime(char** err, uint32_t* err_len)
+void load_runtime(char** err)
 {
 	// go runtime loads when loading the module
 }
 //--------------------------------------------------------------------
-void free_runtime(char** /*err*/, uint32_t* /*err_len*/){ /* No runtime free */ }
+void free_runtime(char** /*err*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-void** load_function(const char* module_path, uint32_t module_path_len, const char* function_path, uint32_t function_path_len, metaffi_type_info* params_types, metaffi_type_info* retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
+xcall* load_entity(const char* module_path, const char* function_path, metaffi_type_info* params_types, int8_t params_count, metaffi_type_info* retvals_types, int8_t retval_count, char** err)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
@@ -51,7 +50,7 @@ void** load_function(const char* module_path, uint32_t module_path_len, const ch
 	try
 	{
 		// build from function path the correct entrypoint
-		metaffi::utils::function_path_parser fpp(std::string(function_path, function_path_len));
+		metaffi::utils::function_path_parser fpp(function_path);
 		
 		std::stringstream fp;
 		fp << "EntryPoint_";
@@ -88,27 +87,25 @@ void** load_function(const char* module_path, uint32_t module_path_len, const ch
 			fp << fieldName;
 		}
 		
-		void* pfunc = functions_repository::get_instance().load_function(std::string(module_path, module_path_len), fp.str(), params_count, retval_count);
-		void** res = (void**)malloc(sizeof(void*)*2);
-		res[0] = pfunc;
-		res[1] = nullptr; // no context required
+		void* pfunc = functions_repository::get_instance().load_function(module_path, fp.str(), params_count, retval_count);
+		xcall* pxcall = new xcall(pfunc, nullptr);
 		
-		return res;
+		return pxcall;
 	}
 	catch(std::exception& exc)
 	{
-		handle_err(err, err_len, exc.what());
+		handle_err(err, exc.what());
 	}
 	
 	return nullptr;
 }
 //--------------------------------------------------------------------
-void** make_callable(void* make_callable_context, metaffi_type_info* params_types, metaffi_type_info* retvals_types, uint8_t params_count, uint8_t retval_count, char** err, uint32_t* err_len)
+xcall* make_callable(void* make_callable_context, metaffi_type_info* params_types, int8_t params_count, metaffi_type_info* retvals_types, int8_t retval_count, char** err)
 {
 	return nullptr;
 }
 //--------------------------------------------------------------------
-void free_function(void* pff, char** /*err*/, uint32_t* /*err_len*/)
+void free_xcall(xcall* pff, char** /*err*/)
 {
 	/*
 	 * Go doesn't support freeing libraries

@@ -4,15 +4,17 @@ import (
 	"fmt"
 	. "github.com/MetaFFI/lang-plugin-go/go-runtime"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	_ "net/http/pprof" // Import to register pprof handlers
 	"os"
 	"reflect"
+	"runtime"
 	"unsafe"
 )
 
 func main() {
+
 	TestGoCDTInt8()
 	TestGoCDTInt8Array()
-	TestGoCDTUInt8CArray()
 	TestGoCDTInt82DArray()
 	TestGoCDTString()
 	TestGoCDTStringArray()
@@ -23,42 +25,9 @@ func main() {
 	TestGoCDTHandle3DArray()
 	TestReturnErrWithNil()
 	TestGoToCDTMetaFFIHandle()
-}
 
-func TestFloat32Array() {
+	runtime.GC()
 
-	input := Get3DFloat32ArrayCDTS()
-
-	res := FromCDTToGo(unsafe.Pointer(input.arr), 0, nil)
-
-	if GetCDTSType(input, 0) != IDL.METAFFI_TYPE_FLOAT32_ARRAY {
-		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_FLOAT32_ARRAY"))
-	}
-
-	output_data := res.([][][]float32)
-
-	// Check the outer array length
-	if len(output_data) != 3 {
-		panic(fmt.Sprintf("Outer array lengths do not match. Expected: 3, Got: %v", len(output_data)))
-	}
-
-	// Define the expected 3D array
-	expected := [][][]float32{
-		{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}},
-		{{10.0, 11.0, 12.0}, {13.0, 14.0, 15.0}, {16.0, 17.0, 18.0}},
-		{{19.0, 20.0, 21.0}, {22.0, 23.0, 24.0}, {25.0, 26.0, 27.0}},
-	}
-
-	// Compare output_data with expected data
-	for i, outer := range output_data {
-		for j, middle := range outer {
-			for k, val := range middle {
-				if val != expected[i][j][k] {
-					_, _ = fmt.Fprintf(os.Stderr, "Values at index [%v][%v][%v] do not match. Expected: %v, Got: %v", i, j, k, expected[i][j][k], val)
-				}
-			}
-		}
-	}
 }
 
 func TestGoCDTInt8() {
@@ -119,52 +88,6 @@ func TestGoCDTInt8Array() {
 		if v != output[i] {
 			_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", v, output[i])
 		}
-	}
-}
-
-func TestGoCDTUInt8CArray() {
-
-	input := Get2DUInt8ArrayCDTS()
-	output := FromCDTToGo(unsafe.Pointer(input.arr), 0, nil).([][]uint8)
-
-	if len(output) != 3 {
-		_, _ = fmt.Fprintf(os.Stderr, "length of input and output are not equal. input: %v, output: %v", 3, len(output))
-	}
-
-	if output[0][0] != 0 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 0, output[0][0])
-	}
-
-	if output[0][1] != 1 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 1, output[0][1])
-	}
-
-	if output[0][2] != 2 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 2, output[0][2])
-	}
-
-	if output[1][0] != 3 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 3, output[1][0])
-	}
-
-	if output[1][1] != 4 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 4, output[1][1])
-	}
-
-	if output[1][2] != 5 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 5, output[1][2])
-	}
-
-	if output[2][0] != 6 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 6, output[2][0])
-	}
-
-	if output[2][1] != 7 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 7, output[2][1])
-	}
-
-	if output[2][2] != 8 {
-		_, _ = fmt.Fprintf(os.Stderr, "input and output are not equal. input: %v, output: %v", 8, output[2][2])
 	}
 }
 

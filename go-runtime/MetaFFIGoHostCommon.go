@@ -142,7 +142,9 @@ func FromCDTToGo(pvcdt unsafe.Pointer, i int, objectType reflect.Type) interface
 	pcdt = C.get_cdt_index(pcdt, C.int(i))
 	ctxt := &traverseContext{ObjectType: objectType}
 	traverseContextTLS.Set(ctxt)
-	TraverseCDT(pcdt)
+	if err := TraverseCDT(pcdt); err != nil {
+		panic(err)
+	}
 	return ctxt.Result
 }
 
@@ -228,5 +230,7 @@ func FromGoToCDT(input interface{}, pvcdt unsafe.Pointer, t IDL.MetaFFITypeInfo,
 	pcdt = C.get_cdt_index(pcdt, C.int(i))
 	ctxt := &constructContext{Input: input, TypeInfo: t, Cdt: CDT{c: pcdt}}
 	constructContextTLS.Set(ctxt)
-	ConstructCDT(pcdt)
+	if err := ConstructCDT(pcdt); err != nil {
+		panic(err)
+	}
 }

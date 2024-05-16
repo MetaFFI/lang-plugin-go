@@ -89,11 +89,11 @@ void set_cdt_handle_val(struct cdt* c, struct cdt_metaffi_handle* val) {
 }
 
 struct cdt_metaffi_callable* get_cdt_callable_val(struct cdt* c) {
-    return &c->cdt_val.callable_val;
+    return c->cdt_val.callable_val;
 }
 
 void set_cdt_callable_val(struct cdt* c, struct cdt_metaffi_callable* val) {
-    c->cdt_val.callable_val = *val;
+    c->cdt_val.callable_val = val;
 }
 
 metaffi_int8 get_cdt_int8_val(struct cdt* c) {
@@ -183,10 +183,6 @@ func (cdts *CDTS) GetLength() C.metaffi_size {
 	return cdts.c.length
 }
 
-func (cdts *CDTS) GetFreeRequired() C.metaffi_bool {
-	return cdts.c.free_required
-}
-
 func (cdts *CDTS) GetFixedDimensions() C.metaffi_int64 {
 	return cdts.c.fixed_dimensions
 }
@@ -203,6 +199,10 @@ func (cdt *CDT) GetTypeVal() C.metaffi_type {
 
 func (cdt *CDT) SetTypeVal(t C.metaffi_type) {
 	C.set_cdt_type(cdt.c, t)
+}
+
+func (cdt *CDT) GetFreeRequired() C.metaffi_bool {
+	return cdt.c.free_required
 }
 
 func (cdt *CDT) GetFloat32Val() C.metaffi_float32 {
