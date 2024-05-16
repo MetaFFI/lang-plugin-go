@@ -42,6 +42,7 @@ void set_uint8_val(struct cdt *cdt, uint8_t val) {
 
 */
 import "C"
+import "unsafe"
 
 func GetCDTS() *C.struct_cdts {
 	res := (*C.struct_cdts)(C.calloc(1, C.sizeof_struct_cdts))
@@ -49,6 +50,13 @@ func GetCDTS() *C.struct_cdts {
 	res.length = 1
 	res.fixed_dimensions = 0
 	return res
+}
+
+func FreeCDTS(pcdts *C.struct_cdts) {
+	C.free(unsafe.Pointer(pcdts.arr))
+	pcdts.arr = nil
+	C.free(unsafe.Pointer(pcdts))
+	pcdts = nil
 }
 
 func GetCDTSType(pcdts *C.struct_cdts, index int) uint64 {

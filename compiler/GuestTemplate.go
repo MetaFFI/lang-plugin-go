@@ -64,11 +64,6 @@ struct cdt* get_cdt_element(struct cdts* pdata, int cdts_index)
 	return pdata[cdts_index].arr;
 }
 
-void set_go_runtime_flag()
-{
-	xllr_set_runtime_flag("go_runtime", 10);
-}
-
 metaffi_handle get_null_handle()
 {
 	return METAFFI_NULL_HANDLE;
@@ -99,7 +94,7 @@ metaffi_size get_int_item(metaffi_size* array, int index);
 void* convert_union_to_ptr(void* p);
 void set_cdt_type(struct cdt* p, metaffi_type t);
 metaffi_type get_cdt_type(struct cdt* p);
-void set_go_runtime_flag();
+
 struct cdt* get_cdt_element(struct cdts* pdata, int cdts_index);
 metaffi_handle get_null_handle();
 
@@ -119,7 +114,7 @@ func init(){
 	if err != nil{
 		panic("Failed to load MetaFFI XLLR functions: "+C.GoString(err))
 	}
-	C.set_go_runtime_flag()
+
 }
 `
 
@@ -149,8 +144,9 @@ func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
 		stack = stack[:runtime.Stack(stack, false)]
 		msg = fmt.Sprintf("%s\nStack Trace:\n%s", msg, string(stack))
 
-		*out_err = C.CString(msg)
-		*out_err_len = C.uint64_t(len(msg))
+		goCString := C.CString(msg)
+		defer C.free(goCString)
+		*out_err = C.xllr_set_error_message(goCString, C.uint64_t(len(msg)))
 	}
 }
 
@@ -169,7 +165,7 @@ var dummyreflect reflect.Type
 func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}{
 
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
@@ -191,7 +187,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Getter.Name $f.Getter.Pa
 func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Setter.Name $f.Setter.Parameters $f.Setter.ReturnValues}}{
 
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 
@@ -210,7 +206,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Setter.Name $f.Setter.Pa
 //export EntryPoint_{{$f.Name}}
 func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.ReturnValues}}{
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 
@@ -266,7 +262,7 @@ func EntryPoint_{{GenerateCodeEntryPointEmptyStructSignature $c.Name}}{
 //export EntryPoint_{{$c.Name}}_{{$f.Name}}
 func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters $f.ReturnValues}}{
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 	
@@ -310,7 +306,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 //export EntryPoint_{{$c.Name}}_{{$f.Name}}
 func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters $f.ReturnValues}}{
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 
 	{{ $paramsLength := len $f.Parameters }}{{ $returnLength := len $f.ReturnValues }}
 	
@@ -357,7 +353,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Getter.Parameters $f.Getter.ReturnValues}}{
 
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 	{{ $paramsLength := len $f.Getter.Parameters }}{{ $returnLength := len $f.Getter.ReturnValues }}
 
 	{{ if gt $paramsLength 0 }}
@@ -393,7 +389,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Getter.Name $f.Gett
 func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Setter.Name $f.Setter.Parameters $f.Setter.ReturnValues}}{
 
 	// catch panics and return them as errors
-	defer panicHandler(out_err, out_err_len)
+	defer panicHandler(out_err)
 
 	{{ $paramsLength := len $f.Setter.Parameters }}{{ $returnLength := len $f.Setter.ReturnValues }}
 

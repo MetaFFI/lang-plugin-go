@@ -1,5 +1,6 @@
 package main
 
+import "C"
 import (
 	"fmt"
 	. "github.com/MetaFFI/lang-plugin-go/go-runtime"
@@ -32,6 +33,9 @@ func main() {
 
 func TestGoCDTInt8() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	var input int8 = 123
 
@@ -62,6 +66,9 @@ func TestGoCDTInt8() {
 
 func TestGoCDTInt8Array() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	var input []int8 = []int8{123, 42, 54}
 
@@ -93,6 +100,9 @@ func TestGoCDTInt8Array() {
 
 func TestGoCDTInt82DArray() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	var input [][]int8 = [][]int8{
 		{1, 2, 3},
@@ -134,6 +144,9 @@ func TestGoCDTInt82DArray() {
 
 func TestGoCDTString() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	var input string = "Hello, World!"
 
@@ -164,6 +177,9 @@ func TestGoCDTString() {
 
 func TestGoCDTStringArray() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	input := []string{"one", "two", "three"}
 
@@ -195,6 +211,9 @@ func TestGoCDTStringArray() {
 
 func TestGoCDT3DStringArray() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	input := [][][]string{
 		{{"one"}, {"two1", "two2"}, {"three1", "three2", "three3"}},
@@ -234,6 +253,9 @@ func TestGoCDT3DStringArray() {
 
 func TestGoCDTHandleGoObject() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	type test struct {
 		A int
@@ -268,6 +290,9 @@ func TestGoCDTHandleGoObject() {
 
 func TestGoToCDTMetaFFIHandle() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	type test struct {
 		A int
@@ -302,6 +327,9 @@ func TestGoToCDTMetaFFIHandle() {
 
 func TestGoCDTHandleArray() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	type test struct {
 		A int
@@ -347,6 +375,9 @@ func TestGoCDTHandleArray() {
 
 func TestGoCDTHandleArraySameType() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	type test struct {
 		A int
@@ -380,6 +411,9 @@ func TestGoCDTHandleArraySameType() {
 
 func TestGoCDTHandle3DArray() {
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	type test struct {
 		A int
@@ -443,6 +477,9 @@ func TestReturnErrWithNil() {
 	var err error
 
 	pcdts := GetCDTS()
+	defer func() {
+		FreeCDTS(pcdts)
+	}()
 
 	typeInfo := IDL.MetaFFITypeInfo{
 		StringType: IDL.HANDLE,
