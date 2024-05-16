@@ -127,7 +127,7 @@ func errToOutError(out_err **C.char, out_err_len *C.uint64_t, customText string,
 	*out_err_len = C.uint64_t(len(txt))
 }
 
-func panicHandler(out_err **C.char, out_err_len *C.uint64_t){
+func panicHandler(out_err **C.char){
 	if rec := recover(); rec != nil{
 		msg := "Panic in Go function. Panic Data: "
 		switch recType := rec.(type){
