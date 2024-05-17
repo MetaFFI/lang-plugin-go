@@ -105,10 +105,9 @@ xcall* make_callable(void* make_callable_context, metaffi_type_info* params_type
 	return nullptr;
 }
 //--------------------------------------------------------------------
-void free_xcall(xcall* pff, char** /*err*/)
+void free_xcall(xcall* pxcall, char** /*err*/)
 {
-	/*
-	 * Go doesn't support freeing libraries
-	 */
+	delete pxcall;
+	pxcall = nullptr;
 }
 //--------------------------------------------------------------------

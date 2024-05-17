@@ -8,8 +8,14 @@
 std::string original;
 std::filesystem::path module_path;
 
-#define jxcall_scope_guard(name, code) xcall_scope_guard("openjdk", name, code)
-
+#define go_xcall_scope_guard(name) \
+	metaffi::utils::scope_guard sg_##name([&name](){char* err = nullptr;\
+	free_xcall(name, &err);\
+	if(err){                          \
+            std::string strerr(err);                       \
+            xllr_alloc_string(err, strlen(err));                       \
+			FAIL(strerr); }})
+ 
 struct GlobalSetup {
 	GlobalSetup()
 	{
@@ -27,15 +33,14 @@ struct GlobalSetup {
 			std::cerr << "METAFFI_HOME" << " is not set" << std::endl;
 			exit(1);
 		}
-
-		char* err = nullptr;
-		load_runtime(&err);
-
+		
+		const char* err = load_xllr();
 		if(err)
 		{
-			std::cerr << "load_runtime error: " << err << std::endl;
-			exit(2);
+			std::cerr << "failed to load XLLR functions: " << err << std::endl;
+			exit(1);
 		}
+		
 	}
 
 	~GlobalSetup() = default;
@@ -80,7 +85,7 @@ TEST_SUITE("go runtime api")
 	{
 		std::string function_path = "callable=HelloWorld";
 		xcall* phello_world = cppload_function(module_path.string(), function_path, {}, {});
-		jxcall_scope_guard(phello_world, FAIL(std::string(err)));
+		go_xcall_scope_guard(phello_world);
 		(*phello_world)(&err);
 		if(err) { FAIL(std::string(err)); }
 	}
@@ -89,9 +94,11 @@ TEST_SUITE("go runtime api")
 	{
 		std::string function_path = "callable=ReturnsAnError";
 		xcall* preturns_an_error = cppload_function(module_path.string(), function_path, {}, {});
-
+		go_xcall_scope_guard(preturns_an_error);
 		(*preturns_an_error)(&err);
 		REQUIRE((err != nullptr));
+		xllr_free_string(err);
+		
 	}
 
 	TEST_CASE("runtime_test_target.div_integers")
@@ -102,7 +109,7 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_float32_type)};
 
 		xcall* pdiv_integers = cppload_function(module_path.string(), function_path, params_types, retvals_types);
-		jxcall_scope_guard(pdiv_integers, FAIL(std::string(err)));
+		go_xcall_scope_guard(pdiv_integers);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(params_types.size(), retvals_types.size());
 		cdts_scope_guard(pcdts);
@@ -127,7 +134,7 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_string8_type)};
 
 		xcall* join_strings = cppload_function(module_path.string(), function_path, params_types, retvals_types);
-		jxcall_scope_guard(join_strings, FAIL(std::string(err)));
+		go_xcall_scope_guard(join_strings);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(params_types.size(), retvals_types.size());
 		cdts_scope_guard(pcdts);
@@ -156,18 +163,18 @@ TEST_SUITE("go runtime api")
 		std::string function_path = "callable=GetSomeClasses";
 		std::vector<metaffi_type_info> retvals_getSomeClasses_types = {{metaffi_handle_array_type, (char*) "SomeClass[]", true, 1}};
 		xcall* pgetSomeClasses = cppload_function(module_path.string(), function_path, {}, retvals_getSomeClasses_types);
-		jxcall_scope_guard(pgetSomeClasses, FAIL(std::string(err)));
+		go_xcall_scope_guard(pgetSomeClasses);
 		
 		function_path = "callable=ExpectThreeSomeClasses";
 		std::vector<metaffi_type_info> params_expectThreeSomeClasses_types = {{metaffi_handle_array_type, (char*) "SomeClass[]", true, 1}};
 		xcall* pexpectThreeSomeClasses = cppload_function(module_path.string(), function_path, params_expectThreeSomeClasses_types, {});
-		jxcall_scope_guard(pexpectThreeSomeClasses, FAIL(std::string(err)));
+		go_xcall_scope_guard(pexpectThreeSomeClasses);
 
 		function_path = "callable=SomeClass.Print";
 		std::vector<metaffi_type_info> params_SomeClassPrint_types = {metaffi_type_info{metaffi_handle_type}};
 
 		xcall* pSomeClassPrint = cppload_function(module_path.string(), function_path, params_SomeClassPrint_types, {});
-		jxcall_scope_guard(pSomeClassPrint, FAIL(std::string(err)));
+		go_xcall_scope_guard(pSomeClassPrint);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
 		cdts_scope_guard(pcdts);
@@ -215,8 +222,8 @@ TEST_SUITE("go runtime api")
 
 		cdts* pcdts3 = (cdts*) xllr_alloc_cdts_buffer(1, 0);
 		cdts_scope_guard(pcdts3);
-		cdts& pcdts_params3 = pcdts[0];
-		cdts& pcdts_retvals3 = pcdts[1];
+		cdts& pcdts_params3 = pcdts3[0];
+		cdts& pcdts_retvals3 = pcdts3[1];
 
 		pcdts_params3[0] = cdt(arr[1]);// use the 2nd instance
 
@@ -231,13 +238,13 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> params_expectThreeBuffers_types = {{metaffi_uint8_array_type, nullptr, false, 2}};
 
 		xcall* pexpectThreeBuffers = cppload_function(module_path.string(), function_path, params_expectThreeBuffers_types, {});
-		jxcall_scope_guard(pexpectThreeBuffers, FAIL(std::string(err)));
+		go_xcall_scope_guard(pexpectThreeBuffers);
 		
 		function_path = "callable=GetThreeBuffers";
 		std::vector<metaffi_type_info> retval_getThreeBuffers_types = {{metaffi_uint8_array_type, nullptr, false, 2}};
 
 		xcall* pgetThreeBuffers = cppload_function(module_path.string(), function_path, {}, retval_getThreeBuffers_types);
-		jxcall_scope_guard(pgetThreeBuffers, FAIL(std::string(err)));
+		go_xcall_scope_guard(pgetThreeBuffers);
 		
 		// pass 3 buffers
 		cdts* pcdts = xllr_alloc_cdts_buffer(1, 0);
@@ -298,7 +305,7 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
 		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
-
+		go_xcall_scope_guard(pnew_testmap);
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
 		cdts_scope_guard(pcdts);
 		cdts& params_cdts = pcdts[0];
@@ -321,7 +328,7 @@ TEST_SUITE("go runtime api")
 		                                               metaffi_type_info(metaffi_any_type)};
 
 		xcall* p_testmap_set = cppload_function(module_path.string(), function_path, {}, retvals_types);
-
+		go_xcall_scope_guard(p_testmap_set);
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(3, 0);
 		cdts_scope_guard(pcdts2);
 		cdts& params_cdts2 = pcdts2[0];
@@ -342,7 +349,7 @@ TEST_SUITE("go runtime api")
 		retvals_types[0].type = metaffi_bool_type;
 
 		xcall* p_testmap_contains = cppload_function(module_path.string(), function_path, {}, retvals_types);
-
+		go_xcall_scope_guard(p_testmap_contains);
 		cdts* pcdts3 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
 		cdts_scope_guard(pcdts3);
 		cdts& params_cdts3 = pcdts3[0];
@@ -365,7 +372,7 @@ TEST_SUITE("go runtime api")
 		retvals_types[0].type = metaffi_any_type;
 
 		xcall* p_testmap_get = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(p_testmap_get, FAIL(std::string(err)));
+		go_xcall_scope_guard(p_testmap_get);
 		
 		cdts* pcdts4 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
 		cdts_scope_guard(pcdts4);
@@ -390,7 +397,7 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
 		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(pnew_testmap, FAIL(std::string(err)));
+		go_xcall_scope_guard(pnew_testmap);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
 		cdts_scope_guard(pcdts);
@@ -414,7 +421,7 @@ TEST_SUITE("go runtime api")
 		                                               metaffi_type_info(metaffi_any_type)};
 
 		xcall* p_testmap_set = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(p_testmap_set, FAIL(std::string(err)));
+		go_xcall_scope_guard(p_testmap_set);
 		
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(3, 0);
 		cdts_scope_guard(pcdts2);
@@ -438,7 +445,7 @@ TEST_SUITE("go runtime api")
 		retvals_types[0].type = metaffi_bool_type;
 
 		xcall* p_testmap_contains = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(p_testmap_contains, FAIL(std::string(err)));
+		go_xcall_scope_guard(p_testmap_contains);
 		
 		cdts* pcdts3 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
 		cdts_scope_guard(pcdts3);
@@ -462,7 +469,7 @@ TEST_SUITE("go runtime api")
 		retvals_types[0].type = metaffi_any_type;
 
 		xcall* p_testmap_get = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(p_testmap_get, FAIL(std::string(err)));
+		go_xcall_scope_guard(p_testmap_get);
 		
 		cdts* pcdts4 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
 		cdts_scope_guard(pcdts4);
@@ -477,7 +484,7 @@ TEST_SUITE("go runtime api")
 
 
 		REQUIRE((pcdts_retvals4[0].type == metaffi_handle_type));
-		auto& vector_pulled = *(std::vector<int>*) pcdts_retvals[0].cdt_val.handle_val.val;
+		auto& vector_pulled = *(std::vector<int>*) pcdts_retvals4[0].cdt_val.handle_val.val;
 
 		REQUIRE((vector_pulled[0] == 1));
 		REQUIRE((vector_pulled[1] == 2));
@@ -491,14 +498,14 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
 		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
-
+		go_xcall_scope_guard(pnew_testmap);
 		// load getter
 		function_path = "field=TestMap.Name,instance_required,getter";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type)};
 		retvals_types = {metaffi_type_info(metaffi_string8_type)};
 
 		xcall* pget_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(pget_name, FAIL(std::string(err)));
+		go_xcall_scope_guard(pget_name);
 		
 		// load setter
 		function_path = "field=TestMap.Name,instance_required,setter";
@@ -506,7 +513,7 @@ TEST_SUITE("go runtime api")
 		retvals_types[0].type = metaffi_string8_type;
 
 		xcall* pset_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(pset_name, FAIL(std::string(err)));
+		go_xcall_scope_guard(pset_name);
 		
 		// create new testmap
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
@@ -576,7 +583,7 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
 		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(pnew_testmap, FAIL(std::string(err)));
+		go_xcall_scope_guard(pnew_testmap);
 		
 		// load getter
 		function_path = "field=TestMap.Name,instance_required,getter";
@@ -584,14 +591,14 @@ TEST_SUITE("go runtime api")
 		retvals_types = {metaffi_type_info{metaffi_string8_type}};
 
 		xcall* pget_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(pget_name, FAIL(std::string(err)));
+		go_xcall_scope_guard(pget_name);
 		
 		// load setter
 		function_path = "field=TestMap.Name,instance_required,setter";
 		params_types = {metaffi_type_info{metaffi_handle_type}, metaffi_type_info{metaffi_string8_type}};
 
 		xcall* pset_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
-		jxcall_scope_guard(pset_name, FAIL(std::string(err)));
+		go_xcall_scope_guard(pset_name);
 		
 		// create new testmap
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
@@ -611,8 +618,8 @@ TEST_SUITE("go runtime api")
 		// get name
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(1, 1);
 		cdts_scope_guard(pcdts2);
-		cdts& pcdts_params2 = pcdts[0];
-		cdts& pcdts_retvals2 = pcdts[1];
+		cdts& pcdts_params2 = pcdts2[0];
+		cdts& pcdts_retvals2 = pcdts2[1];
 
 		pcdts_params2[0] = cdt(testmap_instance);
 
@@ -640,8 +647,8 @@ TEST_SUITE("go runtime api")
 		// get name again and make sure it is "name is my name"
 		cdts* pcdts4 = (cdts*)xllr_alloc_cdts_buffer(1, 1);
 		cdts_scope_guard(pcdts4);
-		cdts& pcdts_params4 = pcdts[0];
-		cdts& pcdts_retvals4 = pcdts[1];
+		cdts& pcdts_params4 = pcdts4[0];
+		cdts& pcdts_retvals4 = pcdts4[1];
 
 		pcdts_params4[0] = cdt(testmap_instance);
 
@@ -659,7 +666,7 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> var_type = {metaffi_type_info(metaffi_int64_type, "time.Duration", true)};
 		std::string variable_path = "global=FiveSeconds,getter";
 		xcall* pfive_seconds_getter = cppload_function(module_path.string(), variable_path, {}, var_type);
-		jxcall_scope_guard(pfive_seconds_getter, FAIL(std::string(err)));
+		go_xcall_scope_guard(pfive_seconds_getter);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
 		cdts_scope_guard(pcdts);
@@ -680,12 +687,12 @@ TEST_SUITE("go runtime api")
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_int64_type)};
 
 		xcall* pwait_a_bit = cppload_function(module_path.string(), function_path, params_types, {});
-		jxcall_scope_guard(pwait_a_bit, FAIL(std::string(err)));
+		go_xcall_scope_guard(pwait_a_bit);
 		
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(1, 0);
 		cdts_scope_guard(pcdts2);
-		cdts& pcdts_params2 = pcdts[0];
-		cdts& pcdts_retvals2 = pcdts[1];
+		cdts& pcdts_params2 = pcdts2[0];
+		cdts& pcdts_retvals2 = pcdts2[1];
 
 		pcdts_params2[0] = cdt(five);
 

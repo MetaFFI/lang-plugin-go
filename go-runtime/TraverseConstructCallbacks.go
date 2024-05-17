@@ -584,7 +584,7 @@ func getString8(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C
 	s := val.Interface().(string)
 	cstr := C.CString(s)
 	defer C.free(unsafe.Pointer(cstr))
-	return C.cast_to_metaffi_string8(C.xllr_metaffi_alloc_string(cstr, C.uint64_t(len(s))))
+	return C.cast_to_metaffi_string8(C.xllr_alloc_string(cstr, C.uint64_t(len(s))))
 }
 
 //export getChar16

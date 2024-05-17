@@ -124,7 +124,7 @@ func XLLRLoadEntityWithAliases(runtimePlugin string, modulePath string, function
 		&out_err)
 
 	if out_err != nil {
-		defer C.xllr_metaffi_free_string(out_err)
+		defer C.xllr_free_string(out_err)
 		return nil, fmt.Errorf("Failed to xcall for \"%v\": %v", functionPath, C.GoString(out_err))
 	}
 
@@ -139,7 +139,7 @@ func XLLRFreeXCall(runtimePlugin string, xcall unsafe.Pointer) error {
 	C.xllr_free_xcall(pruntimePlugin, (*C.struct_xcall)(xcall), &out_err)
 
 	if out_err != nil {
-		defer C.xllr_metaffi_free_string(out_err)
+		defer C.xllr_free_string(out_err)
 		return fmt.Errorf("Failed to free xcall: %v", C.GoString(out_err))
 	}
 
@@ -194,7 +194,7 @@ func XLLRXCallNoParamsNoRet(xcall unsafe.Pointer) error {
 	C.call_plugin_xcall_no_params_no_ret((*C.struct_xcall)(xcall), &out_err)
 
 	if out_err != nil {
-		defer C.xllr_metaffi_free_string(out_err)
+		defer C.xllr_free_string(out_err)
 		return fmt.Errorf("%v", C.GoString(out_err))
 	}
 
@@ -227,7 +227,7 @@ func XLLRLoadRuntimePlugin(runtimePlugin string) error {
 	C.xllr_load_runtime_plugin(pruntime_plugin, &out_err)
 
 	if out_err != nil {
-		defer C.xllr_metaffi_free_string(out_err)
+		defer C.xllr_free_string(out_err)
 		return fmt.Errorf("Failed to load runtime %v: %v", runtimePlugin, C.GoString(out_err))
 	}
 
@@ -243,7 +243,7 @@ func XLLRFreeRuntimePlugin(runtimePlugin string) error {
 	C.xllr_free_runtime_plugin(pruntime_plugin, &out_err)
 
 	if out_err != nil {
-		defer C.xllr_metaffi_free_string(out_err)
+		defer C.xllr_free_string(out_err)
 		return fmt.Errorf("Failed to free runtime %v: %v", runtimePlugin, C.GoString(out_err))
 	}
 
@@ -294,7 +294,7 @@ func TraverseCDT(cdt *C.struct_cdt) error {
 	C.xllr_traverse_cdt(cdt, tcc, &err)
 
 	if err != nil {
-		defer C.xllr_metaffi_free_string(err)
+		defer C.xllr_free_string(err)
 		str := C.GoString(err)
 		return fmt.Errorf("%v", str)
 	}

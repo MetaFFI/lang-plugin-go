@@ -125,7 +125,7 @@ func errToOutError(out_err **C.char, customText string, err error){
 	if err != nil { txt += err.Error() }
 	goCString := C.CString(txt)
 	defer C.free(unsafe.Pointer(goCString))
-	*out_err = C.xllr_metaffi_alloc_string(goCString, C.uint64_t(len(txt)))
+	*out_err = C.xllr_alloc_string(goCString, C.uint64_t(len(txt)))
 }
 
 func panicHandler(out_err **C.char){
@@ -147,7 +147,7 @@ func panicHandler(out_err **C.char){
 
 		goCString := C.CString(msg)
 		defer C.free(unsafe.Pointer(goCString))
-		*out_err = C.xllr_metaffi_alloc_string(goCString, C.uint64_t(len(msg)))
+		*out_err = C.xllr_alloc_string(goCString, C.uint64_t(len(msg)))
 	}
 }
 
