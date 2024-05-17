@@ -6,6 +6,7 @@ package metaffi
 
 #include <string.h>
 #include <include/cdts_traverse_construct.h>
+#include <include/xllr_capi_loader.h>
 #include <stdlib.h>
 
 void set_metaffi_type_info_type(struct metaffi_type_info* info, uint64_t type) {
