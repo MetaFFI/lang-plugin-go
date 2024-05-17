@@ -582,7 +582,9 @@ func getString8(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C
 	*freeRequired = C.metaffi_bool(1)
 	val := getElement(index, indexSize, cctxt.Input)
 	s := val.Interface().(string)
-	return C.cast_to_metaffi_string8(C.xllr_metaffi_alloc_string(s, C.uint64_t(len(s))))
+	cstr := C.CString(s)
+	defer C.free(unsafe.Pointer(cstr))
+	return C.cast_to_metaffi_string8(C.xllr_metaffi_alloc_string(cstr, C.uint64_t(len(s))))
 }
 
 //export getChar16
