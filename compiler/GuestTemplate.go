@@ -120,11 +120,12 @@ func init(){
 
 const GuestHelperFunctionsTemplate = `
 
-func errToOutError(out_err **C.char, out_err_len *C.uint64_t, customText string, err error){
+func errToOutError(out_err **C.char, customText string, err error){
 	txt := customText
 	if err != nil { txt += err.Error() }
-	*out_err = C.CString(txt)
-	*out_err_len = C.uint64_t(len(txt))
+	goCString := C.CString(txt)
+	defer C.free(unsafe.Pointer(goCString))
+	*out_err = C.xllr_set_error_message(goCString, C.uint64_t(len(txt)))
 }
 
 func panicHandler(out_err **C.char){
@@ -145,7 +146,7 @@ func panicHandler(out_err **C.char){
 		msg = fmt.Sprintf("%s\nStack Trace:\n%s", msg, string(stack))
 
 		goCString := C.CString(msg)
-		defer C.free(goCString)
+		defer C.free(unsafe.Pointer(goCString))
 		*out_err = C.xllr_set_error_message(goCString, C.uint64_t(len(msg)))
 	}
 }
@@ -229,7 +230,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature "" $f.Name $f.Parameters $f.Re
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
-		errToOutError(out_err, out_err_len, "Error returned", err)
+		errToOutError(out_err, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
 		t{{$index}} := IDL.MetaFFITypeInfo{   {{$t := index $f.ReturnValues $index}}
@@ -285,7 +286,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
-		errToOutError(out_err, out_err_len, "Error returned", err)
+		errToOutError(out_err, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
 		t{{$index}} := IDL.MetaFFITypeInfo{ {{$t := index $f.ReturnValues $index}}
@@ -330,7 +331,7 @@ func EntryPoint_{{GenerateCodeEntryPointSignature $c.Name $f.Name $f.Parameters 
 	// return values
 	{{range $index, $elem := $f.ReturnValues}}
 	if err, isError := interface{}({{$elem.Name}}).(error); isError{ // in case of error
-		errToOutError(out_err, out_err_len, "Error returned", err)
+		errToOutError(out_err, "Error returned", err)
 		return
 	} else { // Convert return values from Go to C
 		t{{$index}} := IDL.MetaFFITypeInfo{   {{$t := index $f.ReturnValues $index}}
