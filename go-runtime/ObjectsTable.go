@@ -7,6 +7,11 @@ metaffi_handle int_to_handle(unsigned long long i)
 {
 	return (metaffi_handle)i;
 }
+
+void* get_releaser_function_address()
+{
+    return (void*)&Releaser;
+}
 */
 import "C"
 import (
@@ -21,6 +26,7 @@ type MetaFFIHandle struct {
 	Val       Handle
 	RuntimeID uint64
 	Releaser  func() error
+	CReleaser unsafe.Pointer
 }
 
 var (
@@ -71,4 +77,18 @@ func ReleaseObject(h Handle) error {
 	delete(handlesToObjects, C.metaffi_handle(h))
 
 	return nil
+}
+
+//export releaser
+func Releaser(h C.metaffi_handle) {
+	err := ReleaseObject(Handle(h))
+
+	// print error to stderr
+	if err != nil {
+		fmt.Fprintf(stderr, "Failed to release Go object: %v\n", err)
+	}
+}
+
+func GetReleaserCFunction() unsafe.Pointer{
+	return C.get_releaser_function_address()
 }

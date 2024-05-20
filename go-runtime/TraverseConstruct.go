@@ -290,15 +290,18 @@ func GoObjectToMetaffiHandle(p *C.struct_cdt_metaffi_handle, val interface{}) {
 	if h, ok := val.(MetaFFIHandle); ok {
 		(*p).val = C.metaffi_handle(h.Val)
 		(*p).runtime_id = C.metaffi_size(h.RuntimeID)
+		(*p).release = h.CReleaser
 	} else {
 
 		if val == nil {
 			(*p).val = C.metaffi_handle(uintptr(0))
 			(*p).runtime_id = 0
+			(*p).release = nil
 			return
 		} else {
 			(*p).val = C.metaffi_handle(SetObject(val))
 			(*p).runtime_id = GO_RUNTIME_ID
+			(*p).release = GetReleaserCFunction()
 		}
 	}
 }
