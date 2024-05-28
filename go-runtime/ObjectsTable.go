@@ -8,7 +8,7 @@ metaffi_handle int_to_handle(unsigned long long i)
 	return (metaffi_handle)i;
 }
 
-typedef void (*GoReleaserFunc)(C.metaffi_handle);
+typedef void (*GoReleaserFunc)(void*);
 GoReleaserFunc go_releaser_func;
 
 void* get_releaser_function_address()

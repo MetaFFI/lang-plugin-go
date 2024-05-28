@@ -116,8 +116,8 @@ TEST_SUITE("go runtime api")
 		cdts& params = pcdts[0];
 		cdts& retval = pcdts[1];
 
-		params[0] = cdt((metaffi_int64) 10);
-		params[1] = cdt((metaffi_int64) 2);
+		params[0] = ((metaffi_int64) 10);
+		params[1] = ((metaffi_int64) 2);
 
 		(*pdiv_integers)(pcdts, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -140,15 +140,15 @@ TEST_SUITE("go runtime api")
 		cdts_scope_guard(pcdts);
 		cdts& pcdts_params = pcdts[0];
 		cdts& pcdts_retvals = pcdts[1];
-		pcdts_params[0] = cdt(3, 1, metaffi_string8_type);
+		pcdts_params[0].set_new_array(3, 1, metaffi_string8_type);
 
 		std::u8string one = u8"one";
 		std::u8string two = u8"two";
 		std::u8string three = u8"three";
 
-		pcdts_params[0].cdt_val.array_val->arr[0] = cdt(one.c_str(), false);
-		pcdts_params[0].cdt_val.array_val->arr[1] = cdt(two.c_str(), false);
-		pcdts_params[0].cdt_val.array_val->arr[2] = cdt(three.c_str(), false);
+		pcdts_params[0].cdt_val.array_val->arr[0].set_string(one.c_str(), false);
+		pcdts_params[0].cdt_val.array_val->arr[1].set_string(two.c_str(), false);
+		pcdts_params[0].cdt_val.array_val->arr[2].set_string(three.c_str(), false);
 
 		(*join_strings)(pcdts, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -192,15 +192,15 @@ TEST_SUITE("go runtime api")
 		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[1].type == metaffi_handle_type));
 		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[2].type == metaffi_handle_type));
 
-		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
-		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
-		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
+		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
+		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
+		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
 
-		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val.val != nullptr));
-		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val.val != nullptr));
-		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val.val != nullptr));
+		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val->handle != nullptr));
+		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val->handle != nullptr));
+		REQUIRE((pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val->handle != nullptr));
 
-		std::vector<cdt_metaffi_handle> arr = {pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val,
+		std::vector<cdt_metaffi_handle*> arr = {pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val};
 		//--------------------------------------------------------------------
@@ -210,10 +210,10 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params2 = pcdts2[0];
 		cdts& pcdts_retvals2 = pcdts2[1];
 
-		pcdts_params2[0] = cdt(3, 1, metaffi_handle_type);
-		pcdts_params2[0].cdt_val.array_val->arr[0] = cdt(arr[0]);
-		pcdts_params2[0].cdt_val.array_val->arr[1] = cdt(arr[1]);
-		pcdts_params2[0].cdt_val.array_val->arr[2] = cdt(arr[2]);
+		pcdts_params2[0].set_new_array(3, 1, metaffi_handle_type);
+		pcdts_params2[0].cdt_val.array_val->arr[0].set_handle(arr[0]);
+		pcdts_params2[0].cdt_val.array_val->arr[1].set_handle(arr[1]);
+		pcdts_params2[0].cdt_val.array_val->arr[2].set_handle(arr[2]);
 
 		(*pexpectThreeSomeClasses)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -225,7 +225,7 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params3 = pcdts3[0];
 		cdts& pcdts_retvals3 = pcdts3[1];
 
-		pcdts_params3[0] = cdt(arr[1]);// use the 2nd instance
+		pcdts_params3[0].set_handle(arr[1]);// use the 2nd instance
 
 		(*pSomeClassPrint)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -252,23 +252,23 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params = pcdts[0];
 		cdts& pcdts_retvals = pcdts[1];
 
-		pcdts_params[0] = cdt(3, 2, metaffi_uint8_array_type);
+		pcdts_params[0].set_new_array(3, 2, metaffi_uint8_array_type);
 		metaffi_uint8 data[3][3] = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
-		pcdts_params[0].cdt_val.array_val->arr[0] = cdt(3, 1, metaffi_uint8_type);
-		pcdts_params[0].cdt_val.array_val->arr[1] = cdt(3, 1, metaffi_uint8_type);
-		pcdts_params[0].cdt_val.array_val->arr[2] = cdt(3, 1, metaffi_uint8_type);
+		pcdts_params[0].cdt_val.array_val->arr[0].set_new_array(3, 1, metaffi_uint8_type);
+		pcdts_params[0].cdt_val.array_val->arr[1].set_new_array(3, 1, metaffi_uint8_type);
+		pcdts_params[0].cdt_val.array_val->arr[2].set_new_array(3, 1, metaffi_uint8_type);
 
-		pcdts_params[0].cdt_val.array_val->arr[0].cdt_val.array_val->arr[0] = cdt(data[0][0]);
-		pcdts_params[0].cdt_val.array_val->arr[0].cdt_val.array_val->arr[1] = cdt(data[0][1]);
-		pcdts_params[0].cdt_val.array_val->arr[0].cdt_val.array_val->arr[2] = cdt(data[0][2]);
+		pcdts_params[0].cdt_val.array_val->arr[0].cdt_val.array_val->arr[0] = (data[0][0]);
+		pcdts_params[0].cdt_val.array_val->arr[0].cdt_val.array_val->arr[1] = (data[0][1]);
+		pcdts_params[0].cdt_val.array_val->arr[0].cdt_val.array_val->arr[2] = (data[0][2]);
 
-		pcdts_params[0].cdt_val.array_val->arr[1].cdt_val.array_val->arr[0] = cdt(data[1][0]);
-		pcdts_params[0].cdt_val.array_val->arr[1].cdt_val.array_val->arr[1] = cdt(data[1][1]);
-		pcdts_params[0].cdt_val.array_val->arr[1].cdt_val.array_val->arr[2] = cdt(data[1][2]);
+		pcdts_params[0].cdt_val.array_val->arr[1].cdt_val.array_val->arr[0] = (data[1][0]);
+		pcdts_params[0].cdt_val.array_val->arr[1].cdt_val.array_val->arr[1] = (data[1][1]);
+		pcdts_params[0].cdt_val.array_val->arr[1].cdt_val.array_val->arr[2] = (data[1][2]);
 
-		pcdts_params[0].cdt_val.array_val->arr[2].cdt_val.array_val->arr[0] = cdt(data[2][0]);
-		pcdts_params[0].cdt_val.array_val->arr[2].cdt_val.array_val->arr[1] = cdt(data[2][1]);
-		pcdts_params[0].cdt_val.array_val->arr[2].cdt_val.array_val->arr[2] = cdt(data[2][2]);
+		pcdts_params[0].cdt_val.array_val->arr[2].cdt_val.array_val->arr[0] = (data[2][0]);
+		pcdts_params[0].cdt_val.array_val->arr[2].cdt_val.array_val->arr[1] = (data[2][1]);
+		pcdts_params[0].cdt_val.array_val->arr[2].cdt_val.array_val->arr[2] = (data[2][2]);
 
 		(*pexpectThreeBuffers)(pcdts, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -316,10 +316,10 @@ TEST_SUITE("go runtime api")
 
 
 		REQUIRE((retvals_cdts[0].type == metaffi_handle_type));
-		REQUIRE((retvals_cdts[0].cdt_val.handle_val.val != nullptr));
-		REQUIRE((retvals_cdts[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
+		REQUIRE((retvals_cdts[0].cdt_val.handle_val->handle != nullptr));
+		REQUIRE((retvals_cdts[0].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
 
-		cdt_metaffi_handle testmap_instance = retvals_cdts[0].cdt_val.handle_val;
+		cdt_metaffi_handle* testmap_instance = retvals_cdts[0].cdt_val.handle_val;
 
 		// set
 		function_path = "callable=TestMap.Set,instance_required";
@@ -334,9 +334,9 @@ TEST_SUITE("go runtime api")
 		cdts& params_cdts2 = pcdts2[0];
 		cdts& retvals_cdts2 = pcdts2[1];
 
-		params_cdts2[0] = cdt(testmap_instance);
-		params_cdts2[1] = cdt((metaffi_string8) std::u8string(u8"key").c_str(), false);
-		params_cdts2[2] = cdt((int32_t) 42);
+		params_cdts2[0].set_handle(testmap_instance);
+		params_cdts2[1].set_string((metaffi_string8) std::u8string(u8"key").c_str(), false);
+		params_cdts2[2] = ((int32_t) 42);
 
 		(*p_testmap_set)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -355,8 +355,8 @@ TEST_SUITE("go runtime api")
 		cdts& params_cdts3 = pcdts3[0];
 		cdts& retvals_cdts3 = pcdts3[1];
 
-		params_cdts3[0] = cdt(testmap_instance);
-		params_cdts3[1] = cdt((metaffi_string8) u8"key", true);
+		params_cdts3[0].set_handle(testmap_instance);
+		params_cdts3[1].set_string((metaffi_string8) u8"key", true);
 
 		(*p_testmap_contains)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -379,8 +379,8 @@ TEST_SUITE("go runtime api")
 		cdts& params_cdts4 = pcdts4[0];
 		cdts& retvals_cdts4 = pcdts4[1];
 
-		params_cdts4[0] = cdt(testmap_instance);
-		params_cdts4[1] = cdt((char8_t*) u8"key", true);
+		params_cdts4[0].set_handle(testmap_instance);
+		params_cdts4[1].set_string((char8_t*) u8"key", true);
 
 		(*p_testmap_get)((cdts*) pcdts4, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -409,10 +409,10 @@ TEST_SUITE("go runtime api")
 
 
 		REQUIRE((pcdts_retvals[0].type == metaffi_handle_type));
-		REQUIRE((pcdts_retvals[0].cdt_val.handle_val.val != nullptr));
-		REQUIRE((pcdts_retvals[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
+		REQUIRE((pcdts_retvals[0].cdt_val.handle_val->handle != nullptr));
+		REQUIRE((pcdts_retvals[0].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
 
-		cdt_metaffi_handle testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
+		cdt_metaffi_handle* testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
 
 		// set
 		function_path = "callable=TestMap.Set,instance_required";
@@ -430,9 +430,9 @@ TEST_SUITE("go runtime api")
 
 		std::vector<int> vec_to_insert = {1, 2, 3};
 
-		pcdts_params2[0] = cdt(testmap_instance);
-		pcdts_params2[1] = cdt((metaffi_string8) u8"key", true);
-		pcdts_params2[2] = cdt(cdt_metaffi_handle{&vec_to_insert, 733, nullptr});
+		pcdts_params2[0].set_handle(testmap_instance);
+		pcdts_params2[1].set_string((metaffi_string8) u8"key", true);
+		pcdts_params2[2] = new cdt_metaffi_handle{&vec_to_insert, 733, nullptr};
 
 		(*p_testmap_set)((cdts*) pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -452,8 +452,8 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params3 = pcdts3[0];
 		cdts& pcdts_retvals3 = pcdts3[1];
 
-		pcdts_params3[0] = cdt(testmap_instance);
-		pcdts_params3[1] = cdt((metaffi_string8) u8"key", true);
+		pcdts_params3[0].set_handle(testmap_instance);
+		pcdts_params3[1].set_string((metaffi_string8) u8"key", true);
 
 		(*p_testmap_contains)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -476,15 +476,15 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params4 = pcdts4[0];
 		cdts& pcdts_retvals4 = pcdts4[1];
 
-		pcdts_params4[0] = cdt(testmap_instance);
-		pcdts_params4[1] = cdt((char8_t*) u8"key", true);
+		pcdts_params4[0].set_handle(testmap_instance);
+		pcdts_params4[1].set_string((char8_t*) u8"key", true);
 
 		(*p_testmap_get)(pcdts4, &err);
 		if(err) { FAIL(std::string(err)); }
 
 
 		REQUIRE((pcdts_retvals4[0].type == metaffi_handle_type));
-		auto& vector_pulled = *(std::vector<int>*) pcdts_retvals4[0].cdt_val.handle_val.val;
+		auto& vector_pulled = *(std::vector<int>*) pcdts_retvals4[0].cdt_val.handle_val->handle;
 
 		REQUIRE((vector_pulled[0] == 1));
 		REQUIRE((vector_pulled[1] == 2));
@@ -526,10 +526,10 @@ TEST_SUITE("go runtime api")
 
 
 		REQUIRE((pcdts_retvals[0].type == metaffi_handle_type));
-		REQUIRE((pcdts_retvals[0].cdt_val.handle_val.val != nullptr));
-		REQUIRE((pcdts_retvals[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
+		REQUIRE((pcdts_retvals[0].cdt_val.handle_val->handle != nullptr));
+		REQUIRE((pcdts_retvals[0].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
 
-		cdt_metaffi_handle testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
+		cdt_metaffi_handle* testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
 
 
 		// get name
@@ -538,7 +538,7 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params2 = pcdts2[0];
 		cdts& pcdts_retvals2 = pcdts2[1];
 
-		pcdts_params2[0] = cdt(testmap_instance);
+		pcdts_params2[0].set_handle(testmap_instance);
 
 		(*pget_name)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -554,8 +554,8 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params3 = pcdts3[0];
 		cdts& pcdts_retvals3 = pcdts3[1];
 
-		pcdts_params3[0] = cdt(testmap_instance);
-		pcdts_params3[1] = cdt((metaffi_string8) u8"name is my name", true);
+		pcdts_params3[0].set_handle(testmap_instance);
+		pcdts_params3[1].set_string((metaffi_string8) u8"name is my name", true);
 
 		(*pset_name)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -567,7 +567,7 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params4 = pcdts4[0];
 		cdts& pcdts_retvals4 = pcdts4[1];
 
-		pcdts_params4[0] = cdt(testmap_instance);
+		pcdts_params4[0] .set_handle(testmap_instance);
 
 		(*pget_name)(pcdts4, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -610,10 +610,10 @@ TEST_SUITE("go runtime api")
 		if(err) { FAIL(std::string(err)); }
 		
 		REQUIRE((pcdts_retvals[0].type == metaffi_handle_type));
-		REQUIRE((pcdts_retvals[0].cdt_val.handle_val.val != nullptr));
-		REQUIRE((pcdts_retvals[0].cdt_val.handle_val.runtime_id == GO_RUNTIME_ID));
+		REQUIRE((pcdts_retvals[0].cdt_val.handle_val->handle != nullptr));
+		REQUIRE((pcdts_retvals[0].cdt_val.handle_val->runtime_id == GO_RUNTIME_ID));
 
-		cdt_metaffi_handle testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
+		cdt_metaffi_handle* testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
 
 		// get name
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(1, 1);
@@ -621,7 +621,7 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params2 = pcdts2[0];
 		cdts& pcdts_retvals2 = pcdts2[1];
 
-		pcdts_params2[0] = cdt(testmap_instance);
+		pcdts_params2[0].set_handle(testmap_instance);
 
 		(*pget_name)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -637,8 +637,8 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params3 = pcdts3[0];
 		cdts& pcdts_retvals3 = pcdts3[1];
 
-		pcdts_params3[0] = cdt(testmap_instance);
-		pcdts_params3[1] = cdt((metaffi_string8) u8"name is my name", true);
+		pcdts_params3[0] .set_handle(testmap_instance);
+		pcdts_params3[1] .set_string((metaffi_string8) u8"name is my name", true);
 
 		(*pset_name)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -650,7 +650,7 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params4 = pcdts4[0];
 		cdts& pcdts_retvals4 = pcdts4[1];
 
-		pcdts_params4[0] = cdt(testmap_instance);
+		pcdts_params4[0] .set_handle(testmap_instance);
 
 		(*pget_name)(pcdts4, &err);
 		if(err) { FAIL(std::string(err)); }
@@ -694,7 +694,7 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params2 = pcdts2[0];
 		cdts& pcdts_retvals2 = pcdts2[1];
 
-		pcdts_params2[0] = cdt(five);
+		pcdts_params2[0] = (five);
 
 		(*pwait_a_bit)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
