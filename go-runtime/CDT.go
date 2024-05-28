@@ -81,11 +81,11 @@ void set_cdt_char32_val(struct cdt* c, struct metaffi_char32* val) {
 }
 
 struct cdt_metaffi_handle* get_cdt_handle_val(struct cdt* c) {
-    return &c->cdt_val.handle_val;
+    return c->cdt_val.handle_val;
 }
 
 void set_cdt_handle_val(struct cdt* c, struct cdt_metaffi_handle* val) {
-    c->cdt_val.handle_val = *val;
+    c->cdt_val.handle_val = val;
 }
 
 struct cdt_metaffi_callable* get_cdt_callable_val(struct cdt* c) {
