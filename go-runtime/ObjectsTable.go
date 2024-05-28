@@ -8,14 +8,6 @@ metaffi_handle int_to_handle(unsigned long long i)
 	return (metaffi_handle)i;
 }
 
-typedef void (*GoReleaserFunc)(metaffi_handle h);
-GoReleaserFunc go_releaser_func;
-
-void* get_releaser_function_address()
-{
-    return (void*)go_releaser_func;
-}
-
 */
 import "C"
 import (
@@ -41,7 +33,6 @@ var (
 
 func init() {
 	handlesToObjects = make(map[C.metaffi_handle]interface{})
-	C.go_releaser_func = C.GoReleaserFunc(unsafe.Pointer(C.Releaser))
 }
 
 // sets the object and returns a handle
@@ -85,7 +76,7 @@ func ReleaseObject(h Handle) error {
 	return nil
 }
 
-//export Releaser
+//export GoReleaser
 func Releaser(h C.metaffi_handle) {
 	err := ReleaseObject(Handle(h))
 
@@ -96,5 +87,5 @@ func Releaser(h C.metaffi_handle) {
 }
 
 func GetReleaserCFunction() unsafe.Pointer{
-	return C.get_releaser_function_address()
+	return unsafe.Pointer(C.GoReleaser())
 }
