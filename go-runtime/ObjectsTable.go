@@ -21,6 +21,7 @@ import "C"
 import (
 	"fmt"
 	"sync"
+	"unsafe"
 )
 
 const GO_RUNTIME_ID = 3958232544
