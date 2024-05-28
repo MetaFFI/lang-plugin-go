@@ -450,7 +450,7 @@ type CDTMetaFFIHandle struct {
 }
 
 func (handle *CDTMetaFFIHandle) GetHandle() C.metaffi_handle {
-	return handle.Val.val
+	return handle.Val.handle
 }
 
 //------------------------------------------------------------

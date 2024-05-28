@@ -13,7 +13,7 @@ package metaffi
 struct cdt_metaffi_handle get_null_handle()
 {
 	struct cdt_metaffi_handle res;
-	res.val = NULL;
+	res.handle = NULL;
 	res.runtime_id = 0;
 	res.release = NULL;
 	return res;

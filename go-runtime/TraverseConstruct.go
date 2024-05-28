@@ -272,7 +272,7 @@ func NewConstructCDTSCallbacks() *C.struct_construct_cdts_callbacks {
 
 func GetGoObject(h *C.struct_cdt_metaffi_handle) interface{} {
 
-	if uintptr(h.val) == uintptr(0) {
+	if uintptr(h.handle) == uintptr(0) {
 		return nil
 	}
 
@@ -294,7 +294,7 @@ func GoObjectToMetaffiHandle(p *C.struct_cdt_metaffi_handle, val interface{}) {
 	} else {
 
 		if val == nil {
-			(*p).val = C.metaffi_handle(uintptr(0))
+			(*p).handle = C.metaffi_handle(uintptr(0))
 			(*p).runtime_id = 0
 			(*p).release = nil
 			return

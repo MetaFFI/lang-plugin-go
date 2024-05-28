@@ -39,7 +39,7 @@ metaffi_string8 cast_to_metaffi_string8(char* input) {
 
 struct cdt_metaffi_handle get_null_handle(){
 	struct cdt_metaffi_handle res;
-	res.val = NULL;
+	res.handle = NULL;
 	res.runtime_id = 0;
 	res.release = NULL;
 	return res;
@@ -687,7 +687,7 @@ func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C.
 
 	if !val.IsValid() {
 
-		cdt_handle.val = nil
+		cdt_handle.handle = nil
 		cdt_handle.runtime_id = 0
 		cdt_handle.release = nil
 		return cdt_handle
