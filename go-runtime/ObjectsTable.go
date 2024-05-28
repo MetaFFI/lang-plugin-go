@@ -8,10 +8,14 @@ metaffi_handle int_to_handle(unsigned long long i)
 	return (metaffi_handle)i;
 }
 
+typedef void (*GoReleaserFunc)(C.metaffi_handle);
+GoReleaserFunc go_releaser_func;
+
 void* get_releaser_function_address()
 {
-    return (void*)Releaser;
+    return (void*)go_releaser_func;
 }
+
 */
 import "C"
 import (
@@ -36,6 +40,7 @@ var (
 
 func init() {
 	handlesToObjects = make(map[C.metaffi_handle]interface{})
+	C.go_releaser_func = Releaser
 }
 
 // sets the object and returns a handle
