@@ -304,7 +304,7 @@ func GoObjectToMetaffiHandle(p *C.struct_cdt_metaffi_handle, val interface{}) {
 			(*p).runtime_id = 0
 			(*p).release = nil
 		} else {
-			C.GoMetaFFIHandleTocdt_metaffi_handle(p, unsafe.Pointer(SetObject(val)), GO_RUNTIME_ID, GetReleaserCFunction()
+			C.GoMetaFFIHandleTocdt_metaffi_handle(p, unsafe.Pointer(SetObject(val)), GO_RUNTIME_ID, GetReleaserCFunction())
 		}
 	}
 }
