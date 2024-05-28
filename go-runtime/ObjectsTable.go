@@ -76,7 +76,7 @@ func ReleaseObject(h Handle) error {
 	return nil
 }
 
-//export GoReleaser
+//export Releaser
 func Releaser(h C.metaffi_handle) {
 	err := ReleaseObject(Handle(h))
 
@@ -87,5 +87,5 @@ func Releaser(h C.metaffi_handle) {
 }
 
 func GetReleaserCFunction() unsafe.Pointer{
-	return unsafe.Pointer(C.GoReleaser())
+	return unsafe.Pointer(C.Releaser)
 }
