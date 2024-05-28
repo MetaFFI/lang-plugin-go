@@ -79,7 +79,7 @@ func ReleaseObject(h Handle) error {
 	return nil
 }
 
-//export releaser
+//export Releaser
 func Releaser(h C.metaffi_handle) {
 	err := ReleaseObject(Handle(h))
 
