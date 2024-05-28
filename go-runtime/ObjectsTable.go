@@ -10,7 +10,7 @@ metaffi_handle int_to_handle(unsigned long long i)
 
 void* get_releaser_function_address()
 {
-    return (void*)&releaser;
+    return (void*)Releaser;
 }
 */
 import "C"
