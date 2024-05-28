@@ -678,29 +678,23 @@ func getString32(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *
 }
 
 //export getHandle
-func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C.metaffi_bool, _ unsafe.Pointer) C.struct_cdt_metaffi_handle {
+func getHandle(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C.metaffi_bool, _ unsafe.Pointer) *C.struct_cdt_metaffi_handle {
 	*freeRequired = C.metaffi_bool(1)
 	cctxt := constructContextTLS.Get()
 	val := getElement(index, indexSize, cctxt.Input)
 
-	var cdt_handle C.struct_cdt_metaffi_handle
-
 	if !val.IsValid() {
-
-		cdt_handle.handle = nil
-		cdt_handle.runtime_id = 0
-		cdt_handle.release = nil
-		return cdt_handle
+		return nil
 	}
 
-	GoObjectToMetaffiHandle(&cdt_handle, val.Interface())
+	cdt_handle := (*C.struct_cdt_metaffi_handle)(C.malloc(C.size_t(unsafe.Sizeof(C.struct_cdt_metaffi_handle{}))))
+	GoObjectToMetaffiHandle(cdt_handle, val.Interface())
 
 	return cdt_handle
 }
 
 //export getCallable
-func getCallable(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C.metaffi_bool, _ unsafe.Pointer) C.struct_cdt_metaffi_callable {
-	*freeRequired = C.metaffi_bool(1)
+func getCallable(index *C.metaffi_size, indexSize C.metaffi_size, freeRequired *C.metaffi_bool, _ unsafe.Pointer) *C.struct_cdt_metaffi_callable {
 	panic("Not implemented yet")
 }
 

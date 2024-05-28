@@ -41,8 +41,8 @@ struct metaffi_char16 getChar16(const metaffi_size* index, metaffi_size indexSiz
 metaffi_string16 getString16(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* free_required, void* context);
 struct metaffi_char32 getChar32(const metaffi_size* index, metaffi_size indexSize, void* context);
 metaffi_string32 getString32(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* free_required, void* context);
-struct cdt_metaffi_handle getHandle(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* free_required, void* context);
-struct cdt_metaffi_callable getCallable(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* free_required, void* context);
+struct cdt_metaffi_handle* getHandle(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* free_required, void* context);
+struct cdt_metaffi_callable* getCallable(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* free_required, void* context);
 metaffi_size getArrayMetadata(const metaffi_size* index, metaffi_size indexSize, metaffi_bool* isFixedDimension, metaffi_bool* is1DArray, metaffi_type* commonType, metaffi_bool* isManuallyConstructArray, void* context);
 void constructCDTArray(const metaffi_size* index, metaffi_size indexSize, struct cdts* manuallyFillArray, void* context);
 
