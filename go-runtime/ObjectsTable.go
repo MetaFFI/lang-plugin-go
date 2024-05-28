@@ -8,6 +8,8 @@ metaffi_handle int_to_handle(unsigned long long i)
 	return (metaffi_handle)i;
 }
 
+void Releaser(metaffi_handle*);
+
 */
 import "C"
 import (
