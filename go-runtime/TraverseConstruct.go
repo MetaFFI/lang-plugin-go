@@ -277,11 +277,12 @@ func GetGoObject(h *C.struct_cdt_metaffi_handle) interface{} {
 	}
 
 	if h.runtime_id == GO_RUNTIME_ID {
-		return GetObject(Handle(h.val))
+		return GetObject(Handle(h.handle))
 	} else {
 		return MetaFFIHandle{
-			Val:       Handle(h.val),
+			Val:       Handle(h.handle),
 			RuntimeID: uint64(h.runtime_id),
+			CReleaser: unsafe.Pointer(h.release),
 		}
 	}
 }

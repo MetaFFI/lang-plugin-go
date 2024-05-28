@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
+	"os"
 )
 
 const GO_RUNTIME_ID = 3958232544
@@ -82,7 +83,7 @@ func Releaser(h C.metaffi_handle) {
 
 	// print error to stderr
 	if err != nil {
-		fmt.Fprintf(stderr, "Failed to release Go object: %v\n", err)
+		fmt.Fprintf(os.stderr, "Failed to release Go object: %v\n", err)
 	}
 }
 
