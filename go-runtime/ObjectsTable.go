@@ -41,7 +41,7 @@ var (
 
 func init() {
 	handlesToObjects = make(map[C.metaffi_handle]interface{})
-	C.go_releaser_func = C.GoReleaserFunc(Releaser)
+	C.go_releaser_func = C.GoReleaserFunc(unsafe.Pointer(Releaser))
 }
 
 // sets the object and returns a handle
