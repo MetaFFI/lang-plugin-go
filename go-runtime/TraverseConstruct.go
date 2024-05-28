@@ -68,6 +68,12 @@ struct construct_cdts_callbacks* initialize_construct_cdts_callbacks() {
     return ccc;
 }
 
+void GoMetaFFIHandleTocdt_metaffi_handle(struct cdt_metaffi_handle* p , void* handle, uint64_t runtime_id, void* release) {
+	p->handle = (metaffi_handle)handle;
+	p->runtime_id = runtime_id;
+	p->release = (void (*)(struct cdt_metaffi_handle*))release;
+}
+
 */
 import "C"
 import (
@@ -289,20 +295,16 @@ func GetGoObject(h *C.struct_cdt_metaffi_handle) interface{} {
 
 func GoObjectToMetaffiHandle(p *C.struct_cdt_metaffi_handle, val interface{}) {
 	if h, ok := val.(MetaFFIHandle); ok {
-		(*p).val = C.metaffi_handle(h.Val)
-		(*p).runtime_id = C.metaffi_size(h.RuntimeID)
-		(*p).release = h.CReleaser
+		C.GoMetaFFIHandleTocdt_metaffi_handle(p, unsafe.Pointer(h.Val), C.uint64_t(h.RuntimeID), h.CReleaser)
 	} else {
 
+		// set Go object into cdt_metaffi_handle
 		if val == nil {
 			(*p).handle = C.metaffi_handle(uintptr(0))
 			(*p).runtime_id = 0
 			(*p).release = nil
-			return
 		} else {
-			(*p).val = C.metaffi_handle(SetObject(val))
-			(*p).runtime_id = GO_RUNTIME_ID
-			(*p).release = GetReleaserCFunction()
+			C.GoMetaFFIHandleTocdt_metaffi_handle(p, unsafe.Pointer(SetObject(val)), GO_RUNTIME_ID, GetReleaserCFunction()
 		}
 	}
 }

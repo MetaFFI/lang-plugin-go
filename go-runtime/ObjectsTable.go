@@ -83,7 +83,7 @@ func Releaser(h C.metaffi_handle) {
 
 	// print error to stderr
 	if err != nil {
-		fmt.Fprintf(os.stderr, "Failed to release Go object: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to release Go object: %v\n", err)
 	}
 }
 
