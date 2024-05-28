@@ -2,7 +2,7 @@ package metaffi
 
 /*
 	typedef void* metaffi_handle;
-    void Releaser(h metaffi_handle);
+    void Releaser(metaffi_handle);
 */
 import "C"
 
