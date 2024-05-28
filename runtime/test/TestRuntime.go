@@ -81,17 +81,18 @@ func NewTestMap() *TestMap{
 }
 
 func (this *TestMap) Set(k string, v interface{}){
-	fmt.Printf("Setting: %T\n", v)
+	fmt.Printf("Setting: %v %T\n", k, v)
 	this.m[k] = v
 }
 
 func (this *TestMap) Get(k string) interface{}{
 	v := this.m[k]
-	fmt.Printf("Getting: %T\n", v)
+	fmt.Printf("Getting: %v %T\n", k, v)
 	return v
 }
 
 func (this *TestMap) Contains(k string) bool{
 	_, found := this.m[k]
+	fmt.Printf("Contains: %v %v\n", k, found)
 	return found
 }

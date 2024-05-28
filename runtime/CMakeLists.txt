@@ -13,8 +13,7 @@ get_sdk_runtime_sources(runtime_srcs)
 add_library(${target_name} SHARED ${${target_name}_sources} ${utils_srcs} ${runtime_srcs})
 target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${Boost_INCLUDE_DIRS} ${METAFFI_SDK})
 set_target_properties(${target_name} PROPERTIES PREFIX "" POSITION_INDEPENDENT_CODE ON LINK_FLAGS "-Wl,-Bsymbolic")
-target_link_libraries(${target_name} PRIVATE Boost::filesystem)
-link_to_dl_for_non_windows(${target_name})
+target_link_libraries(${target_name} PRIVATE ${CMAKE_DL_LIBS} Boost::filesystem)
 
 set_target_properties( ${target_name}
 		PROPERTIES
@@ -23,6 +22,8 @@ set_target_properties( ${target_name}
 		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
 		)
 
+copy_file_from_project_binary_to_metaffi_home(${target_name} ${target_name}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
 
 # unitests
 add_executable(go_api_test "go_api_test.cpp" ${utils_srcs} ${runtime_srcs})
@@ -30,7 +31,7 @@ target_link_libraries(go_api_test PRIVATE doctest::doctest ${target_name} Boost:
 target_include_directories(go_api_test PRIVATE ${METAFFI_SDK})
 add_test(NAME "Go (C++) Runtime API" COMMAND go_api_test)
 if(NOT WIN32)
-	add_custom_command(TARGET go_api_test POST_BUILD COMMAND patchelf --set-rpath "$ORIGIN:$ORIGIN/lib:$ENV{METAFFI_HOME}:${Boost_LIBRARY_DIRS}" $<TARGET_FILE:go_api_test>)
+#	add_custom_command(TARGET go_api_test POST_BUILD COMMAND patchelf --set-rpath "$ORIGIN:$ORIGIN/lib:$ENV{METAFFI_HOME}:${Boost_LIBRARY_DIRS}" $<TARGET_FILE:go_api_test>)
 endif()
 
 

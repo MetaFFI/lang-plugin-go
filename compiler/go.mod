@@ -6,7 +6,7 @@ toolchain go1.22.0
 
 require (
 	github.com/MetaFFI/lang-plugin-go/go-runtime v0.0.0-20240320181653-de27c21f7ebc
-	github.com/MetaFFI/lang-plugin-go/idl v0.0.0-20240520163600-78763ce1ebd9
+	github.com/MetaFFI/lang-plugin-go/idl v0.0.0-20240528133705-72be7ae7dd0f
 	github.com/MetaFFI/plugin-sdk v0.1.2
 	github.com/pkg/profile v1.7.0
 	golang.org/x/text v0.15.0

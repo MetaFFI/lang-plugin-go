@@ -335,7 +335,7 @@ TEST_SUITE("go runtime api")
 		cdts& retvals_cdts2 = pcdts2[1];
 
 		params_cdts2[0].set_handle(testmap_instance);
-		params_cdts2[1].set_string((metaffi_string8) std::u8string(u8"key").c_str(), false);
+		params_cdts2[1].set_string((metaffi_string8)u8"key", false);
 		params_cdts2[2] = ((int32_t) 42);
 
 		(*p_testmap_set)(pcdts2, &err);
@@ -432,7 +432,7 @@ TEST_SUITE("go runtime api")
 
 		pcdts_params2[0].set_handle(testmap_instance);
 		pcdts_params2[1].set_string((metaffi_string8) u8"key", true);
-		pcdts_params2[2] = new cdt_metaffi_handle{&vec_to_insert, 733, nullptr};
+		pcdts_params2[2].set_handle(new cdt_metaffi_handle{&vec_to_insert, 733, nullptr});
 
 		(*p_testmap_set)((cdts*) pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }

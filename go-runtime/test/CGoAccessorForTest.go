@@ -8,6 +8,7 @@ package main
 #include <stdint.h>
 #include <include/cdt.h>
 #include <stdio.h>
+#include <include/xllr_capi_loader.h>
 
 uint64_t get_cdts_type(struct cdts* pcdts, int index)
 {
@@ -61,4 +62,8 @@ func FreeCDTS(pcdts *C.struct_cdts) {
 
 func GetCDTSType(pcdts *C.struct_cdts, index int) uint64 {
 	return uint64(C.get_cdts_type(pcdts, C.int(index)))
+}
+
+func init() {
+	C.load_xllr()
 }
