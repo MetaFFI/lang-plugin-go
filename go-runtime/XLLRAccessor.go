@@ -56,8 +56,9 @@ struct cdt* get_cdts_index_pcdt(struct cdts* p, int index)
 import "C"
 import (
 	"fmt"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"unsafe"
+
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 func init() {
@@ -224,6 +225,7 @@ func XLLRLoadRuntimePlugin(runtimePlugin string) error {
 
 	// load foreign runtime
 	var out_err *C.char
+
 	C.xllr_load_runtime_plugin(pruntime_plugin, &out_err)
 
 	if out_err != nil {

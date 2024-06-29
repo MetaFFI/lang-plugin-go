@@ -51,17 +51,26 @@ char* copy_string(char* s, int n) {
 	cstr[n] = 0;
 	return cstr;
 }
+
 */
 import "C"
 import (
 	"fmt"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"golang.org/x/text/unicode/norm"
 	"reflect"
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
+
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"golang.org/x/text/unicode/norm"
 )
+
+func init() {
+	err := C.load_xllr()
+	if err != nil {
+		panic("Failed to load MetaFFI XLLR functions: " + C.GoString(err))
+	}
+}
 
 //export onFloat64
 func onFloat64(index *C.metaffi_size, indexSize C.metaffi_size, val C.metaffi_float64, context unsafe.Pointer) {

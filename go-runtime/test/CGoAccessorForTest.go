@@ -65,5 +65,8 @@ func GetCDTSType(pcdts *C.struct_cdts, index int) uint64 {
 }
 
 func init() {
-	C.load_xllr()
+	err := C.load_xllr()
+	if err != nil {
+		panic("Failed to load MetaFFI XLLR functions: " + C.GoString(err))
+	}
 }

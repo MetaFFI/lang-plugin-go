@@ -1,0 +1,30 @@
+import SCons.Environment
+import SCons.Script
+import SCons.Node
+import SCons.Node.FS
+import glob
+import SCons.Script.SConsOptions
+from numpy import source
+import compiler_options
+import post_actions
+import platform
+import scons_utils
+from site_scons import ALIAS_GO, ALIAS_GO_UNITTESTS, ALIAS_OPENJDK, ALIAS_OPENJDK_UNITTESTS
+
+# * Import the parent Environment
+env: SCons.Environment.Environment
+SCons.Script.Import('env')
+
+# * ---- Build metaffi.compiler.go Go dynamic library ----
+env_compiler_go = env.Clone()
+xllr_go_compiler = env_compiler_go.GoBuildCSharedLib(target=env["METAFFI_HOME"]+f'/go/metaffi.compiler.go', source_dir=env.Dir('.'))
+
+env['xllr_go_compiler'] = xllr_go_compiler # for dependency in other SConscripts
+
+SCons.Script.Alias(ALIAS_GO, xllr_go_compiler)
+
+# * ---- Start with Unitest ----
+compiler_unittest = env_compiler_go.GoTest(target='Go Compiler UnitTest', path=env_compiler_go.Dir('.').abspath)
+SCons.Script.Alias(ALIAS_GO_UNITTESTS, compiler_unittest)
+
+

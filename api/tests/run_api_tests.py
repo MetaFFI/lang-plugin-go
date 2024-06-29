@@ -69,8 +69,8 @@ def run_unittest(script_path):
 		# Java JUnit test
 		junit_jar = os.path.join(current_path, 'junit-platform-console-standalone-1.10.2.jar')
 		hamcrest_jar = os.path.join(current_path, 'hamcrest-core-1.3.jar')
-		bridge_jar = os.path.join(os.environ['METAFFI_HOME'], 'xllr.openjdk.bridge.jar')
-		api_jar = os.path.join(os.environ['METAFFI_HOME'], 'metaffi.api.jar')
+		bridge_jar = os.path.join(os.environ['METAFFI_HOME']+'/openjdk/', 'xllr.openjdk.bridge.jar')
+		api_jar = os.path.join(os.environ['METAFFI_HOME']+'/openjdk/', 'metaffi.api.jar')
 		class_name = os.path.splitext(os.path.basename(script_path))[0]
 		class_path = f'.{os.pathsep}{junit_jar}{os.pathsep}{hamcrest_jar}{os.pathsep}{bridge_jar}{os.pathsep}{api_jar}'
 		

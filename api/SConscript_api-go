@@ -1,0 +1,40 @@
+import sys
+import SCons.Environment
+import SCons.Script
+import SCons.Node
+import SCons.Node.FS
+import glob
+import SCons.Script.SConsOptions
+import compiler_options
+import post_actions
+import platform
+import scons_utils
+import os
+from site_scons import ALIAS_BUILD, ALIAS_GO, ALIAS_GO_API_TESTS
+
+# * Import the parent Environment
+env: SCons.Environment.Environment
+SCons.Script.Import('env')
+
+# * --- Cross Language Tests ---
+test_path = env.Dir('./tests').abspath
+def go_cross_lang_test(target, source, env):
+	# execute "tests/run_api_tests.py"
+	curpath = os.getcwd()
+	try:
+		# execute "tests/run_cross_lang_tests.py"
+		os.chdir(test_path)
+
+		custom_env = env.Clone()
+		custom_env['ENV']['PATH'] = os.environ['PATH']
+
+		custom_env.Execute(f'{scons_utils.python3_executable()} run_api_tests.py')
+	except Exception as e:
+		print(f"Cross language tests failed: {e}", file=sys.stderr)
+		custom_env.Exit(1)
+	finally:
+		os.chdir(curpath)
+
+go_cross_lang_test_cmd = env.Command(target='go_cross_lang_test', source=[], action=go_cross_lang_test)
+env.Depends(go_cross_lang_test_cmd, ALIAS_BUILD)
+SCons.Script.Alias(ALIAS_GO_API_TESTS, go_cross_lang_test_cmd)

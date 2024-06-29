@@ -1,0 +1,40 @@
+import SCons.Environment
+import SCons.Script
+import SCons.Node
+import SCons.Node.FS
+import glob
+import SCons.Script.SConsOptions
+from numpy import source
+import compiler_options
+import post_actions
+import platform
+import scons_utils
+from site_scons import ALIAS_GO, ALIAS_GO_UNITTESTS, ALIAS_OPENJDK, ALIAS_OPENJDK_UNITTESTS
+import sys
+import os
+
+# * Import the parent Environment
+env: SCons.Environment.Environment
+SCons.Script.Import('env')
+
+
+test_path = env.Dir('./test').abspath
+def python3_runtime_test(target, source, env):
+	from_path = os.getcwd()
+	try:
+		# execute "tests/run_test.py"
+		os.chdir(test_path)
+		env.Execute(f'{scons_utils.python3_executable()} run_test.py')
+	except Exception as e:
+		print(f"Cross language tests failed: {e}", file=sys.stderr)
+		env.Exit(1)
+	finally:
+		os.chdir(from_path)
+
+build_go_runtime_dependency = env.Command(target='python3_cross_lang_test', source=[], action=python3_runtime_test)
+goruntime_unittest = env.GoTest(target='go_runtime_unitest', path=env.Dir('.').abspath)
+env.Depends(goruntime_unittest, build_go_runtime_dependency)
+
+SCons.Script.Alias(ALIAS_GO_UNITTESTS, [build_go_runtime_dependency, goruntime_unittest])
+
+

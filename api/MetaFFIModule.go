@@ -1,5 +1,6 @@
 package api
 
+// #include <stdlib.h>
 import "C"
 import (
 	"fmt"
@@ -53,8 +54,8 @@ func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes
 		}
 	}
 
-	var pff *unsafe.Pointer
-	pff, err = goruntime.XLLRLoadFunctionWithAliases(this.runtime.runtimePlugin, this.modulePath, functionPath, paramsMetaFFITypes, retvalMetaFFITypes)
+	var pff unsafe.Pointer
+	pff, err = goruntime.XLLRLoadEntityWithAliases(this.runtime.runtimePlugin, this.modulePath, functionPath, paramsMetaFFITypes, retvalMetaFFITypes)
 
 	if err != nil { // failed
 		return
@@ -101,7 +102,7 @@ func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes
 		}
 
 		if goruntime.GetCacheSize() < paramsCount+retvalCount {
-			goruntime.CFree(xcall_params)
+			C.free(xcall_params)
 		}
 
 		return
