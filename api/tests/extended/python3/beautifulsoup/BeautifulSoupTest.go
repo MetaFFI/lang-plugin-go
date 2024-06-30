@@ -262,6 +262,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer runtime.ReleaseRuntimePlugin()
 
 	req, err := NewRequests()
 	if err != nil {
