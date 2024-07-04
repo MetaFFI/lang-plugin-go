@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -10,7 +9,11 @@ import (
 	"runtime"
 	"strings"
 	"text/template"
+
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
+
+const VERSION = "main"
 
 // --------------------------------------------------------------------
 func getDynamicLibSuffix() string {
@@ -565,7 +568,19 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 func (this *GuestCompiler) goModInit(dir string, packageName string) (string, error) {
 	modInitCmd := exec.Command("go", "mod", "init", packageName)
 	modInitCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(modInitCmd.Args, " "))
+
+	var symbol string
+	if runtime.GOOS == "windows" {
+		symbol = ">"
+	} else {
+		symbol = "$"
+	}
+
+	if strings.HasSuffix(dir, "/") {
+		dir = dir[:len(dir)-1]
+	}
+
+	fmt.Printf("%v%v %v\n", dir, symbol, strings.Join(modInitCmd.Args, " "))
 	output, err := modInitCmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("Failed building Go foreign function with error: %v.\nOutput:\n%v", err, string(output))
@@ -576,23 +591,80 @@ func (this *GuestCompiler) goModInit(dir string, packageName string) (string, er
 
 // --------------------------------------------------------------------
 func (this *GuestCompiler) goGet(dir string) (string, error) {
-	getCmd := exec.Command("go", "get", "-u")
-	getCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(getCmd.Args, " "))
-	output, err := getCmd.CombinedOutput()
-	if err != nil {
-		println(string(output))
-		return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
+
+	goGetCommand := func(module string) (string, error) {
+
+		var getCmd *exec.Cmd
+		if module == "" {
+			getCmd = exec.Command("go", "get", "-v")
+		} else {
+			getCmd = exec.Command("go", "get", "-v", module)
+		}
+
+		getCmd.Dir = dir
+
+		var symbol string
+		if runtime.GOOS == "windows" {
+			symbol = ">"
+		} else {
+			symbol = "$"
+		}
+
+		fmt.Printf("%v%v %v\n", getCmd.Dir[:len(getCmd.Dir)-1], symbol, strings.Join(getCmd.Args, " "))
+		output, err := getCmd.CombinedOutput()
+		if err != nil {
+			println(string(output))
+			return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
+		}
+
+		return string(output), err
 	}
 
-	return string(output), err
+	_, err := goGetCommand("")
+	if err != nil {
+		return "", err
+	}
+
+	_, err = goGetCommand("github.com/MetaFFI/plugin-sdk@" + VERSION)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = goGetCommand("github.com/MetaFFI/lang-plugin-go/compiler@" + VERSION)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = goGetCommand("github.com/MetaFFI/lang-plugin-go/go-runtime@" + VERSION)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = goGetCommand("github.com/MetaFFI/lang-plugin-go/idl@" + VERSION)
+	if err != nil {
+		return "", err
+	}
+
+	return "", nil
 }
 
 // --------------------------------------------------------------------
 func (this *GuestCompiler) goClean(dir string) (string, error) {
 	cleanCmd := exec.Command("go", "clean", "-cache")
 	cleanCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(cleanCmd.Args, " "))
+
+	var symbol string
+	if runtime.GOOS == "windows" {
+		symbol = ">"
+	} else {
+		symbol = "$"
+	}
+
+	if strings.HasSuffix(dir, "/") {
+		dir = dir[:len(dir)-1]
+	}
+
+	fmt.Printf("%v%v %v\n", dir, symbol, strings.Join(cleanCmd.Args, " "))
 	output, err := cleanCmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))
@@ -605,7 +677,19 @@ func (this *GuestCompiler) goClean(dir string) (string, error) {
 func (this *GuestCompiler) goBuild(dir string) (string, error) {
 	buildCmd := exec.Command("go", "build", "-v", "-tags=guest", "-buildmode=c-shared", "-gcflags=-shared", "-o", dir+this.outputFilename+getDynamicLibSuffix())
 	buildCmd.Dir = dir
-	fmt.Printf("%v\n", strings.Join(buildCmd.Args, " "))
+
+	var symbol string
+	if runtime.GOOS == "windows" {
+		symbol = ">"
+	} else {
+		symbol = "$"
+	}
+
+	if strings.HasSuffix(dir, "/") {
+		dir = dir[:len(dir)-1]
+	}
+
+	fmt.Printf("%v%v %v\n", dir, symbol, strings.Join(buildCmd.Args, " "))
 	output, err := buildCmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("Failed building Go foreign function in \"%v\" with error: %v.\nOutput:\n%v", dir, err, string(output))

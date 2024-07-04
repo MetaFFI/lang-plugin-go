@@ -20,7 +20,7 @@ def join_strings(arr)->str:
 
 five_seconds = 5
 def wait_a_bit(secs : int):
-	time.sleep(secs)
+	print('supposly waiting for {} seconds'.format(secs))
 	return None
 
 class testmap:

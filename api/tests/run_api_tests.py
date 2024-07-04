@@ -13,20 +13,6 @@ init()
 # Get the current path of this Python script
 current_path = os.path.dirname(os.path.abspath(__file__))
 
-def go_get_update():
-	# Get the current directory of the script
-	current_dir = os.path.dirname(os.path.abspath(__file__))
-	
-	# Walk through all directories from the current directory
-	for root, dirs, files in os.walk(current_dir):
-		# If 'go.mod' is in the list of files in the directory
-		if 'go.mod' in files:
-			# Change the current working directory
-			os.chdir(root)
-			# Run 'go get -u'
-			subprocess.run(['go', 'get', '-u'], check=True)
-
-
 def get_extension_by_platform() -> str:
 	if platform.system() == 'Windows':
 		return '.dll'
@@ -57,10 +43,17 @@ def run_script(script_path):
 	if process.returncode != 0:
 		raise subprocess.CalledProcessError(process.returncode, command)
 
+def get_terminal_after_path_symbol() -> str:
+	if platform.system() == 'Windows':
+		return '>'
+	else:
+		return '$'
 
 def run_unittest(script_path):
 	print(f'{Fore.CYAN}Running unittest: {script_path}{Fore.RESET}')
 	
+	terminal_path = os.path.dirname(script_path)+get_terminal_after_path_symbol()
+
 	if script_path.endswith('.py'):
 		# Python unittest
 		python_command = 'py' if platform.system() == 'Windows' else 'python3.11'
@@ -76,14 +69,31 @@ def run_unittest(script_path):
 		
 		# Compile the Java source file
 		compile_command = ['javac', '-cp', class_path, script_path]
-		print(f'{Fore.BLUE}Running - {" ".join(compile_command)}{Fore.RESET}')
+		print(f'{Fore.BLUE}{os.getcwd()+get_terminal_after_path_symbol()} - {" ".join(compile_command)}{Fore.RESET}')
 		subprocess.run(compile_command, check=True)
 		
 		# Run the JUnit test
 		command = ['java', '-jar', junit_jar, '-cp', class_path, '-c', class_name]
 	elif script_path.endswith('.go'):
-		goget_command = ['go', 'get', '-u']
-		print(f'{Fore.BLUE}Running - {" ".join(goget_command)}{Fore.RESET}')
+		
+		goget_command = ['go', 'get', '-v']
+		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
+		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
+
+		goget_command = ['go', 'get', '-v', 'github.com/MetaFFI/plugin-sdk@main']
+		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
+		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
+
+		goget_command = ['go', 'get', '-v', 'github.com/MetaFFI/lang-plugin-go/compiler@main']
+		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
+		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
+
+		goget_command = ['go', 'get', '-v', 'github.com/MetaFFI/lang-plugin-go/go-runtime@main']
+		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
+		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
+
+		goget_command = ['go', 'get', '-v', 'github.com/MetaFFI/lang-plugin-go/api@main']
+		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
 		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
 		
 		command = ['go', 'run', script_path]
@@ -92,7 +102,7 @@ def run_unittest(script_path):
 	
 	script_dir = os.path.dirname(os.path.abspath(script_path))
 	
-	print(f'{Fore.BLUE}Running - {" ".join(command)}{Fore.RESET}')
+	print(f'{Fore.BLUE}{terminal_path} - {" ".join(command)}{Fore.RESET}')
 	process = subprocess.Popen(command, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 	
 	stdout, stderr = process.communicate()
@@ -109,10 +119,6 @@ def run_unittest(script_path):
 		for file in class_files:
 			os.remove(file)
 
-
-# --------------------------------------------
-# make sure the go.mod is up to date
-go_get_update()
 
 # --------------------------------------------
 

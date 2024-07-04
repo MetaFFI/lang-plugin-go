@@ -15,6 +15,3 @@ require (
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/tools v0.18.0 // indirect
 )
-
-replace github.com/MetaFFI/lang-plugin-go/go-runtime => ../go-runtime
-replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk

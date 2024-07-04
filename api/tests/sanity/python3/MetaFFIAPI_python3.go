@@ -12,29 +12,48 @@ var runtime *api.MetaFFIRuntime
 var mod *api.MetaFFIModule
 
 func main() {
+	fmt.Println("Loading python311 runtime")
 	runtime = api.NewMetaFFIRuntime("python311")
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)
 	}
 
+	defer func() {
+		fmt.Println("Going to releasing runtime")
+		err = runtime.ReleaseRuntimePlugin()
+		fmt.Println("Released runtime")
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	fmt.Println("Loading test_target.py")
 	mod, err = runtime.LoadModule("test_target.py")
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Println("Running HelloWorld")
 	TestHelloWorld()
-	TestReturnsAnError()
-	TestDivIntegers()
-	TestJoinStrings()
-	TestWaitABit()
-	TestTestMapGetSet()
-	TestTestmapName()
 
-	err = runtime.ReleaseRuntimePlugin()
-	if err != nil {
-		panic(err)
-	}
+	fmt.Println("Running ReturnsAnError")
+	TestReturnsAnError()
+
+	fmt.Println("Running DivIntegers")
+	TestDivIntegers()
+
+	fmt.Println("Running JoinStrings")
+	TestJoinStrings()
+
+	fmt.Println("Running WaitABit")
+	TestWaitABit()
+
+	fmt.Println("Running TestMapGetSet")
+	TestTestMapGetSet()
+
+	fmt.Println("Running TestmapName")
+	TestTestmapName()
 }
 
 func TestHelloWorld() {
