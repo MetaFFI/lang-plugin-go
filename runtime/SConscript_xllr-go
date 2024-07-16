@@ -32,7 +32,11 @@ xllr_go_dylib = env_xllr_go.CPPSharedLibrary(target='xllr.go', project_name='go'
 xllr_go_install = env_xllr_go.Install(env_xllr_go['METAFFI_HOME']+'/go', xllr_go_dylib)
 
 # install boost_filesystem.dll
-xllr_go_dependencies_install = env_xllr_go.Install(env_xllr_go['METAFFI_HOME']+'/go', env_xllr_go.SearchConanBinaryFile('boost', f'boost_filesystem{env_xllr_go.DynamicLibraryExtension()}'))
+xllr_go_dependencies_install = env_xllr_go.Install(env_xllr_go['METAFFI_HOME']+'/go', env_xllr_go.SearchConanBinaryFile('boost', f'*boost_filesystem*'))
+if not env.IsWindows(): # non-windows also uses boost thread
+	xllr_go_dependencies_install.extend(env.Install(env['METAFFI_HOME']+'/go', env_xllr_go.SearchConanBinaryFile('boost', f'*boost_thread*')))
+	xllr_go_dependencies_install.extend(env.Install(env['METAFFI_HOME']+'/go', env_xllr_go.SearchConanBinaryFile('boost', f'*boost_stacktrace_from_exception*')))
+
 SCons.Script.Alias(ALIAS_GO, [xllr_go_dylib, xllr_go_install, xllr_go_dependencies_install])
 
 # to be used by other targets in the project as dependency
@@ -51,6 +55,16 @@ includes = []
 includes.extend(env_go_unitest_file['sdk_includes'])
 includes.append(env_go_unitest_file['sdk_path'])
 
+libs = []
+lib_dirs = []
+if env_go_unitest_file.IsWindows():
+	libs.append('xllr.go.lib')
+	lib_dirs.append(xllr_go_dylib[0].dir.abspath)
+else:
+	metaffi_home = env_go_unitest_file['METAFFI_HOME']
+	libs.append('-l:xllr.go.so')
+	lib_dirs.append(f'{metaffi_home}/go')
+
 # dependet on XLLR dynamic library
 go_runtime_test: SCons.Node.NodeList = env_go_unitest_file.CPPProgram(target='go_api_test',
 															project_name='go',
@@ -60,8 +74,8 @@ go_runtime_test: SCons.Node.NodeList = env_go_unitest_file.CPPProgram(target='go
 															include_dirs=[
 																includes
 															],
-															lib_dirs=[xllr_go_dylib[0].dir.abspath],
-															libs=['xllr.go.lib'])
+															lib_dirs=lib_dirs,
+															libs=libs)
 env_go_unitest_file.Depends(go_runtime_test, create_target)
 
 copy_test_file_to_dest = env_go_unitest_file.Install(env_go_unitest_file.Dir('.').abspath, go_runtime_test)

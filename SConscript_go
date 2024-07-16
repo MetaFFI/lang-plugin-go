@@ -9,6 +9,10 @@ env: SCons.Environment.Environment
 SCons.Script.Import('env')
 env = env.Clone()
 
+# set CGO flags
+metaffi_home = env['METAFFI_HOME']
+env['ENV']['CGO_CFLAGS'] = f'-O2 -g -I{metaffi_home}'
+
 # append to CGO_CXXFLAGS environment variable "-I$METAFFI_HOME"
 metaffi_home = env['METAFFI_HOME']
 env.AppendENVPath('CGO_CXXFLAGS', f'-I"{metaffi_home}"')

@@ -10,6 +10,7 @@ import post_actions
 import platform
 import scons_utils
 from site_scons import ALIAS_GO, ALIAS_GO_UNITTESTS, ALIAS_OPENJDK, ALIAS_OPENJDK_UNITTESTS
+import os
 
 # * Import the parent Environment
 env: SCons.Environment.Environment

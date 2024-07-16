@@ -5,6 +5,7 @@ package metaffi
 #cgo LDFLAGS: -Wl,--allow-multiple-definition
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <include/xllr_capi_loader.h>
 #include <include/xllr_capi_loader.c>
 #include <include/xcall.h>
@@ -13,7 +14,6 @@ void call_plugin_xcall_no_params_no_ret(struct xcall* pxcall, char** err)
 {
 	void* pvoidxcall = pxcall->pxcall_and_context[0];
 	void* pctxt = pxcall->pxcall_and_context[1];
-
 	(((void(*)(void*,char**))pvoidxcall)(pctxt, err));
 }
 

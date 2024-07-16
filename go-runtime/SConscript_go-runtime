@@ -24,10 +24,13 @@ def python3_runtime_test(target, source, env):
 	try:
 		# execute "tests/run_test.py"
 		os.chdir(test_path)
-		env.Execute(f'{scons_utils.python3_executable()} run_test.py')
+		exit_code = env.Execute(f'{scons_utils.python3_executable()} run_test.py')
+		if exit_code:
+			print(f"unit test failed: exit code {exit_code}", file=sys.stderr)
+			sys.exit(1)
 	except Exception as e:
 		print(f"Cross language tests failed: {e}", file=sys.stderr)
-		env.Exit(1)
+		sys.exit(1)
 	finally:
 		os.chdir(from_path)
 

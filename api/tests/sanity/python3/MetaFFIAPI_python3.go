@@ -12,8 +12,8 @@ var runtime *api.MetaFFIRuntime
 var mod *api.MetaFFIModule
 
 func main() {
-	fmt.Println("Loading python311 runtime")
 	runtime = api.NewMetaFFIRuntime("python311")
+
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)
@@ -78,7 +78,7 @@ func TestReturnsAnError() {
 
 	_, err = returnsAnError()
 	if err == nil {
-		panic("Expected an error")
+		panic("Expected an error, no error returned")
 	}
 }
 

@@ -1,4 +1,5 @@
 import time
+import sys
 
 def hello_world()->None:
 	print('Hello World, from Python3')
@@ -11,7 +12,7 @@ def returns_an_error()->None:
 
 def div_integers(x:int, y:int)->float:
 	print('dividing {}/{}'.format(x, y))
-	return x/ y
+	return x / y
 
 
 def join_strings(arr)->str:

@@ -26,12 +26,18 @@ def go_cross_lang_test(target, source, env):
 		os.chdir(test_path)
 
 		custom_env = env.Clone()
-		custom_env['ENV']['PATH'] = os.environ['PATH']
+		if platform.system() == 'Windows':
+			custom_env['ENV']['PATH'] = os.environ['PATH']
+		else:
+			custom_env['ENV']['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']
 
-		custom_env.Execute(f'{scons_utils.python3_executable()} run_api_tests.py')
+		exit_code = custom_env.Execute(f'{scons_utils.python3_executable()} run_api_tests.py')
+		if exit_code:
+			print(f"Cross language tests failed: exit code {exit_code}", file=sys.stderr)
+			sys.exit(1)
 	except Exception as e:
 		print(f"Cross language tests failed: {e}", file=sys.stderr)
-		custom_env.Exit(1)
+		sys.exit(1)
 	finally:
 		os.chdir(curpath)
 

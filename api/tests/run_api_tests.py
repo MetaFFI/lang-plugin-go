@@ -103,13 +103,16 @@ def run_unittest(script_path):
 	script_dir = os.path.dirname(os.path.abspath(script_path))
 	
 	print(f'{Fore.BLUE}{terminal_path} - {" ".join(command)}{Fore.RESET}')
-	process = subprocess.Popen(command, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+	process = subprocess.Popen(command, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors='ignore')
 	
-	stdout, stderr = process.communicate()
-	
-	print(stdout, end='')
-	print(stderr, file=sys.stderr, end='')
-	
+	try:
+		stdout, stderr = process.communicate()
+		
+		print(stdout, end='')
+		print(stderr, file=sys.stderr, end='')
+	except:
+		pass
+
 	if process.returncode != 0:
 		raise subprocess.CalledProcessError(process.returncode, command)
 	
