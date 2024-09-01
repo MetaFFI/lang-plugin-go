@@ -25,7 +25,7 @@ func NewLog4j(name string) (*Log4j, error) {
 
 	params := []IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.STRING8}}
 	retvals := []IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.HANDLE, Alias: "org.apache.logging.log4j.Logger"}}
-	constructor, err := mod.LoadWithAlias("class=org.apache.logging.log4j.LogManager,callable=getLogger", params, retvals)
+	constructor, err := mod.LoadWithInfo("class=org.apache.logging.log4j.LogManager,callable=getLogger", params, retvals)
 	if err != nil {
 		return nil, err
 	}

@@ -98,7 +98,7 @@ func TestDivIntegers() {
 
 func TestJoinStrings() {
 
-	joinStrings, err := testRuntimeModule.LoadWithAlias(`class=sanity.TestRuntime,callable=joinStrings`,
+	joinStrings, err := testRuntimeModule.LoadWithInfo(`class=sanity.TestRuntime,callable=joinStrings`,
 		[]IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.STRING8_ARRAY, Type: IDL.METAFFI_TYPE_STRING8_ARRAY, Dimensions: 1}},
 		[]IDL.MetaFFITypeInfo{IDL.MetaFFITypeInfo{StringType: IDL.STRING8, Type: IDL.METAFFI_TYPE_STRING8}})
 

@@ -32,10 +32,10 @@ func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.Me
 		}
 	}
 
-	return this.LoadWithAlias(functionPath, params, retvals)
+	return this.LoadWithInfo(functionPath, params, retvals)
 }
 
-func (this *MetaFFIModule) LoadWithAlias(functionPath string, paramsMetaFFITypes []IDL.MetaFFITypeInfo, retvalMetaFFITypes []IDL.MetaFFITypeInfo) (ff func(...interface{}) ([]interface{}, error), err error) {
+func (this *MetaFFIModule) LoadWithInfo(functionPath string, paramsMetaFFITypes []IDL.MetaFFITypeInfo, retvalMetaFFITypes []IDL.MetaFFITypeInfo) (ff func(...interface{}) ([]interface{}, error), err error) {
 
 	// convert Go's String metaffi types to INT metaffi types
 	if paramsMetaFFITypes != nil {
