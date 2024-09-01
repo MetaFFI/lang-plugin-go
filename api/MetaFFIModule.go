@@ -15,7 +15,7 @@ type MetaFFIModule struct {
 	modulePath string
 }
 
-func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.MetaFFIType, retvalMetaFFITypes []IDL.MetaFFIType) (ff func(...interface{}) ([]interface{}, error), err error) {
+func (this *MetaFFIModule) Load(entityPath string, paramsMetaFFITypes []IDL.MetaFFIType, retvalMetaFFITypes []IDL.MetaFFIType) (ff func(...interface{}) ([]interface{}, error), err error) {
 	var params []IDL.MetaFFITypeInfo
 	if paramsMetaFFITypes != nil {
 		params = make([]IDL.MetaFFITypeInfo, 0)
@@ -32,10 +32,10 @@ func (this *MetaFFIModule) Load(functionPath string, paramsMetaFFITypes []IDL.Me
 		}
 	}
 
-	return this.LoadWithInfo(functionPath, params, retvals)
+	return this.LoadWithInfo(entityPath, params, retvals)
 }
 
-func (this *MetaFFIModule) LoadWithInfo(functionPath string, paramsMetaFFITypes []IDL.MetaFFITypeInfo, retvalMetaFFITypes []IDL.MetaFFITypeInfo) (ff func(...interface{}) ([]interface{}, error), err error) {
+func (this *MetaFFIModule) LoadWithInfo(entityPath string, paramsMetaFFITypes []IDL.MetaFFITypeInfo, retvalMetaFFITypes []IDL.MetaFFITypeInfo) (ff func(...interface{}) ([]interface{}, error), err error) {
 
 	// convert Go's String metaffi types to INT metaffi types
 	if paramsMetaFFITypes != nil {
@@ -55,7 +55,7 @@ func (this *MetaFFIModule) LoadWithInfo(functionPath string, paramsMetaFFITypes 
 	}
 
 	var pff unsafe.Pointer
-	pff, err = goruntime.XLLRLoadEntityWithAliases(this.runtime.runtimePlugin, this.modulePath, functionPath, paramsMetaFFITypes, retvalMetaFFITypes)
+	pff, err = goruntime.XLLRLoadEntityWithAliases(this.runtime.runtimePlugin, this.modulePath, entityPath, paramsMetaFFITypes, retvalMetaFFITypes)
 
 	if err != nil { // failed
 		return

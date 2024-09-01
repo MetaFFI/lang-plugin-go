@@ -2,7 +2,7 @@
 #include <utils/scope_guard.hpp>
 #include <boost/thread.hpp>
 #include "functions_repository.h"
-#include <utils/function_path_parser.h>
+#include <utils/entity_path_parser.h>
 
 using namespace metaffi::utils;
 
@@ -42,7 +42,7 @@ void load_runtime(char** err)
 //--------------------------------------------------------------------
 void free_runtime(char** /*err*/){ /* No runtime free */ }
 //--------------------------------------------------------------------
-xcall* load_entity(const char* module_path, const char* function_path, metaffi_type_info* params_types, int8_t params_count, metaffi_type_info* retvals_types, int8_t retval_count, char** err)
+xcall* load_entity(const char* module_path, const char* entity_path, metaffi_type_info* params_types, int8_t params_count, metaffi_type_info* retvals_types, int8_t retval_count, char** err)
 {
 	/*
 	 * Load modules into modules repository - make sure every module is loaded once
@@ -50,7 +50,7 @@ xcall* load_entity(const char* module_path, const char* function_path, metaffi_t
 	try
 	{
 		// build from function path the correct entrypoint
-		metaffi::utils::function_path_parser fpp(function_path);
+		metaffi::utils::entity_path_parser fpp(entity_path);
 		
 		std::stringstream fp;
 		fp << "EntryPoint_";

@@ -78,24 +78,24 @@ func BindModuleToCode(modulePath string){
 	{{ $idl := . }}
 	{{range $mindex, $m := .Modules}}
 	{{range $findex, $f := $m.Globals}}
-	{{if $f.Getter}}{{$f.Getter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Getter.FunctionPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Getter}} ){{end}}
-	{{if $f.Setter}}{{$f.Setter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Setter.FunctionPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Setter}} ){{end}}
+	{{if $f.Getter}}{{$f.Getter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Getter.EntityPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Getter}} ){{end}}
+	{{if $f.Setter}}{{$f.Setter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Setter.EntityPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Setter}} ){{end}}
 	{{end}}{{/* End globals */}}
 	
 	{{range $findex, $f := $m.Functions}}
-	{{$f.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.FunctionPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
+	{{$f.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.EntityPathAsString $idl}}", {{len $f.Parameters}}, {{len $f.ReturnValues}})
 	{{end}}{{/* End Functions */}}
 
 	{{range $cindex, $c := $m.Classes}}
 	{{range $findex, $f := $c.Fields}}
-	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Getter.FunctionPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Getter.FunctionDefinition}}){{end}}
-	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Setter.FunctionPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Setter.FunctionDefinition}}){{end}}
+	{{if $f.Getter}}{{$c.Name}}_{{$f.Getter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Getter.EntityPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Getter.FunctionDefinition}}){{end}}
+	{{if $f.Setter}}{{$c.Name}}_{{$f.Setter.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.Setter.EntityPathAsString $idl}}", {{GetMetaFFITypeInfos $f.Setter.FunctionDefinition}}){{end}}
 	{{end}}{{/* End Fields */}}
 	{{range $findex, $f := $c.Methods}}
-	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.FunctionPathAsString $idl}}", {{GetMetaFFITypeInfos $f.FunctionDefinition}})
+	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.EntityPathAsString $idl}}", {{GetMetaFFITypeInfos $f.FunctionDefinition}})
 	{{end}}{{/* End Methods */}}
 	{{range $findex, $f := $c.Constructors}}
-	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.FunctionPathAsString $idl}}", {{GetMetaFFITypeInfos $f.FunctionDefinition}})
+	{{$c.Name}}_{{$f.GetNameWithOverloadIndex}}_caller = loadFF("{{$f.EntityPathAsString $idl}}", {{GetMetaFFITypeInfos $f.FunctionDefinition}})
 	{{end}}{{/* End Constructor */}}
 	{{end}}{{/* End Classes */}}
 	{{end}}{{/* End modules */}}

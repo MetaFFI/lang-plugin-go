@@ -2,9 +2,10 @@ package IDLCompiler
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/GreenFuze/go-parser"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"strings"
 )
 
 var classes map[string]*IDL.ClassDefinition
@@ -46,12 +47,12 @@ func LoadClasses(gofile *parser.GoFile, metaffiGuestLib string) {
 			fdecl.TypeAlias = strings.ReplaceAll(strings.ReplaceAll(f.Type, gofile.Package+".", ""), "[]", "")
 			fdecl.Dimensions = strings.Count(f.Type, "[]")
 			fdecl.Getter.SetTag("receiver_pointer", "true")
-			fdecl.Getter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-			fdecl.Getter.SetFunctionPath("entrypoint_function", "EntryPoint_"+structDef.Name+"_"+fdecl.Getter.Name)
+			fdecl.Getter.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+			fdecl.Getter.SetEntityPath("entrypoint_function", "EntryPoint_"+structDef.Name+"_"+fdecl.Getter.Name)
 
 			fdecl.Setter.SetTag("receiver_pointer", "true")
-			fdecl.Setter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-			fdecl.Setter.SetFunctionPath("entrypoint_function", "EntryPoint_"+structDef.Name+"_"+fdecl.Setter.Name)
+			fdecl.Setter.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+			fdecl.Setter.SetEntityPath("entrypoint_function", "EntryPoint_"+structDef.Name+"_"+fdecl.Setter.Name)
 
 			structDef.AddField(fdecl)
 		}
@@ -135,16 +136,16 @@ func LoadMethods(gofile *parser.GoFile, metaffiGuestLib string) {
 			methDecl.SetTag("receiver_pointer", "true")
 		}
 
-		methDecl.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-		methDecl.SetFunctionPath("entrypoint_function", "EntryPoint_"+cls.Name+"_"+methDecl.Name)
+		methDecl.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+		methDecl.SetEntityPath("entrypoint_function", "EntryPoint_"+cls.Name+"_"+methDecl.Name)
 
 		cls.AddMethod(methDecl)
 	}
 
 	res := make([]*IDL.ClassDefinition, 0)
 	for _, c := range classes {
-		c.Releaser.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-		c.Releaser.SetFunctionPath("entrypoint_function", "EntryPoint_"+c.Name+"_"+c.Releaser.Name)
+		c.Releaser.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+		c.Releaser.SetEntityPath("entrypoint_function", "EntryPoint_"+c.Name+"_"+c.Releaser.Name)
 		res = append(res, c)
 	}
 

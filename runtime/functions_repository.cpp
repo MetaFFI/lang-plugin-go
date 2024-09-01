@@ -1,7 +1,7 @@
 #include "functions_repository.h"
 #include <boost/filesystem.hpp>
 #include <utils/function_loader.hpp>
-#include <utils/function_path_parser.h>
+#include <utils/entity_path_parser.h>
 #include <utils/library_loader.h>
 #include <sstream>
 

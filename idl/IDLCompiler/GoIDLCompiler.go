@@ -2,14 +2,15 @@ package IDLCompiler
 
 import (
 	"fmt"
-	"github.com/GreenFuze/go-parser"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"go/build"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/GreenFuze/go-parser"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 var Imports map[string]bool
@@ -71,8 +72,8 @@ func (this *GoIDLCompiler) parseSource(goSourceCode string, gofilepath string, m
 		mod.AddClass(c)
 	}
 
-	mod.SetFunctionPath("package", gofile.Package)
-	mod.SetFunctionPath("module", importPath)
+	mod.SetEntityPath("package", gofile.Package)
+	mod.SetEntityPath("module", importPath)
 
 	return true, nil
 }
@@ -134,11 +135,11 @@ func (this *GoIDLCompiler) parseDir(dir string, metaFFIGuestLib string, mod *IDL
 		mod.AddFunctions(functions)
 
 		if !isInGoROOT {
-			mod.SetFunctionPath("package", gofile.Package)
-			mod.SetFunctionPath("module", importPath)
+			mod.SetEntityPath("package", gofile.Package)
+			mod.SetEntityPath("module", importPath)
 		} else {
-			mod.SetFunctionPath("package", removeGoPathModulePathFromPath(removeGoRootSrcPathFromPath(dir)))
-			mod.SetFunctionPath("module", removeGoPathModulePathFromPath(removeGoRootSrcPathFromPath(dir)))
+			mod.SetEntityPath("package", removeGoPathModulePathFromPath(removeGoRootSrcPathFromPath(dir)))
+			mod.SetEntityPath("module", removeGoPathModulePathFromPath(removeGoRootSrcPathFromPath(dir)))
 		}
 
 	}

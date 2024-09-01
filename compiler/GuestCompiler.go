@@ -93,17 +93,17 @@ func GetImportsSet(def *IDL.IDLDefinition) (map[string]bool, error) {
 
 	for _, m := range def.Modules {
 
-		handleFunctionPath := func(functionPath map[string]string) error {
+		handleEntityPath := func(entityPath map[string]string) error {
 
-			if pack, found := functionPath["package"]; found {
-				_, err := os.Stat(functionPath["module"]) // if module does not exist locally (e.g. github.com/...)
+			if pack, found := entityPath["package"]; found {
+				_, err := os.Stat(entityPath["module"]) // if module does not exist locally (e.g. github.com/...)
 
 				if pack != `main` && err == nil {
 					set[os.ExpandEnv(pack)] = true
 				}
 			}
 
-			if mod, found := functionPath["module"]; found {
+			if mod, found := entityPath["module"]; found {
 
 				if strings.Contains(strings.ToUpper(mod), "$PWD") {
 					d, err := os.Getwd()
@@ -133,7 +133,7 @@ func GetImportsSet(def *IDL.IDLDefinition) (map[string]bool, error) {
 		}
 
 		for _, f := range m.Functions {
-			err := handleFunctionPath(f.FunctionPath)
+			err := handleEntityPath(f.EntityPath)
 			if err != nil {
 				return nil, err
 			}
@@ -141,21 +141,21 @@ func GetImportsSet(def *IDL.IDLDefinition) (map[string]bool, error) {
 
 		for _, c := range m.Classes {
 			for _, cstr := range c.Constructors {
-				err := handleFunctionPath(cstr.FunctionPath)
+				err := handleEntityPath(cstr.EntityPath)
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			for _, meth := range c.Methods {
-				err := handleFunctionPath(meth.FunctionPath)
+				err := handleEntityPath(meth.EntityPath)
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			if c.Releaser != nil {
-				err := handleFunctionPath(c.Releaser.FunctionPath)
+				err := handleEntityPath(c.Releaser.EntityPath)
 				if err != nil {
 					return nil, err
 				}
@@ -431,8 +431,8 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 
 	addedLocalModules := make(map[string]bool)
 
-	handleFunctionPathPackage := func(m *IDL.ModuleDefinition, functionPath map[string]string) error {
-		for k, v := range functionPath {
+	handleEntityPathPackage := func(m *IDL.ModuleDefinition, entityPath map[string]string) error {
+		for k, v := range entityPath {
 			if k == "module" {
 
 				if strings.Contains(strings.ToUpper(v), "$PWD") {
@@ -458,18 +458,18 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 					if _, alreadyAdded := addedLocalModules[v]; !alreadyAdded {
 						// if embedded code, write the source code into a Package folder and skip "-replace"
 						if this.blockCode != "" {
-							packageDir := dir + os.ExpandEnv(functionPath["package"]) + string(os.PathSeparator)
+							packageDir := dir + os.ExpandEnv(entityPath["package"]) + string(os.PathSeparator)
 							err = os.Mkdir(packageDir, 0777)
 							if err != nil {
 								return fmt.Errorf("Failed creating directory for embedded code: %v.\nError:\n%v", packageDir, err)
 							}
 
-							err = ioutil.WriteFile(packageDir+functionPath["package"]+".go", []byte(this.blockCode), 0700)
+							err = ioutil.WriteFile(packageDir+entityPath["package"]+".go", []byte(this.blockCode), 0700)
 							if err != nil {
 								return fmt.Errorf("Failed to embedded block go code: %v", err)
 							}
 
-							_, err := this.goModInit(packageDir, functionPath["package"])
+							_, err := this.goModInit(packageDir, entityPath["package"])
 							if err != nil {
 								return err
 							}
@@ -479,14 +479,14 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 								return err
 							}
 
-							err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), "./"+functionPath["package"])
+							err = this.goReplace(dir, os.ExpandEnv(entityPath["package"]), "./"+entityPath["package"])
 							if err != nil {
 								return err
 							}
 
 						} else {
 							// point module to
-							err = this.goReplace(dir, os.ExpandEnv(functionPath["package"]), v)
+							err = this.goReplace(dir, os.ExpandEnv(entityPath["package"]), v)
 							if err != nil {
 								return err
 							}
@@ -504,7 +504,7 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 	// add "replace"s if there are local imports
 	for _, m := range this.def.Modules {
 		for _, f := range m.Functions {
-			err = handleFunctionPathPackage(m, f.FunctionPath)
+			err = handleEntityPathPackage(m, f.EntityPath)
 			if err != nil {
 				return nil, err
 			}
@@ -512,21 +512,21 @@ func (this *GuestCompiler) buildDynamicLibrary(code string) ([]byte, error) {
 
 		for _, c := range m.Classes {
 			for _, cstr := range c.Constructors {
-				err = handleFunctionPathPackage(m, cstr.FunctionPath)
+				err = handleEntityPathPackage(m, cstr.EntityPath)
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			if c.Releaser != nil {
-				err = handleFunctionPathPackage(m, c.Releaser.FunctionPath)
+				err = handleEntityPathPackage(m, c.Releaser.EntityPath)
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			for _, meth := range c.Methods {
-				err = handleFunctionPathPackage(m, meth.FunctionPath)
+				err = handleEntityPathPackage(m, meth.EntityPath)
 				if err != nil {
 					return nil, err
 				}

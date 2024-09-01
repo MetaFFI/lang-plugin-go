@@ -77,12 +77,12 @@ func ExtractFunctions(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Func
 			}
 		}
 
-		funcDecl.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-		funcDecl.SetFunctionPath("entrypoint_function", "EntryPoint_"+funcDecl.Name)
+		funcDecl.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+		funcDecl.SetEntityPath("entrypoint_function", "EntryPoint_"+funcDecl.Name)
 
 		// check if constructor
 		if cls := isConstructorFunction(f); cls != nil {
-			funcDecl.SetFunctionPath("entrypoint_function", "EntryPoint_"+cls.Name+"_"+funcDecl.Name)
+			funcDecl.SetEntityPath("entrypoint_function", "EntryPoint_"+cls.Name+"_"+funcDecl.Name)
 			cls.AddConstructor(IDL.NewConstructorDefinitionFromFunctionDefinition(funcDecl))
 		} else {
 			functions = append(functions, funcDecl)

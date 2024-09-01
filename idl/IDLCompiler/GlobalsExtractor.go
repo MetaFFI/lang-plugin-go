@@ -2,9 +2,10 @@ package IDLCompiler
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/GreenFuze/go-parser"
 	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"strings"
 )
 
 // --------------------------------------------------------------------
@@ -22,8 +23,8 @@ func ExtractGlobals(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Global
 			alias = gs.Type
 		}
 		global := IDL.NewGlobalDefinitionWithAlias(gs.Name, goTypeToMFFI(gs.Underlying), alias, "Get"+gs.Name, "")
-		global.Getter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-		global.Getter.SetFunctionPath("entrypoint_function", "EntryPoint_"+global.Getter.Name)
+		global.Getter.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+		global.Getter.SetEntityPath("entrypoint_function", "EntryPoint_"+global.Getter.Name)
 
 		globalsDefs = append(globalsDefs, global)
 	}
@@ -39,10 +40,10 @@ func ExtractGlobals(gofile *parser.GoFile, metaffiGuestLib string) []*IDL.Global
 		}
 		global := IDL.NewGlobalDefinitionWithAlias(gv.Name, goTypeToMFFI(gv.Underlying), alias, "Get"+gv.Name, "Set"+gv.Name)
 		globalsDefs = append(globalsDefs, IDL.NewGlobalDefinitionWithAlias(gv.Name, goTypeToMFFI(gv.Underlying), alias, "Get"+gv.Name, "Set"+gv.Name))
-		global.Getter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-		global.Getter.SetFunctionPath("entrypoint_function", "EntryPoint_"+global.Getter.Name)
-		global.Setter.SetFunctionPath("metaffi_guest_lib", metaffiGuestLib)
-		global.Setter.SetFunctionPath("entrypoint_function", "EntryPoint_"+global.Setter.Name)
+		global.Getter.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+		global.Getter.SetEntityPath("entrypoint_function", "EntryPoint_"+global.Getter.Name)
+		global.Setter.SetEntityPath("metaffi_guest_lib", metaffiGuestLib)
+		global.Setter.SetEntityPath("entrypoint_function", "EntryPoint_"+global.Setter.Name)
 	}
 
 	return globalsDefs

@@ -51,7 +51,7 @@ static GlobalSetup setup;
 char* err = nullptr;
 
 xcall* cppload_function(const std::string& mod_path,
-                        const std::string& function_path,
+                        const std::string& entity_path,
                         std::vector<metaffi_type_info> params_types,
                         std::vector<metaffi_type_info> retvals_types)
 {
@@ -62,7 +62,7 @@ xcall* cppload_function(const std::string& mod_path,
 	metaffi_type_info* retvals_types_arr = retvals_types.empty() ? nullptr : retvals_types.data();
 
 	xcall* pxcall = load_entity(mod_path.c_str(),
-	                            function_path.c_str(),
+	                            entity_path.c_str(),
 	                            params_types_arr, params_types.size(),
 	                            retvals_types_arr, retvals_types.size(),
 	                            &err);
@@ -83,8 +83,8 @@ TEST_SUITE("go runtime api")
 {
 	TEST_CASE("HelloWorld")
 	{
-		std::string function_path = "callable=HelloWorld";
-		xcall* phello_world = cppload_function(module_path.string(), function_path, {}, {});
+		std::string entity_path = "callable=HelloWorld";
+		xcall* phello_world = cppload_function(module_path.string(), entity_path, {}, {});
 		go_xcall_scope_guard(phello_world);
 		(*phello_world)(&err);
 		if(err) { FAIL(std::string(err)); }
@@ -92,8 +92,8 @@ TEST_SUITE("go runtime api")
 
 	TEST_CASE("runtime_test_target.returns_an_error")
 	{
-		std::string function_path = "callable=ReturnsAnError";
-		xcall* preturns_an_error = cppload_function(module_path.string(), function_path, {}, {});
+		std::string entity_path = "callable=ReturnsAnError";
+		xcall* preturns_an_error = cppload_function(module_path.string(), entity_path, {}, {});
 		go_xcall_scope_guard(preturns_an_error);
 		(*preturns_an_error)(&err);
 		REQUIRE((err != nullptr));
@@ -103,12 +103,12 @@ TEST_SUITE("go runtime api")
 
 	TEST_CASE("runtime_test_target.div_integers")
 	{
-		std::string function_path = "callable=DivIntegers";
+		std::string entity_path = "callable=DivIntegers";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_int64_type),
 		                                               metaffi_type_info(metaffi_int64_type)};
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_float32_type)};
 
-		xcall* pdiv_integers = cppload_function(module_path.string(), function_path, params_types, retvals_types);
+		xcall* pdiv_integers = cppload_function(module_path.string(), entity_path, params_types, retvals_types);
 		go_xcall_scope_guard(pdiv_integers);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(params_types.size(), retvals_types.size());
@@ -129,11 +129,11 @@ TEST_SUITE("go runtime api")
 
 	TEST_CASE("runtime_test_target.join_strings")
 	{
-		std::string function_path = "callable=JoinStrings";
+		std::string entity_path = "callable=JoinStrings";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_string8_array_type)};
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_string8_type)};
 
-		xcall* join_strings = cppload_function(module_path.string(), function_path, params_types, retvals_types);
+		xcall* join_strings = cppload_function(module_path.string(), entity_path, params_types, retvals_types);
 		go_xcall_scope_guard(join_strings);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(params_types.size(), retvals_types.size());
@@ -160,20 +160,20 @@ TEST_SUITE("go runtime api")
 
 	TEST_CASE("runtime_test_target.SomeClass")
 	{
-		std::string function_path = "callable=GetSomeClasses";
+		std::string entity_path = "callable=GetSomeClasses";
 		std::vector<metaffi_type_info> retvals_getSomeClasses_types = {{metaffi_handle_array_type, (char*) "SomeClass[]", true, 1}};
-		xcall* pgetSomeClasses = cppload_function(module_path.string(), function_path, {}, retvals_getSomeClasses_types);
+		xcall* pgetSomeClasses = cppload_function(module_path.string(), entity_path, {}, retvals_getSomeClasses_types);
 		go_xcall_scope_guard(pgetSomeClasses);
 		
-		function_path = "callable=ExpectThreeSomeClasses";
+		entity_path = "callable=ExpectThreeSomeClasses";
 		std::vector<metaffi_type_info> params_expectThreeSomeClasses_types = {{metaffi_handle_array_type, (char*) "SomeClass[]", true, 1}};
-		xcall* pexpectThreeSomeClasses = cppload_function(module_path.string(), function_path, params_expectThreeSomeClasses_types, {});
+		xcall* pexpectThreeSomeClasses = cppload_function(module_path.string(), entity_path, params_expectThreeSomeClasses_types, {});
 		go_xcall_scope_guard(pexpectThreeSomeClasses);
 
-		function_path = "callable=SomeClass.Print";
+		entity_path = "callable=SomeClass.Print";
 		std::vector<metaffi_type_info> params_SomeClassPrint_types = {metaffi_type_info{metaffi_handle_type}};
 
-		xcall* pSomeClassPrint = cppload_function(module_path.string(), function_path, params_SomeClassPrint_types, {});
+		xcall* pSomeClassPrint = cppload_function(module_path.string(), entity_path, params_SomeClassPrint_types, {});
 		go_xcall_scope_guard(pSomeClassPrint);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
@@ -234,16 +234,16 @@ TEST_SUITE("go runtime api")
 
 	TEST_CASE("runtime_test_target.ThreeBuffers")
 	{
-		std::string function_path = "callable=ExpectThreeBuffers";
+		std::string entity_path = "callable=ExpectThreeBuffers";
 		std::vector<metaffi_type_info> params_expectThreeBuffers_types = {{metaffi_uint8_array_type, nullptr, false, 2}};
 
-		xcall* pexpectThreeBuffers = cppload_function(module_path.string(), function_path, params_expectThreeBuffers_types, {});
+		xcall* pexpectThreeBuffers = cppload_function(module_path.string(), entity_path, params_expectThreeBuffers_types, {});
 		go_xcall_scope_guard(pexpectThreeBuffers);
 		
-		function_path = "callable=GetThreeBuffers";
+		entity_path = "callable=GetThreeBuffers";
 		std::vector<metaffi_type_info> retval_getThreeBuffers_types = {{metaffi_uint8_array_type, nullptr, false, 2}};
 
-		xcall* pgetThreeBuffers = cppload_function(module_path.string(), function_path, {}, retval_getThreeBuffers_types);
+		xcall* pgetThreeBuffers = cppload_function(module_path.string(), entity_path, {}, retval_getThreeBuffers_types);
 		go_xcall_scope_guard(pgetThreeBuffers);
 		
 		// pass 3 buffers
@@ -301,10 +301,10 @@ TEST_SUITE("go runtime api")
 	TEST_CASE("runtime_test_target.testmap.set_get_contains")
 	{
 		// create new testmap
-		std::string function_path = "callable=NewTestMap";
+		std::string entity_path = "callable=NewTestMap";
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pnew_testmap = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pnew_testmap);
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
 		cdts_scope_guard(pcdts);
@@ -322,12 +322,12 @@ TEST_SUITE("go runtime api")
 		cdt_metaffi_handle* testmap_instance = retvals_cdts[0].cdt_val.handle_val;
 
 		// set
-		function_path = "callable=TestMap.Set,instance_required";
+		entity_path = "callable=TestMap.Set,instance_required";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type),
 		                                               metaffi_type_info(metaffi_string8_type),
 		                                               metaffi_type_info(metaffi_any_type)};
 
-		xcall* p_testmap_set = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* p_testmap_set = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(p_testmap_set);
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(3, 0);
 		cdts_scope_guard(pcdts2);
@@ -343,12 +343,12 @@ TEST_SUITE("go runtime api")
 
 
 		// contains
-		function_path = "callable=TestMap.Contains,instance_required";
+		entity_path = "callable=TestMap.Contains,instance_required";
 		params_types[0].type = metaffi_handle_type;
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_bool_type;
 
-		xcall* p_testmap_contains = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* p_testmap_contains = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(p_testmap_contains);
 		cdts* pcdts3 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
 		cdts_scope_guard(pcdts3);
@@ -366,12 +366,12 @@ TEST_SUITE("go runtime api")
 		REQUIRE((retvals_cdts3[0].cdt_val.bool_val != 0));
 
 		// get
-		function_path = "callable=TestMap.Get,instance_required";
+		entity_path = "callable=TestMap.Get,instance_required";
 		params_types[0].type = metaffi_handle_type;
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_any_type;
 
-		xcall* p_testmap_get = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* p_testmap_get = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(p_testmap_get);
 		
 		cdts* pcdts4 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
@@ -393,10 +393,10 @@ TEST_SUITE("go runtime api")
 	TEST_CASE("runtime_test_target.testmap.set_get_contains_cpp_object")
 	{
 		// create new testmap
-		std::string function_path = "callable=NewTestMap";
+		std::string entity_path = "callable=NewTestMap";
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pnew_testmap = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pnew_testmap);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
@@ -415,12 +415,12 @@ TEST_SUITE("go runtime api")
 		cdt_metaffi_handle* testmap_instance = pcdts_retvals[0].cdt_val.handle_val;
 
 		// set
-		function_path = "callable=TestMap.Set,instance_required";
+		entity_path = "callable=TestMap.Set,instance_required";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type),
 		                                               metaffi_type_info(metaffi_string8_type),
 		                                               metaffi_type_info(metaffi_any_type)};
 
-		xcall* p_testmap_set = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* p_testmap_set = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(p_testmap_set);
 		
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(3, 0);
@@ -439,12 +439,12 @@ TEST_SUITE("go runtime api")
 
 
 		// contains
-		function_path = "callable=TestMap.Contains,instance_required";
+		entity_path = "callable=TestMap.Contains,instance_required";
 		params_types[0].type = metaffi_handle_type;
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_bool_type;
 
-		xcall* p_testmap_contains = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* p_testmap_contains = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(p_testmap_contains);
 		
 		cdts* pcdts3 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
@@ -463,12 +463,12 @@ TEST_SUITE("go runtime api")
 		REQUIRE((pcdts_retvals3[0].cdt_val.bool_val != 0));
 
 		// get
-		function_path = "callable=TestMap.Get,instance_required";
+		entity_path = "callable=TestMap.Get,instance_required";
 		params_types[0].type = metaffi_handle_type;
 		params_types[1].type = metaffi_string8_type;
 		retvals_types[0].type = metaffi_any_type;
 
-		xcall* p_testmap_get = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* p_testmap_get = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(p_testmap_get);
 		
 		cdts* pcdts4 = (cdts*) xllr_alloc_cdts_buffer(2, 1);
@@ -494,25 +494,25 @@ TEST_SUITE("go runtime api")
 	TEST_CASE("runtime_test_target.testmap.get_set_name")
 	{
 		// load constructor
-		std::string function_path = "callable=NewTestMap";
+		std::string entity_path = "callable=NewTestMap";
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pnew_testmap = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pnew_testmap);
 		// load getter
-		function_path = "field=TestMap.Name,instance_required,getter";
+		entity_path = "field=TestMap.Name,instance_required,getter";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_handle_type)};
 		retvals_types = {metaffi_type_info(metaffi_string8_type)};
 
-		xcall* pget_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pget_name = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pget_name);
 		
 		// load setter
-		function_path = "field=TestMap.Name,instance_required,setter";
+		entity_path = "field=TestMap.Name,instance_required,setter";
 		params_types[0].type = metaffi_handle_type;
 		retvals_types[0].type = metaffi_string8_type;
 
-		xcall* pset_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pset_name = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pset_name);
 		
 		// create new testmap
@@ -579,25 +579,25 @@ TEST_SUITE("go runtime api")
 	TEST_CASE("runtime_test_target.testmap.get_set_name_from_empty_struct")
 	{
 		// load constructor
-		std::string function_path = "callable=TestMap.EmptyStruct";
+		std::string entity_path = "callable=TestMap.EmptyStruct";
 		std::vector<metaffi_type_info> retvals_types = {metaffi_type_info(metaffi_handle_type)};
 
-		xcall* pnew_testmap = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pnew_testmap = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pnew_testmap);
 		
 		// load getter
-		function_path = "field=TestMap.Name,instance_required,getter";
+		entity_path = "field=TestMap.Name,instance_required,getter";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info{metaffi_handle_type}};
 		retvals_types = {metaffi_type_info{metaffi_string8_type}};
 
-		xcall* pget_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pget_name = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pget_name);
 		
 		// load setter
-		function_path = "field=TestMap.Name,instance_required,setter";
+		entity_path = "field=TestMap.Name,instance_required,setter";
 		params_types = {metaffi_type_info{metaffi_handle_type}, metaffi_type_info{metaffi_string8_type}};
 
-		xcall* pset_name = cppload_function(module_path.string(), function_path, {}, retvals_types);
+		xcall* pset_name = cppload_function(module_path.string(), entity_path, {}, retvals_types);
 		go_xcall_scope_guard(pset_name);
 		
 		// create new testmap
@@ -683,10 +683,10 @@ TEST_SUITE("go runtime api")
 		metaffi_int64 five = pcdts_retvals[0].cdt_val.int64_val;
 
 		// call wait_a_bit
-		std::string function_path = "callable=WaitABit";
+		std::string entity_path = "callable=WaitABit";
 		std::vector<metaffi_type_info> params_types = {metaffi_type_info(metaffi_int64_type)};
 
-		xcall* pwait_a_bit = cppload_function(module_path.string(), function_path, params_types, {});
+		xcall* pwait_a_bit = cppload_function(module_path.string(), entity_path, params_types, {});
 		go_xcall_scope_guard(pwait_a_bit);
 		
 		cdts* pcdts2 = (cdts*) xllr_alloc_cdts_buffer(1, 0);

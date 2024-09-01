@@ -68,7 +68,7 @@ func init() {
 	}
 }
 
-func XLLRLoadEntity(runtimePlugin string, modulePath string, functionPath string, paramsTypes []uint64, retvalsTypes []uint64) (unsafe.Pointer, error) {
+func XLLRLoadEntity(runtimePlugin string, modulePath string, entityPath string, paramsTypes []uint64, retvalsTypes []uint64) (unsafe.Pointer, error) {
 
 	var params []IDL.MetaFFITypeInfo
 	if paramsTypes != nil {
@@ -86,10 +86,10 @@ func XLLRLoadEntity(runtimePlugin string, modulePath string, functionPath string
 		}
 	}
 
-	return XLLRLoadEntityWithAliases(runtimePlugin, modulePath, functionPath, params, retvals)
+	return XLLRLoadEntityWithAliases(runtimePlugin, modulePath, entityPath, params, retvals)
 }
 
-func XLLRLoadEntityWithAliases(runtimePlugin string, modulePath string, functionPath string, paramsTypes []IDL.MetaFFITypeInfo, retvalsTypes []IDL.MetaFFITypeInfo) (unsafe.Pointer, error) {
+func XLLRLoadEntityWithAliases(runtimePlugin string, modulePath string, entityPath string, paramsTypes []IDL.MetaFFITypeInfo, retvalsTypes []IDL.MetaFFITypeInfo) (unsafe.Pointer, error) {
 
 	pruntimePlugin := C.CString(runtimePlugin)
 	defer C.free(unsafe.Pointer(pruntimePlugin))
@@ -97,7 +97,7 @@ func XLLRLoadEntityWithAliases(runtimePlugin string, modulePath string, function
 	pmodulePath := C.CString(modulePath)
 	defer C.free(unsafe.Pointer(pmodulePath))
 
-	pfuncpath := C.CString(functionPath)
+	pfuncpath := C.CString(entityPath)
 	defer C.free(unsafe.Pointer(pfuncpath))
 
 	var out_err *C.char
@@ -126,7 +126,7 @@ func XLLRLoadEntityWithAliases(runtimePlugin string, modulePath string, function
 
 	if out_err != nil {
 		defer C.xllr_free_string(out_err)
-		return nil, fmt.Errorf("Failed to xcall for \"%v\": %v", functionPath, C.GoString(out_err))
+		return nil, fmt.Errorf("Failed to xcall for \"%v\": %v", entityPath, C.GoString(out_err))
 	}
 
 	return unsafe.Pointer(xcall), nil
