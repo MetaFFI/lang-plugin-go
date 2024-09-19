@@ -10,4 +10,5 @@ require (
 	golang.org/x/text v0.15.0
 )
 
-replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk
+// for tests
+//replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk
