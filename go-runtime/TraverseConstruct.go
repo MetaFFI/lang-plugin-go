@@ -337,13 +337,13 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 
 	case C.metaffi_int64_type:
 		goVal := getElement(currentIndex, ctxt.Input)
-		val := C.metaffi_int64(goVal.Interface().(int64))
+		val := C.metaffi_int64(goVal.Int())
 		item.SetInt64Val(val)
 		item.SetFreeRequired(false)
 
 	case C.metaffi_uint64_type:
 		goVal := getElement(currentIndex, ctxt.Input)
-		val := C.metaffi_uint64(goVal.Interface().(uint64))
+		val := C.metaffi_uint64(goVal.Int())
 		item.SetUInt64Val(val)
 		item.SetFreeRequired(false)
 
