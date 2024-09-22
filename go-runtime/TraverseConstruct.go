@@ -396,7 +396,9 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 			item.SetHandleStruct(cdtHandle)
 		} else {
 			val := goVal.Interface()
-			if h, ok := val.(*CDTMetaFFIHandle); ok {
+			if hhandleWrapper, ok := val.(*CDTMetaFFIHandle); ok {
+				item.SetHandleStruct(hhandleWrapper)
+			} else if h, ok := val.(*C.struct_cdt_metaffi_handle); ok {
 				item.SetHandleStruct(h)
 			} else {
 				newHandle := SetObject(val)
