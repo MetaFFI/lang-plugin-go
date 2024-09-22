@@ -396,8 +396,10 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 			item.SetHandleStruct(cdtHandle)
 		} else {
 			val := goVal.Interface()
-			if h, ok := val.(*CDTMetaFFIHandle); ok {
-				item.SetHandleStruct(h)
+			if cdth, ok := val.(*CDTMetaFFIHandle); ok {
+				item.SetHandleStruct(cdth)
+			} else if h, ok := val.(MetaFFIHandle); ok {
+				item.SetHandleStruct(NewCDTMetaFFIHandle(h.Val, h.RuntimeID, h.CReleaser))
 			} else {
 
 				fmt.Printf("++++++++++ goVal Type: %v val type: %T\n", goVal.Type(), val)
