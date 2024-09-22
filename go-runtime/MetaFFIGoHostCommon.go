@@ -87,10 +87,10 @@ void set_metaffi_size_item(metaffi_size* array, int index, metaffi_size value)
 */
 import "C"
 import (
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
-	"github.com/timandy/routine"
 	"reflect"
 	"unsafe"
+
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 )
 
 func GetCacheSize() int {
@@ -129,20 +129,12 @@ func freeMetaFFITypeInfoArray(metaffiArray *C.struct_metaffi_type_info, size int
 
 //--------------------------------------------------------------------
 
-type traverseContext struct {
-	ObjectType  reflect.Type
-	ObjectValue reflect.Value
-	Result      interface{}
-}
-
-var traverseContextTLS = routine.NewThreadLocal[*traverseContext]()
-
 func FromCDTToGo(pvcdt unsafe.Pointer, i int, objectType reflect.Type) interface{} {
 	pcdt := C.cast_to_cdt(pvcdt)
 	pcdt = C.get_cdt_index(pcdt, C.int(i))
-	ctxt := &traverseContext{ObjectType: objectType}
-	traverseContextTLS.Set(ctxt)
-	if err := TraverseCDT(pcdt); err != nil {
+	ctxt := &TraverseContext{ObjectType: objectType}
+	cdtWrap := &CDT{c: pcdt}
+	if err := TraverseCDT(cdtWrap, nil, ctxt); err != nil {
 		panic(err)
 	}
 	return ctxt.Result
@@ -151,7 +143,10 @@ func FromCDTToGo(pvcdt unsafe.Pointer, i int, objectType reflect.Type) interface
 func GetMetaFFITypeInfo(input interface{}) (IDL.MetaFFITypeInfo, reflect.Type) {
 
 	if input == nil {
-		return IDL.MetaFFITypeInfo{IDL.NULL, "", IDL.METAFFI_TYPE_NULL, 0}, nil
+		return IDL.MetaFFITypeInfo{StringType: IDL.NULL,
+			Alias:      "",
+			Type:       IDL.METAFFI_TYPE_NULL,
+			Dimensions: 0}, nil
 	}
 
 	t := reflect.TypeOf(input)
@@ -217,20 +212,13 @@ func GetMetaFFITypeInfo(input interface{}) (IDL.MetaFFITypeInfo, reflect.Type) {
 	}, t
 }
 
-type constructContext struct {
-	Input    interface{}
-	TypeInfo IDL.MetaFFITypeInfo
-	Cdt      CDT
-}
-
-var constructContextTLS = routine.NewThreadLocal[*constructContext]()
-
 func FromGoToCDT(input interface{}, pvcdt unsafe.Pointer, t IDL.MetaFFITypeInfo, i int) {
 	pcdt := C.cast_to_cdt(pvcdt)
 	pcdt = C.get_cdt_index(pcdt, C.int(i))
-	ctxt := &constructContext{Input: input, TypeInfo: t, Cdt: CDT{c: pcdt}}
-	constructContextTLS.Set(ctxt)
-	if err := ConstructCDT(pcdt); err != nil {
+	ctxt := &ConstructContext{Input: input, TypeInfo: t, Cdt: CDT{c: pcdt}}
+	gocdt := &CDT{c: pcdt}
+	index := make([]uint64, 0)
+	if err := ConstructCDT(gocdt, index, ctxt, nil); err != nil {
 		panic(err)
 	}
 }

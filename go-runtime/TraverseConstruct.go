@@ -10,64 +10,6 @@ package metaffi
 #include <stdint.h>
 
 
-#include "traverse_construct_go_callbacks.h"
-
-
-struct traverse_cdts_callbacks* initialize_traverse_cdts_callbacks() {
-    struct traverse_cdts_callbacks* tcc = malloc(sizeof(struct traverse_cdts_callbacks));
-    tcc->context = 0;
-    tcc->on_float64 = onFloat64;
-    tcc->on_float32 = onFloat32;
-    tcc->on_int8 = onInt8;
-    tcc->on_uint8 = onUInt8;
-    tcc->on_int16 = onInt16;
-    tcc->on_uint16 = onUInt16;
-    tcc->on_int32 = onInt32;
-    tcc->on_uint32 = onUInt32;
-    tcc->on_int64 = onInt64;
-    tcc->on_uint64 = onUInt64;
-    tcc->on_bool = onBool;
-    tcc->on_char8 = onChar8;
-    tcc->on_string8 = onString8;
-    tcc->on_char16 = onChar16;
-    tcc->on_string16 = onString16;
-    tcc->on_char32 = onChar32;
-    tcc->on_string32 = onString32;
-    tcc->on_handle = onHandle;
-    tcc->on_callable = onCallable;
-    tcc->on_null = onNull;
-    tcc->on_array = onArray;
-    return tcc;
-}
-
-struct construct_cdts_callbacks* initialize_construct_cdts_callbacks() {
-    struct construct_cdts_callbacks* ccc = malloc(sizeof(struct construct_cdts_callbacks));
-    ccc->context = 0;
-    ccc->get_float64 = getFloat64;
-    ccc->get_float32 = getFloat32;
-    ccc->get_int8 = getInt8;
-    ccc->get_uint8 = getUInt8;
-    ccc->get_int16 = getInt16;
-    ccc->get_uint16 = getUInt16;
-    ccc->get_int32 = getInt32;
-    ccc->get_uint32 = getUInt32;
-    ccc->get_int64 = getInt64;
-    ccc->get_uint64 = getUInt64;
-    ccc->get_bool = getBool;
-    ccc->get_char8 = getChar8;
-    ccc->get_string8 = getString8;
-    ccc->get_char16 = getChar16;
-    ccc->get_string16 = getString16;
-    ccc->get_char32 = getChar32;
-    ccc->get_string32 = getString32;
-    ccc->get_handle = getHandle;
-    ccc->get_callable = getCallable;
-    ccc->get_array_metadata = getArrayMetadata;
-    ccc->construct_cdt_array = constructCDTArray;
-	ccc->get_type_info = getTypeInfo;
-    return ccc;
-}
-
 void GoMetaFFIHandleTocdt_metaffi_handle(struct cdt_metaffi_handle* p , void* handle, uint64_t runtime_id, void* release) {
 	p->handle = (metaffi_handle)handle;
 	p->runtime_id = runtime_id;
@@ -78,23 +20,20 @@ void GoMetaFFIHandleTocdt_metaffi_handle(struct cdt_metaffi_handle* p , void* ha
 import "C"
 import (
 	"fmt"
+	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
 	"reflect"
 	"unsafe"
 )
 
-func getElement(index *C.metaffi_size, indexSize C.metaffi_size, root interface{}) reflect.Value {
+func getElement(index []uint64, root interface{}) reflect.Value {
 
 	if index == nil {
 		return reflect.ValueOf(root)
 	}
 
-	// traverse the root object to get the element
-	// Convert C array to Go slice
-	indexSlice := (*[1 << 30]uint64)(unsafe.Pointer(index))[:indexSize:indexSize]
-
 	// Traverse the root object
 	v := reflect.ValueOf(root)
-	for _, idx := range indexSlice {
+	for _, idx := range index {
 		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
 			if idx < uint64(v.Len()) {
 				v = v.Index(int(idx))
@@ -176,15 +115,13 @@ func getGoTypeFromMetaFFIType(metaffiType C.metaffi_type, commonGoType reflect.T
 	}
 }
 
-type OnFloat64Func func(index *C.metaffi_size, indexSize C.metaffi_size, val C.metaffi_float64, context unsafe.Pointer)
-
-func NewTraverseCDTSCallbacks() *C.struct_traverse_cdts_callbacks {
-	return C.initialize_traverse_cdts_callbacks()
-}
-
 //--------------------------------------------------------------------
 
 func getMetaFFITypeFromGoType(v reflect.Value) (detectedType C.metaffi_type, is1DArray bool) {
+	if !v.IsValid() { // null handle
+		return C.metaffi_handle_type, false
+	}
+
 	t := v.Type()
 	arrayMask := C.metaffi_type(0)
 	is1DArray = false
@@ -272,13 +209,9 @@ func getMetaFFITypeFromGoType(v reflect.Value) (detectedType C.metaffi_type, is1
 	}
 }
 
-func NewConstructCDTSCallbacks() *C.struct_construct_cdts_callbacks {
-	return C.initialize_construct_cdts_callbacks()
-}
-
 func GetGoObject(h *C.struct_cdt_metaffi_handle) interface{} {
 
-	if uintptr(h.handle) == uintptr(0) {
+	if h == nil || uintptr(h.handle) == uintptr(0) {
 		return nil
 	}
 
@@ -307,4 +240,551 @@ func GoObjectToMetaffiHandle(p *C.struct_cdt_metaffi_handle, val interface{}) {
 			C.GoMetaFFIHandleTocdt_metaffi_handle(p, unsafe.Pointer(SetObject(val)), GO_RUNTIME_ID, GetReleaserCFunction())
 		}
 	}
+}
+
+type ConstructContext struct {
+	Input    interface{}
+	TypeInfo IDL.MetaFFITypeInfo
+	Cdt      CDT
+}
+
+func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, knownType *IDL.MetaFFITypeInfo) error {
+	var ti C.struct_metaffi_type_info
+	if knownType == nil || knownType.Type == C.metaffi_any_type {
+		ti = getTypeInfo(currentIndex, ctxt)
+	} else {
+		var cti C.struct_metaffi_type_info
+		cti._type = C.metaffi_type(knownType.Type)
+
+		if knownType.Alias != "" {
+			cti.alias = nil
+			cti.is_free_alias = C.metaffi_bool(0) // TODO: change to TRUE
+			//		cMetaFFIType.is_free_alias = C.metaffi_bool(1)
+		} else {
+			cti.alias = nil
+			cti.is_free_alias = C.metaffi_bool(0)
+		}
+
+		cti.fixed_dimensions = C.int64_t(knownType.Dimensions)
+
+		ti = cti
+	}
+
+	if ti._type == C.metaffi_any_type {
+		return fmt.Errorf("get_type_info must return a concrete type, not dynamic type like metaffi_any_type")
+	}
+
+	if ti._type != C.metaffi_any_type && ti.fixed_dimensions > 0 {
+		ti._type |= C.metaffi_array_type
+	}
+
+	item.SetTypeVal(ti._type)
+
+	var commonType C.metaffi_type
+	if ti._type&C.metaffi_array_type != 0 && ti._type != C.metaffi_array_type {
+		commonType = ti._type &^ C.metaffi_array_type
+		item.SetTypeVal(C.metaffi_array_type)
+	}
+
+	switch item.GetTypeVal() {
+	case C.metaffi_float64_type:
+		goval := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_float64(goval.Interface().(float64))
+		item.SetFloat64Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_float32_type:
+		goval := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_float32(goval.Interface().(float32))
+		item.SetFloat32Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_int8_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_int8(goVal.Interface().(int8))
+		item.SetInt8Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_uint8_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_uint8(goVal.Interface().(uint8))
+		item.SetUInt8Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_int16_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_int16(goVal.Interface().(int16))
+		item.SetInt16Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_uint16_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_uint16(goVal.Interface().(uint16))
+		item.SetUInt16Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_int32_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_int32(goVal.Interface().(int32))
+		item.SetInt32Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_uint32_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_uint32(goVal.Interface().(uint32))
+		item.SetUInt32Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_int64_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_int64(goVal.Interface().(int64))
+		item.SetInt64Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_uint64_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := C.metaffi_uint64(goVal.Interface().(uint64))
+		item.SetUInt64Val(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_bool_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		item.SetBool(goVal.Interface().(bool))
+		item.SetFreeRequired(false)
+
+	case C.metaffi_char8_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := goVal.Interface().(rune)
+		item.SetChar8(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_string8_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := goVal.Interface().(string)
+		item.SetString8(val)
+		item.SetFreeRequired(true)
+
+	case C.metaffi_char16_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := goVal.Interface().(rune)
+		item.SetChar16(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_string16_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := goVal.Interface().(string)
+		item.SetString16(val)
+		item.SetFreeRequired(true)
+
+	case C.metaffi_char32_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := goVal.Interface().(rune)
+		item.SetChar32(val)
+		item.SetFreeRequired(false)
+
+	case C.metaffi_string32_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+		val := goVal.Interface().(string)
+		item.SetString32(val)
+		item.SetFreeRequired(true)
+
+	case C.metaffi_handle_type:
+		goVal := getElement(currentIndex, ctxt.Input)
+
+		if !goVal.IsValid() { // null handle
+			cdtHandle := NewCDTMetaFFIHandle(nil, 0, nil)
+			item.SetHandleStruct(cdtHandle)
+		} else {
+			val := goVal.Interface()
+			if h, ok := val.(*CDTMetaFFIHandle); ok {
+				item.SetHandleStruct(h)
+			} else {
+				newHandle := SetObject(val)
+
+				cdtHandle := NewCDTMetaFFIHandle(newHandle, GO_RUNTIME_ID, GetReleaserCFunction())
+
+				item.SetHandleStruct(cdtHandle)
+			}
+		}
+
+	case C.metaffi_null_type:
+		item.SetTypeVal(C.metaffi_null_type)
+		item.SetFreeRequired(false)
+	case C.metaffi_array_type:
+		var isManuallyConstructArray, isFixedDimension, is1DArray C.metaffi_bool
+		arrayLength := getArrayMetadata(currentIndex, &isFixedDimension, &is1DArray, &commonType, &isManuallyConstructArray, ctxt)
+
+		if commonType != C.metaffi_any_type {
+			item.SetTypeVal(C.metaffi_array_type | commonType)
+		} else {
+			item.SetTypeVal(C.metaffi_array_type)
+		}
+
+		item.SetFreeRequired(true)
+		arr := NewCDTSFromSize(uint64(arrayLength), -1)
+
+		item.SetArray(arr)
+		arr.SetLength(arrayLength)
+
+		var foundDims C.metaffi_int64
+		if isFixedDimension != 0 {
+			foundDims = C.INT_MIN
+		} else {
+			foundDims = C.MIXED_OR_UNKNOWN_DIMENSIONS
+		}
+
+		for i := 0; i < int(arrayLength); i++ {
+			newIndex := append(currentIndex, uint64(i))
+			newItem := arr.GetCDT(i)
+			if err := ConstructCDT(newItem, newIndex, ctxt, nil); err != nil {
+				return err
+			}
+
+			if is1DArray != 0 && newItem.GetTypeVal()&C.metaffi_array_type != 0 {
+				return fmt.Errorf("Something is wrong - 1D array cannot contain another array")
+			} else if is1DArray == 0 {
+				if foundDims == C.MIXED_OR_UNKNOWN_DIMENSIONS {
+					continue
+				}
+
+				if newItem.GetTypeVal()&C.metaffi_array_type == 0 {
+					foundDims = C.MIXED_OR_UNKNOWN_DIMENSIONS
+				}
+
+				if foundDims == C.INT_MIN {
+					foundDims = newItem.GetArray().GetFixedDimensions()
+				} else if foundDims != newItem.GetArray().GetFixedDimensions() {
+					foundDims = C.MIXED_OR_UNKNOWN_DIMENSIONS
+				}
+			}
+		}
+
+		if is1DArray != 0 {
+			item.GetArray().SetFixedDimensions(1)
+		} else if foundDims != C.MIXED_OR_UNKNOWN_DIMENSIONS {
+			item.GetArray().SetFixedDimensions(foundDims + 1)
+		} else {
+			item.GetArray().SetFixedDimensions(C.MIXED_OR_UNKNOWN_DIMENSIONS)
+		}
+	case C.metaffi_callable_type:
+		return fmt.Errorf("Unsupported type (yet): metaffi_callable_type")
+	default:
+		return fmt.Errorf("Unknown type while constructing CDTS: %v", item.GetTypeVal())
+	}
+	return nil
+}
+
+type TraverseContext struct {
+	ObjectType  reflect.Type
+	ObjectValue reflect.Value
+	Result      interface{}
+}
+
+func TraverseCDTS(arr *CDTS, startingIndex []uint64, ctxt *TraverseContext) error {
+	type queueItem struct {
+		currentIndex []uint64
+		pcdt         *CDT
+	}
+
+	queue := make([]queueItem, 0)
+
+	if startingIndex == nil {
+		startingIndex = make([]uint64, 0)
+	}
+
+	for i := uint64(0); i < uint64(arr.GetLength()); i++ {
+		index := append([]uint64(nil), startingIndex...)
+		index = append(index, i)
+
+		item := queueItem{
+			currentIndex: index,
+			pcdt:         arr.GetCDT(int(i)),
+		}
+
+		queue = append(queue, item)
+	}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		err := TraverseCDT(current.pcdt, current.currentIndex, ctxt)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func TraverseCDT(item *CDT, currentIndex []uint64, ctxt *TraverseContext) error {
+
+	if item.GetTypeVal() == C.metaffi_any_type {
+		return fmt.Errorf("traversed CDT must have a concrete type, not dynamic type like metaffi_any_type")
+	}
+
+	commonType := C.metaffi_type(C.metaffi_any_type) // common type for all elements in the array
+	typeToUse := item.GetTypeVal()
+	if (typeToUse&C.metaffi_array_type) != 0 && (typeToUse != C.metaffi_array_type) {
+		removeArrayFlag := ^C.metaffi_array_type
+		commonType = C.metaffi_type(C.metaffi_type(typeToUse) & C.metaffi_type(removeArrayFlag))
+		typeToUse = C.metaffi_array_type
+	}
+
+	switch typeToUse {
+	case C.metaffi_float64_type:
+		{
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = item.GetFloat64()
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.SetFloat(item.GetFloat64())
+			}
+		}
+
+	case C.metaffi_float32_type:
+		{
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = item.GetFloat32()
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(item.GetFloat32()))
+			}
+		}
+
+	case C.metaffi_int8_type:
+		{
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = item.GetInt8()
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(item.GetInt8()))
+			}
+		}
+
+	case C.metaffi_uint8_type:
+		{
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = item.GetUInt8()
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(item.GetUInt8()))
+			}
+		}
+
+	case C.metaffi_int16_type:
+		{
+			val := item.GetInt16()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_uint16_type:
+		{
+			val := item.GetUInt16()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_int32_type:
+		{
+			val := item.GetInt32()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_uint32_type:
+		{
+			val := item.GetUInt32()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_int64_type:
+		{
+			val := item.GetInt64()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_uint64_type:
+		{
+			val := item.GetUInt64()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_bool_type:
+		{
+			val := item.GetBool()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_char8_type:
+		{
+			val := item.GetChar8()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_string8_type:
+		{
+			val := item.GetString8()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_char16_type:
+		{
+			val := item.GetChar16()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_string16_type:
+		{
+			val := item.GetString16()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_char32_type:
+		{
+			val := item.GetChar32()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_string32_type:
+		{
+			val := item.GetString32()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				ctxt.Result = val
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(val))
+			}
+		}
+
+	case C.metaffi_handle_type:
+		{
+			val := item.GetHandleStruct()
+
+			if currentIndex == nil || len(currentIndex) == 0 {
+				// If not Go, return CDTMetaFFIHandle
+				ctxt.Result = GetGoObject(val)
+
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(GetGoObject(val)))
+			}
+		}
+
+	case C.metaffi_callable_type:
+		{
+			panic("Not supported yet")
+			//if item.GetCallableVal() != nil {
+			//	return fmt.Errorf("Callable value is null")
+			//}
+		}
+
+	case C.metaffi_null_type:
+		{
+			if currentIndex == nil || len(currentIndex) == 0 {
+				// If not Go, return CDTMetaFFIHandle
+				ctxt.Result = nil
+
+			} else { // within an array
+				elem := getElement(currentIndex, ctxt.Result)
+				elem.Set(reflect.ValueOf(nil))
+			}
+		}
+
+	case C.metaffi_array_type:
+		{
+			arr := item.GetArray()
+
+			if arr == nil {
+				return fmt.Errorf("Array value is null")
+			}
+
+			isContinueTraverse := onArray(currentIndex, arr.c, arr.GetFixedDimensions(), C.metaffi_type(commonType), ctxt)
+
+			if isContinueTraverse {
+				err := TraverseCDTS(arr, currentIndex, ctxt)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+	default:
+		{
+			return fmt.Errorf("Unknown type while traversing CDTS: %v", item.GetTypeVal())
+		}
+	}
+
+	return nil
 }

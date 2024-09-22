@@ -12,9 +12,9 @@ metaffi_handle int_to_handle(unsigned long long i)
 import "C"
 import (
 	"fmt"
+	"os"
 	"sync"
 	"unsafe"
-	"os"
 )
 
 const GO_RUNTIME_ID = 3958232544
@@ -86,4 +86,3 @@ func Releaser(h C.metaffi_handle) {
 		fmt.Fprintf(os.Stderr, "Failed to release Go object: %v\n", err)
 	}
 }
-

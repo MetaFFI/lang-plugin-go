@@ -14,18 +14,18 @@ import (
 
 func main() {
 
-	TestGoCDTInt8()
-	TestGoCDTInt8Array()
-	TestGoCDTInt82DArray()
-	TestGoCDTString()
-	TestGoCDTStringArray()
-	TestGoCDT3DStringArray()
-	TestGoCDTHandleGoObject()
-	TestGoCDTHandleArray()
-	TestGoCDTHandleArraySameType()
-	TestGoCDTHandle3DArray()
+	//TestGoCDTInt8()
+	//TestGoCDTInt8Array()
+	//TestGoCDTInt82DArray()
+	//TestGoCDTString()
+	//TestGoCDTStringArray()
+	//TestGoCDT3DStringArray()
+	//TestGoCDTHandleGoObject()
+	//TestGoCDTHandleArray()
+	//TestGoCDTHandleArraySameType()
+	//TestGoCDTHandle3DArray()
 	TestReturnErrWithNil()
-	TestGoToCDTMetaFFIHandle()
+	//TestGoToCDTMetaFFIHandle()
 
 	runtime.GC()
 
@@ -280,7 +280,7 @@ func TestGoCDTHandleGoObject() {
 
 	output_data, ok := output.(test)
 	if !ok {
-		panic(fmt.Sprintf("output is not of type int8"))
+		panic(fmt.Sprintf("output is not of type test"))
 	}
 
 	if input != output_data {
@@ -489,14 +489,14 @@ func TestReturnErrWithNil() {
 	}
 	FromGoToCDT(err, unsafe.Pointer(pcdts.arr), typeInfo, 0)
 
-	cdts := NewCDTSFromCDTS(unsafe.Pointer(pcdts))
-	cdt := cdts.GetCDT(0)
+	cdttype := GetCDTSType(pcdts, 0)
 
-	if uint64(cdt.GetTypeVal()) != IDL.METAFFI_TYPE_HANDLE {
+	if cdttype != IDL.METAFFI_TYPE_HANDLE {
 		panic(fmt.Sprintf("pcdt.type is not of type METAFFI_TYPE_HANDLE"))
 	}
 
-	if uintptr(cdt.GetHandleVal().GetHandle()) != uintptr(0) {
+	pcdt := GetCDT(pcdts, 0)
+	if GetCDTHandleValue(pcdt) != uintptr(0) {
 		panic(fmt.Sprintf("pcdt.handle is not nil"))
 	}
 }

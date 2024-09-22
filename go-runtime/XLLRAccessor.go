@@ -41,7 +41,6 @@ void call_plugin_xcall_params_ret(struct xcall* pxcall, struct cdts* cdts, char*
 	(((void(*)(void*,void*,char**))pvoidxcall)(pctxt, cdts, err));
 }
 
-
 struct cdts* cast_to_cdts(void* p)
 {
 	return (struct cdts*)p;
@@ -247,58 +246,6 @@ func XLLRFreeRuntimePlugin(runtimePlugin string) error {
 	if out_err != nil {
 		defer C.xllr_free_string(out_err)
 		return fmt.Errorf("Failed to free runtime %v: %v", runtimePlugin, C.GoString(out_err))
-	}
-
-	return nil
-}
-
-func ConstructCDTS(cdts *C.struct_cdts, callbacks *C.struct_construct_cdts_callbacks) error {
-
-	var err *C.char = nil
-	C.xllr_construct_cdts(cdts, callbacks, &err)
-
-	if err != nil {
-		defer C.free(unsafe.Pointer(err))
-		return fmt.Errorf("%v", C.GoString(err))
-	}
-
-	return nil
-}
-
-func ConstructCDT(cdt *C.struct_cdt) error {
-	pccc := NewConstructCDTSCallbacks()
-	defer C.free(unsafe.Pointer(pccc))
-	var err *C.char = nil
-	C.xllr_construct_cdt(cdt, pccc, &err)
-	if err != nil {
-		defer C.free(unsafe.Pointer(err))
-		return fmt.Errorf("%v", C.GoString(err))
-	}
-	return nil
-}
-
-func TraverseCDTS(cdts *C.struct_cdts, callbacks *C.struct_traverse_cdts_callbacks) error {
-	var err *C.char = nil
-	C.xllr_traverse_cdts(cdts, callbacks, &err)
-
-	if err != nil {
-		defer C.free(unsafe.Pointer(err))
-		return fmt.Errorf("%v", C.GoString(err))
-	}
-
-	return nil
-}
-
-func TraverseCDT(cdt *C.struct_cdt) error {
-	tcc := NewTraverseCDTSCallbacks()
-	defer C.free(unsafe.Pointer(tcc))
-	var err *C.char = nil
-	C.xllr_traverse_cdt(cdt, tcc, &err)
-
-	if err != nil {
-		defer C.xllr_free_string(err)
-		str := C.GoString(err)
-		return fmt.Errorf("%v", str)
 	}
 
 	return nil

@@ -24,7 +24,7 @@ def python3_runtime_test(target, source, env):
 	try:
 		# execute "tests/run_test.py"
 		os.chdir(test_path)
-		exit_code = env.Execute(f'{scons_utils.python3_executable()} run_test.py')
+		exit_code = env.Execute(f'{scons_utils.python3_executable("3.11")} run_test.py')
 		if exit_code:
 			print(f"unit test failed: exit code {exit_code}", file=sys.stderr)
 			sys.exit(1)
