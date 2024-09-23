@@ -685,7 +685,7 @@ type CDTMetaFFIHandle struct {
 func NewCDTMetaFFIHandle(handle Handle, runtimeID uint64, releaserFunc unsafe.Pointer) *CDTMetaFFIHandle {
 	cstruct := (*C.struct_cdt_metaffi_handle)(C.malloc(C.size_t(unsafe.Sizeof(C.struct_cdt_metaffi_handle{}))))
 	cstruct.handle = C.metaffi_handle(handle)
-	cstruct.runtime_id = C.metaffi_uint64(GO_RUNTIME_ID)
+	cstruct.runtime_id = C.metaffi_uint64(runtimeID)
 	C.set_handle_releaser(cstruct, releaserFunc)
 	return &CDTMetaFFIHandle{Val: cstruct}
 }
