@@ -286,12 +286,6 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 		item.SetTypeVal(C.metaffi_array_type)
 	}
 
-	if knownType != nil {
-		fmt.Printf("+++ found type: %v. Given known type: %v\n", item.GetTypeVal(), knownType.Type)
-	} else {
-		fmt.Printf("+++ found type: %v. No known type.\n", item.GetTypeVal())
-	}
-
 	switch item.GetTypeVal() {
 	case C.metaffi_float64_type:
 		goval := getElement(currentIndex, ctxt.Input)
@@ -403,19 +397,12 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 		} else {
 			val := goVal.Interface()
 			if cdth, ok := val.(*CDTMetaFFIHandle); ok {
-				fmt.Printf("++++++++++ h.Val: %v h.RuntimeID: %v\n", cdth.Val.handle, cdth.Val.runtime_id)
 				item.SetHandleStruct(cdth)
 			} else if h, ok := val.(MetaFFIHandle); ok {
-				fmt.Printf("++++++++++ h.Val: %v h.RuntimeID: %v\n", h.Val, h.RuntimeID)
 				item.SetHandleStruct(NewCDTMetaFFIHandle(h.Val, h.RuntimeID, h.CReleaser))
 			} else {
-
-				fmt.Printf("++++++++++ goVal Type: %v val type: %T\n", goVal.Type(), val)
-
 				newHandle := SetObject(val)
-
 				cdtHandle := NewCDTMetaFFIHandle(newHandle, GO_RUNTIME_ID, GetReleaserCFunction())
-
 				item.SetHandleStruct(cdtHandle)
 			}
 		}
