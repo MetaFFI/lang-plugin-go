@@ -397,8 +397,10 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 		} else {
 			val := goVal.Interface()
 			if cdth, ok := val.(*CDTMetaFFIHandle); ok {
+				fmt.Printf("++++++++++ h.Val: %v h.RuntimeID: %v\n", cdth.Val.handle, cdth.Val.runtime_id)
 				item.SetHandleStruct(cdth)
 			} else if h, ok := val.(MetaFFIHandle); ok {
+				fmt.Printf("++++++++++ h.Val: %v h.RuntimeID: %v\n", h.Val, h.RuntimeID)
 				item.SetHandleStruct(NewCDTMetaFFIHandle(h.Val, h.RuntimeID, h.CReleaser))
 			} else {
 
