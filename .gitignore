@@ -63,4 +63,4 @@ go.sum
 
 # Dependency directories (remove the comment below to include it)
 vendor/
-runtime/SConscript_conandeps
+*SConscript_conandeps*

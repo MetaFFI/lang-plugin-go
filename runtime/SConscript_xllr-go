@@ -9,6 +9,8 @@ import post_actions
 import platform
 import scons_utils
 from site_scons import ALIAS_GO, ALIAS_GO_UNITTESTS
+import sys
+from colorama import Fore
 
 # * Import the parent Environment
 env: SCons.Environment.Environment
@@ -17,7 +19,13 @@ SCons.Script.Import('env')
 
 # * ---- Build XLLR dynamic library ----
 env_xllr_go = env.Clone()
-env_xllr_go.LoadConanPackagesInfo()
+if env_xllr_go.IsWindows():
+	env_xllr_go.LoadConanPackagesInfo('conanfile.txt', 'SConscript_conandeps_windows')
+elif env_xllr_go.IsLinux():
+	env_xllr_go.LoadConanPackagesInfo('conanfile.txt', 'SConscript_conandeps_linux')
+else:
+	print(f'{Fore.RED}Unsupported platform: {platform.system()}{Fore.RESET}')
+	sys.exit(1)
 
 source = env['sdk_src']
 source += [s for s in glob.glob(env_xllr_go.Dir('.').abspath + '/*.cpp') if not s.endswith("_test.cpp")]
@@ -45,7 +53,15 @@ env['xllr_go_dylib'] = xllr_go_dylib
 # * --- Unit Tests ---
 # build test target
 env_go_unitest_file = env.Clone()
-env_go_unitest_file.LoadConanPackagesInfo()
+if env_go_unitest_file.IsWindows():
+	env_go_unitest_file.LoadConanPackagesInfo('conanfile.txt', 'SConscript_conandeps_windows')
+elif env_go_unitest_file.IsLinux():
+	env_go_unitest_file.LoadConanPackagesInfo('conanfile.txt', 'SConscript_conandeps_linux')
+else:
+	print(f'{Fore.RED}Unsupported platform: {platform.system()}{Fore.RESET}')
+	sys.exit(1)
+
+
 create_target = env_go_unitest_file.MetaFFICompileGuest(output_dir=env_go_unitest_file.Dir('.').abspath+f'/test/', source_idl=env_xllr_go.Dir('.').abspath+'/test/TestRuntime.go')
 env_go_unitest_file.Depends(create_target, ALIAS_GO)
 SCons.Script.Alias(ALIAS_GO_UNITTESTS, create_target)
