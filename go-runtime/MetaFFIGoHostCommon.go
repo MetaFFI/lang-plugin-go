@@ -218,7 +218,7 @@ func FromGoToCDT(input interface{}, pvcdt unsafe.Pointer, t IDL.MetaFFITypeInfo,
 	ctxt := &ConstructContext{Input: input, TypeInfo: t, Cdt: CDT{c: pcdt}}
 	gocdt := &CDT{c: pcdt}
 	index := make([]uint64, 0)
-	if err := ConstructCDT(gocdt, index, ctxt, nil); err != nil {
+	if err := ConstructCDT(gocdt, index, ctxt, &t); err != nil {
 		panic(err)
 	}
 }

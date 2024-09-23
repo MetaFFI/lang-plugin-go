@@ -257,7 +257,7 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 		cti._type = C.metaffi_type(knownType.Type)
 
 		if knownType.Alias != "" {
-			cti.alias = nil
+			cti.alias = nil                       // TODO: set alias
 			cti.is_free_alias = C.metaffi_bool(0) // TODO: change to TRUE
 			//		cMetaFFIType.is_free_alias = C.metaffi_bool(1)
 		} else {
@@ -284,6 +284,12 @@ func ConstructCDT(item *CDT, currentIndex []uint64, ctxt *ConstructContext, know
 	if ti._type&C.metaffi_array_type != 0 && ti._type != C.metaffi_array_type {
 		commonType = ti._type &^ C.metaffi_array_type
 		item.SetTypeVal(C.metaffi_array_type)
+	}
+
+	if knownType != nil {
+		fmt.Printf("+++ found type: %v. Given known type: %v\n", item.GetTypeVal(), knownType.Type)
+	} else {
+		fmt.Printf("+++ found type: %v. No known type.\n", item.GetTypeVal())
 	}
 
 	switch item.GetTypeVal() {
