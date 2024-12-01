@@ -250,7 +250,7 @@ func NewCDTSFromCDTS(c *C.struct_cdt, length uint64, fixedDimensions int64) *CDT
 }
 
 func NewCDTSFromSize(arrayLength uint64, fixedDimensions int64) *CDTS {
-	return NewCDTSFromCDTS((*C.struct_cdt)(C.xllr_alloc_memory(C.size_t(arrayLength)*C.size_t(unsafe.Sizeof(C.struct_cdt{})))), arrayLength, fixedDimensions)
+	return NewCDTSFromCDTS((*C.struct_cdt)(C.xllr_alloc_cdt_array(C.uint64_t(arrayLength))), arrayLength, fixedDimensions)
 }
 
 func (cdts *CDTS) GetCDT(index int) *CDT {
