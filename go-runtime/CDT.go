@@ -240,7 +240,7 @@ func NewCDTSFromCDTS(c *C.struct_cdt, length uint64, fixedDimensions int64) *CDT
 	// create new CDTS
 	// place "c" as its array
 
-	pcdts := (*C.struct_cdts)(C.malloc(C.size_t(unsafe.Sizeof(C.struct_cdts{}))))
+	pcdts := (*C.struct_cdts)(C.xllr_alloc_memory(C.size_t(unsafe.Sizeof(C.struct_cdts{}))))
 	pcdts.arr = c
 	pcdts.length = C.metaffi_size(length)
 	pcdts.fixed_dimensions = C.metaffi_int64(fixedDimensions)
@@ -250,7 +250,7 @@ func NewCDTSFromCDTS(c *C.struct_cdt, length uint64, fixedDimensions int64) *CDT
 }
 
 func NewCDTSFromSize(arrayLength uint64, fixedDimensions int64) *CDTS {
-	return NewCDTSFromCDTS((*C.struct_cdt)(C.malloc(C.size_t(arrayLength)*C.size_t(unsafe.Sizeof(C.struct_cdt{})))), arrayLength, fixedDimensions)
+	return NewCDTSFromCDTS((*C.struct_cdt)(C.xllr_alloc_memory(C.size_t(arrayLength)*C.size_t(unsafe.Sizeof(C.struct_cdt{})))), arrayLength, fixedDimensions)
 }
 
 func (cdts *CDTS) GetCDT(index int) *CDT {
@@ -572,7 +572,7 @@ func (cdt *CDT) SetString16(val string) {
 	// convert UTF-16 bytes to C array
 	// use malloc to allocate memory for C array as it goes out of Go's scope
 	// add null terminator
-	cVal := C.malloc(C.size_t(len(utf16Bytes)+1) * C.size_t(2))
+	cVal := C.xllr_alloc_memory(C.size_t(len(utf16Bytes)+1) * C.size_t(2))
 	cdtstr16 := (*[1 << 30]C.char16_t)(cVal)
 	for i, c := range utf16Bytes {
 		cdtstr16[i] = C.char16_t(c)
@@ -608,7 +608,7 @@ func (cdt *CDT) SetString32(val string) {
 	// convert UTF-32 bytes to C array
 	// use malloc to allocate memory for C array as it goes out of Go's scope
 	// add null terminator
-	cVal := C.malloc(C.size_t(len(utf32Bytes)+1) * C.size_t(4))
+	cVal := C.xllr_alloc_memory(C.size_t(len(utf32Bytes)+1) * C.size_t(4))
 	cdtstr32 := (*[1 << 30]C.char32_t)(cVal)
 	for i, c := range utf32Bytes {
 		cdtstr32[i] = C.char32_t(c)
@@ -686,7 +686,7 @@ type CDTMetaFFIHandle struct {
 }
 
 func NewCDTMetaFFIHandle(handle Handle, runtimeID uint64, releaserFunc unsafe.Pointer) *CDTMetaFFIHandle {
-	cstruct := (*C.struct_cdt_metaffi_handle)(C.malloc(C.size_t(unsafe.Sizeof(C.struct_cdt_metaffi_handle{}))))
+	cstruct := (*C.struct_cdt_metaffi_handle)(C.xllr_alloc_memory(C.size_t(unsafe.Sizeof(C.struct_cdt_metaffi_handle{}))))
 	cstruct.handle = C.metaffi_handle(handle)
 	cstruct.runtime_id = C.metaffi_uint64(runtimeID)
 	C.set_handle_releaser(cstruct, releaserFunc)
