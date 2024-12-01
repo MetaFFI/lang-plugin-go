@@ -7,6 +7,7 @@ package metaffi
 
 #include <include/cdt.h>
 #include <include/metaffi_primitives.h>
+#include <include/xllr_capi_loader.h>
 #include <stdlib.h>
 
 metaffi_type get_cdt_type(struct cdt* c) {
@@ -539,7 +540,9 @@ func (cdt *CDT) GetString8() string {
 
 func (cdt *CDT) SetString8(val string) {
 	cVal := C.CString(val)
-	C.set_cdt_string8_val(cdt.c, cVal)
+	pval := C.xllr_alloc_string(cVal, C.uint64_t(len(val)))
+	defer C.free(unsafe.Pointer(cVal))
+	C.set_cdt_string8_val(cdt.c, pval)
 }
 
 func (cdt *CDT) GetString16() string {
