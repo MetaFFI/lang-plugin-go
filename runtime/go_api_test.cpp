@@ -86,6 +86,7 @@ TEST_SUITE("go runtime api")
 		std::string entity_path = "callable=HelloWorld";
 		xcall* phello_world = cppload_function(module_path.string(), entity_path, {}, {});
 		go_xcall_scope_guard(phello_world);
+		REQUIRE((phello_world != nullptr));
 		(*phello_world)(&err);
 		if(err) { FAIL(std::string(err)); }
 	}
@@ -177,7 +178,6 @@ TEST_SUITE("go runtime api")
 		go_xcall_scope_guard(pSomeClassPrint);
 		
 		cdts* pcdts = xllr_alloc_cdts_buffer(0, 1);
-		cdts_scope_guard(pcdts);
 		cdts& pcdts_params = pcdts[0];
 		cdts& pcdts_retvals = pcdts[1];
 
@@ -203,10 +203,11 @@ TEST_SUITE("go runtime api")
 		std::vector<cdt_metaffi_handle*> arr = {pcdts_retvals[0].cdt_val.array_val->arr[0].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val};
+
+		xllr_free_cdts_buffer(pcdts);
 		//--------------------------------------------------------------------
 
 		cdts* pcdts2 = (cdts*)xllr_alloc_cdts_buffer(1, 0);
-		cdts_scope_guard(pcdts2);
 		cdts& pcdts_params2 = pcdts2[0];
 		cdts& pcdts_retvals2 = pcdts2[1];
 
@@ -217,11 +218,11 @@ TEST_SUITE("go runtime api")
 
 		(*pexpectThreeSomeClasses)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
+		xllr_free_cdts_buffer(pcdts2);
 
 		//--------------------------------------------------------------------
 
 		cdts* pcdts3 = (cdts*) xllr_alloc_cdts_buffer(1, 0);
-		cdts_scope_guard(pcdts3);
 		cdts& pcdts_params3 = pcdts3[0];
 		cdts& pcdts_retvals3 = pcdts3[1];
 
@@ -229,6 +230,7 @@ TEST_SUITE("go runtime api")
 
 		(*pSomeClassPrint)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
+		xllr_free_cdts_buffer(pcdts3);
 	}
 
 
