@@ -36,4 +36,8 @@ add_custom_command(TARGET go_api_test POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E remove $ENV{METAFFI_HOME}/xllr.go.dll
 )
 add_dependencies(go_api_test xllr.go build_go_guest)
-add_test(NAME go_api_test COMMAND go_api_test)
+
+add_test(NAME go_api_test
+		COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/test/build_guest.py && $ENV{METAFFI_HOME}/go_api_test)
+
+set(go_api_test go_api_test PARENT_SCOPE)

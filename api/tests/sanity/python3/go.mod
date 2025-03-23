@@ -1,14 +1,14 @@
 module python3
 
 require (
-	github.com/MetaFFI/lang-plugin-go/api v0.3.1-0.20241201140229-0a63ac91f750
-	github.com/MetaFFI/plugin-sdk v0.3.1-0.20241201140803-b2ea4f0b141e
+	github.com/MetaFFI/lang-plugin-go/api v0.3.1-0.20241202175739-6a206f4dee6e
+	github.com/MetaFFI/plugin-sdk v0.3.1-0.20250316104757-ba96a367b4ea
 )
 
 require (
 	github.com/GreenFuze/go-parser v0.0.0-20240414081507-f3897e769e4c // indirect
-	github.com/MetaFFI/lang-plugin-go/compiler v0.3.1-0.20241201140229-0a63ac91f750 // indirect
-	github.com/MetaFFI/lang-plugin-go/go-runtime v0.3.1-0.20241201140229-0a63ac91f750 // indirect
+	github.com/MetaFFI/lang-plugin-go/compiler v0.3.1-0.20241202175739-6a206f4dee6e // indirect
+	github.com/MetaFFI/lang-plugin-go/go-runtime v0.3.1-0.20241202175739-6a206f4dee6e // indirect
 	github.com/MetaFFI/lang-plugin-go/idl v0.0.0-20240630050947-d2f24c54ac0b // indirect
 	github.com/timandy/routine v1.1.4 // indirect
 	golang.org/x/mod v0.17.0 // indirect

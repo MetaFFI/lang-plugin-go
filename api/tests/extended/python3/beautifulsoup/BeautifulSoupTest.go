@@ -240,10 +240,26 @@ func (this *BeautifulSoup) FindAll(tag string) ([]*Tag, error) {
 	if err != nil {
 		return nil, err
 	}
-	handles := returnVals[0].([]metaffi.MetaFFIHandle)
+
+	handles := returnVals[0].(metaffi.MetaFFIHandle)
+	list, err := NewPyListFromHandle(handles)
+	if err != nil {
+		return nil, err
+	}
+
+	listlen, err := list.Len()
+	if err != nil {
+		return nil, err
+	}
+
 	tags := make([]*Tag, 0)
-	for _, handle := range handles {
-		tag, err := NewTag(handle)
+	for i := int64(0); i < listlen.(int64); i++ {
+		handle, err := list.Get(i)
+		if err != nil {
+			return nil, err
+		}
+
+		tag, err := NewTag(handle.(metaffi.MetaFFIHandle))
 		if err != nil {
 			return nil, err
 		}
