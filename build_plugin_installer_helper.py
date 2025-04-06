@@ -120,7 +120,12 @@ def check_prerequisites() -> bool:
 		return False
 	
 	return True
-		
+
+
 def print_prerequisites():
-	print("""Prerequisites:\n\tGo""")
+	pass
+
+
+def get_version():
+	return '0.3.0'
 

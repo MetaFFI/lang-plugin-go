@@ -2,26 +2,6 @@ import importlib
 import sys
 import subprocess
 
-def ensure_package(package_name, pip_package_name=None):
-	try:
-		importlib.import_module(package_name)
-	except ImportError:
-		import subprocess
-		import sys
-		print(f"Installing {package_name}...")
-		
-		if pip_package_name is None:
-			pip_package_name = package_name
-			
-		subprocess.check_call([sys.executable, "-m", "pip", "install", pip_package_name])
-		
-		print(f"{package_name} installed successfully!")
-
-ensure_package("shutil")
-
-
-
-
 import os
 
 if __name__ == "__main__":
