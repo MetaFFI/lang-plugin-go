@@ -13,11 +13,11 @@ def get_files(win_metaffi_home: str, ubuntu_metaffi_home: str) -> Tuple[Dict[str
 
 	pluginname = 'go'
 	
-	win_metaffi_home = win_metaffi_home.replace('\\', '/')
-	ubuntu_metaffi_home = ubuntu_metaffi_home.replace('\\', '/')
+	win_metaffi_home = win_metaffi_home.replace('\\', '/')+f'/{pluginname}/'
+	ubuntu_metaffi_home = ubuntu_metaffi_home.replace('\\', '/')+f'/{pluginname}/'
 
 	# make a backup of go.mod files, as we strip the "replace" directives from them
-	for gomod in glob.glob(f'{win_metaffi_home}/go/**/go.mod', recursive=True):
+	for gomod in glob.glob(f'{win_metaffi_home}/**/go.mod', recursive=True):
 		# make a copy
 		shutil.copy(gomod, gomod+'.bak')
 
@@ -31,21 +31,24 @@ def get_files(win_metaffi_home: str, ubuntu_metaffi_home: str) -> Tuple[Dict[str
 				if not line.startswith('replace'):
 					f.write(line)
 
-	win_files = {}
-	for file in glob.glob(win_metaffi_home + f'/{pluginname}/**', recursive=True):		
-		if os.path.isfile(file) and '__' not in file:
-			file = file.replace('\\', '/')
-			win_files[file.removeprefix(win_metaffi_home+f'/{pluginname}/')] = file
+	win_files = {
+		'xllr.go.dll': win_metaffi_home + 'xllr.go.dll',
+		'metaffi.idl.go.dll': win_metaffi_home + 'metaffi.idl.go.dll',
+		'metaffi.compiler.go.dll': win_metaffi_home + 'metaffi.compiler.go.dll'
+	}
 
-	assert len(win_files) > 0, f'No files found in {win_metaffi_home}/{pluginname}'
+	# for each absolute path in the value of win_files, check if the file exists
+	for key, value in win_files.items():
+		if not os.path.isfile(value):
+			raise FileNotFoundError(f'{value} not found - cannot build the installer')
+		
 
-	ubuntu_files = {}
-	for file in glob.glob(ubuntu_metaffi_home + f'/{pluginname}/**', recursive=True):
-		if os.path.isfile(file) and '__' not in file:
-			file = file.replace('\\', '/')
-			ubuntu_files[file.removeprefix(ubuntu_metaffi_home+f'/{pluginname}/')] = file
-
-	assert len(ubuntu_files) > 0, f'No files found in {ubuntu_metaffi_home}/{pluginname}'
+	ubuntu_files = {
+		'xllr.go.so': ubuntu_metaffi_home + 'xllr.go.so',
+		'metaffi.idl.go.so': ubuntu_metaffi_home + 'metaffi.idl.go.so',
+		'metaffi.compiler.go.so': ubuntu_metaffi_home + 'metaffi.compiler.go.so',
+		'libboost_filesystem.so.1.87.0': ubuntu_metaffi_home + 'libboost_filesystem.so.1.87.0'
+	}
 
 	# * copy the api tests
 	current_script_dir = os.path.dirname(os.path.abspath(__file__))

@@ -16,7 +16,6 @@ go_build(metaffi.idl.go
 )
 set(metaffi.idl.go metaffi.idl.go PARENT_SCOPE)
 
-
 # go test for metaffi.compiler.go
 add_test(NAME metaffi_idl_go_test
 		COMMAND go test
