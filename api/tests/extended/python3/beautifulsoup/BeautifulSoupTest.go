@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/MetaFFI/lang-plugin-go/api"
 	metaffi "github.com/MetaFFI/lang-plugin-go/go-runtime"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 var runtime *api.MetaFFIRuntime
@@ -273,7 +273,7 @@ func (this *BeautifulSoup) FindAll(tag string) ([]*Tag, error) {
 //--------------------------------------------------------------------
 
 func main() {
-	runtime = api.NewMetaFFIRuntime("python311")
+	runtime = api.NewMetaFFIRuntime("python3")
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)

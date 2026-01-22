@@ -5,14 +5,14 @@ import (
 	"os"
 
 	"github.com/MetaFFI/lang-plugin-go/api"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 var runtime *api.MetaFFIRuntime
 var mod *api.MetaFFIModule
 
 func main() {
-	runtime = api.NewMetaFFIRuntime("python311")
+	runtime = api.NewMetaFFIRuntime("python3")
 
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {

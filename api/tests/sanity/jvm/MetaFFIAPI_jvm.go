@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/MetaFFI/lang-plugin-go/api"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 var runtime *api.MetaFFIRuntime
@@ -14,7 +14,7 @@ var testMapModule *api.MetaFFIModule
 
 func main() {
 
-	runtime = api.NewMetaFFIRuntime("openjdk")
+	runtime = api.NewMetaFFIRuntime("jvm")
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)

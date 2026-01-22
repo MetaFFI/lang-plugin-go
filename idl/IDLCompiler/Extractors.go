@@ -1,7 +1,7 @@
 package IDLCompiler
 
 import (
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 	"strings"
 )
 

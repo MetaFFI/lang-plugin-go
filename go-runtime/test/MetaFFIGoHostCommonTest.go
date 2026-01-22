@@ -4,7 +4,7 @@ import "C"
 import (
 	"fmt"
 	. "github.com/MetaFFI/lang-plugin-go/go-runtime"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 	_ "net/http/pprof" // Import to register pprof handlers
 	"os"
 	"reflect"

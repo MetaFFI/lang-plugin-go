@@ -1,6 +1,8 @@
 
 # add SDK
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/plugin-sdk")
+if(NOT DEFINED sdk_src)
+	message(FATAL_ERROR "sdk_src is not defined. Ensure sdk/CMakeLists.txt is added before lang-plugin-go.")
+endif()
 
 # runtime
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/runtime")

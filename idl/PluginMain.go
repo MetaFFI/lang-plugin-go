@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/MetaFFI/lang-plugin-go/idl/IDLCompiler"
-	compiler "github.com/MetaFFI/plugin-sdk/compiler/go"
+	"github.com/MetaFFI/sdk/compiler/go/plugin"
 )
 
 import "C"
@@ -11,7 +11,7 @@ import "C"
 //
 //export init_plugin
 func init_plugin() {
-	compiler.CreateIDLPluginInterfaceHandler(IDLCompiler.NewGoIDLCompiler())
+	plugin.CreateIDLPluginInterfaceHandler(IDLCompiler.NewGoIDLCompiler())
 }
 
 //--------------------------------------------------------------------

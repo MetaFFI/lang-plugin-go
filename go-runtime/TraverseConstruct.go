@@ -20,7 +20,7 @@ void GoMetaFFIHandleTocdt_metaffi_handle(struct cdt_metaffi_handle* p , void* ha
 import "C"
 import (
 	"fmt"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 	"reflect"
 	"unsafe"
 )

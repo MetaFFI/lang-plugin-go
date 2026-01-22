@@ -59,7 +59,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 func init() {

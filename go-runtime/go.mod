@@ -1,10 +1,10 @@
 module github.com/MetaFFI/lang-plugin-go/go-runtime
 
-go 1.21
+go 1.23.0
 
-toolchain go1.22.0
+toolchain go1.24.4
 
-require github.com/MetaFFI/plugin-sdk v0.1.2
+require github.com/MetaFFI/sdk/idl_entities/go v0.0.0
 
 // for tests
-replace github.com/MetaFFI/plugin-sdk => ../plugin-sdk
+replace github.com/MetaFFI/sdk/idl_entities/go => ../../sdk/idl_entities/go

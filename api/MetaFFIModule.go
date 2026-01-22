@@ -7,7 +7,7 @@ import (
 	"unsafe"
 
 	goruntime "github.com/MetaFFI/lang-plugin-go/go-runtime"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 type MetaFFIModule struct {

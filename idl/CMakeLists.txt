@@ -1,7 +1,3 @@
-# load conan packages
-find_or_install_package(Boost COMPONENTS filesystem)
-find_or_install_package(doctest)
-
 
 # build Go metaffi.compiler.go dynamic library
 go_build(metaffi.idl.go

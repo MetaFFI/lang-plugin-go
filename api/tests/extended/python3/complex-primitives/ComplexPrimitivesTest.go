@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/MetaFFI/lang-plugin-go/api"
 	metaffi "github.com/MetaFFI/lang-plugin-go/go-runtime"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 var runtime *api.MetaFFIRuntime
@@ -216,7 +216,7 @@ func (this *PyDict) Len() (int64, error) {
 func main() {
 
 	// load runtime
-	runtime = api.NewMetaFFIRuntime("python311")
+	runtime = api.NewMetaFFIRuntime("python3")
 	err := runtime.LoadRuntimePlugin()
 	if err != nil {
 		panic(err)

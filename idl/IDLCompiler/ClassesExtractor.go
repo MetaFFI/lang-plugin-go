@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/GreenFuze/go-parser"
-	"github.com/MetaFFI/plugin-sdk/compiler/go/IDL"
+	"github.com/MetaFFI/sdk/idl_entities/go/IDL"
 )
 
 var classes map[string]*IDL.ClassDefinition

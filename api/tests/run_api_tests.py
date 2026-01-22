@@ -83,8 +83,8 @@ def run_unittest(script_path):
 		# Java JUnit test
 		junit_jar = os.path.join(current_path, 'junit-platform-console-standalone-1.10.2.jar')
 		hamcrest_jar = os.path.join(current_path, 'hamcrest-core-1.3.jar')
-		bridge_jar = os.path.join(os.environ['METAFFI_HOME']+'/openjdk/', 'xllr.openjdk.bridge.jar')
-		api_jar = os.path.join(os.environ['METAFFI_HOME']+'/openjdk/', 'metaffi.api.jar')
+		bridge_jar = os.path.join(os.environ['METAFFI_HOME']+'/jvm/', 'xllr.jvm.bridge.jar')
+		api_jar = os.path.join(os.environ['METAFFI_HOME']+'/jvm/', 'metaffi.api.jar')
 		class_name = os.path.splitext(os.path.basename(script_path))[0]
 		class_path = f'.{os.pathsep}{junit_jar}{os.pathsep}{hamcrest_jar}{os.pathsep}{bridge_jar}{os.pathsep}{api_jar}'
 		
@@ -101,7 +101,7 @@ def run_unittest(script_path):
 		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
 		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
 
-		goget_command = ['go', 'get', '-v', 'github.com/MetaFFI/plugin-sdk@main']
+		goget_command = ['go', 'get', '-v', 'github.com/MetaFFI/sdk/idl_entities/go@main']
 		print(f'{Fore.BLUE}{terminal_path} - {" ".join(goget_command)}{Fore.RESET}')
 		subprocess.run(goget_command, check=True, cwd=os.path.dirname(script_path))
 
@@ -154,55 +154,55 @@ def is_plugin_installed(plugin_name: str) -> bool:
 
 # --------------------------------------------
 
-if not is_plugin_installed('python311') and not is_plugin_installed('openjdk'):
+if not is_plugin_installed('python3') and not is_plugin_installed('jvm'):
 	print(f'{Fore.RED}No other plugins installed. Skipping tests.{Fore.RESET}')
 	sys.exit(0)
 
-if is_plugin_installed('python311'):
-	# run Go -> python3.11 tests
-	print(f'{Fore.MAGENTA}Testing Sanity Go -> Python3.11{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
+if is_plugin_installed('python3'):
+        # run Go -> python3 tests
+        print(f'{Fore.MAGENTA}Testing Sanity Go -> Python3{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
 
 	# Define the paths to the scripts to be run
-	test_sanity_python311_path = os.path.join(current_path, 'sanity', 'python3', 'MetaFFIAPI_python3.go')
+        test_sanity_python3_path = os.path.join(current_path, 'sanity', 'python3', 'MetaFFIAPI_python3.go')
 
 	# Run the scripts
-	run_unittest(test_sanity_python311_path)
+        run_unittest(test_sanity_python3_path)
 
-	print(f'{Fore.MAGENTA}Testing Sanity Go -> Python3.11{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
+        print(f'{Fore.MAGENTA}Testing Sanity Go -> Python3{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
 
 # --------------------------------------------
 
-# run Go -> OpenJDK tests
-if is_plugin_installed('openjdk'):
+# run Go -> JVM tests
+if is_plugin_installed('jvm'):
 	if platform.system() != 'Windows':
-		print(f'{Fore.MAGENTA}Testing Sanity Go -> OpenJDK{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
+		print(f'{Fore.MAGENTA}Testing Sanity Go -> JVM{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
 		
 		# Define the paths to the scripts to be run
-		build_sanity_go_script_path = os.path.join(current_path, 'sanity', 'openjdk', 'compile_java.py')
+		build_sanity_go_script_path = os.path.join(current_path, 'sanity', 'jvm', 'compile_java.py')
 		
 		run_script(build_sanity_go_script_path)
 		
-		if os.path.exists(os.path.join(current_path, 'sanity', 'openjdk', 'TestRuntime.class')):
-			dest_dir = os.path.join(current_path, 'sanity', 'openjdk', 'sanity')
+		if os.path.exists(os.path.join(current_path, 'sanity', 'jvm', 'TestRuntime.class')):
+			dest_dir = os.path.join(current_path, 'sanity', 'jvm', 'sanity')
 			if not os.path.exists(dest_dir):
 				os.makedirs(dest_dir)
 			
-			src_file = os.path.join(current_path, 'sanity', 'openjdk', 'TestRuntime.class')
+			src_file = os.path.join(current_path, 'sanity', 'jvm', 'TestRuntime.class')
 			dest_file = os.path.join(dest_dir, 'TestRuntime.class')
 			shutil.move(src_file, dest_file)
 			
-			src_file = os.path.join(current_path, 'sanity', 'openjdk', 'TestMap.class')
+			src_file = os.path.join(current_path, 'sanity', 'jvm', 'TestMap.class')
 			dest_file = os.path.join(dest_dir, 'TestMap.class')
 			shutil.move(src_file, dest_file)
 			
-		test_sanity_go_path = os.path.join(current_path, 'sanity', 'openjdk', 'MetaFFIAPI_openjdk.go')
+		test_sanity_go_path = os.path.join(current_path, 'sanity', 'jvm', 'MetaFFIAPI_jvm.go')
 		
 		
 		run_unittest(test_sanity_go_path)
 		
-		print(f'{Fore.MAGENTA}Testing Sanity Go -> OpenJDK{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
+		print(f'{Fore.MAGENTA}Testing Sanity Go -> JVM{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
 	else:
-		print(f'{Fore.MAGENTA}Testing Sanity Go -> OpenJDK{Fore.RESET} - {Fore.RED}SKIPPING due to Go bug in loading JVM in windows (https://github.com/golang/go/issues/58542){Fore.RESET}')
+		print(f'{Fore.MAGENTA}Testing Sanity Go -> JVM{Fore.RESET} - {Fore.RED}SKIPPING due to Go bug in loading JVM in windows (https://github.com/golang/go/issues/58542){Fore.RESET}')
 
 # --------------------------------------------
 
@@ -212,11 +212,11 @@ if is_plugin_installed('openjdk'):
 
 # run Go -> python3.11 tests
 
-if is_plugin_installed('python311'):
+if is_plugin_installed('python3'):
 	ensure_package("bs4")
 	ensure_package("requests")
 
-	print(f'{Fore.MAGENTA}Testing Extended Go -> Python3.11{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
+        print(f'{Fore.MAGENTA}Testing Extended Go -> Python3{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
 
 	# Define the path to the unittest script
 	test_extended_bs4_path = os.path.join(current_path, 'extended', 'python3', 'beautifulsoup', 'BeautifulSoupTest.go')
@@ -225,20 +225,20 @@ if is_plugin_installed('python311'):
 	test_extended_py_complex_primitives_path = os.path.join(current_path, 'extended', 'python3', 'complex-primitives', 'ComplexPrimitivesTest.go')
 	run_unittest(test_extended_py_complex_primitives_path)
 
-	print(f'{Fore.MAGENTA}Testing Extended Go -> Python3.11{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
+        print(f'{Fore.MAGENTA}Testing Extended Go -> Python3{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
 
 # --------------------------------------------
 
-if is_plugin_installed('openjdk'):
-	# run Go -> OpenJDK tests
+if is_plugin_installed('jvm'):
+	# run Go -> JVM tests
 	if platform.system() != 'Windows':
-		print(f'{Fore.MAGENTA}Testing Extended Go -> OpenJDK{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
+		print(f'{Fore.MAGENTA}Testing Extended Go -> JVM{Fore.RESET} - {Fore.YELLOW}RUNNING{Fore.RESET}')
 		
 		# Define the paths to the scripts to be run
-		test_extended_openjdk_bytes_arrays_path = os.path.join(current_path, 'extended', 'openjdk', 'log4j', 'Log4j.go')
-		run_unittest(test_extended_openjdk_bytes_arrays_path)
+		test_extended_jvm_bytes_arrays_path = os.path.join(current_path, 'extended', 'jvm', 'log4j', 'Log4j.go')
+		run_unittest(test_extended_jvm_bytes_arrays_path)
 		
-		print(f'{Fore.MAGENTA}Testing Extended Go -> OpenJDK{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
+		print(f'{Fore.MAGENTA}Testing Extended Go -> JVM{Fore.RESET} - {Fore.GREEN}PASSED{Fore.RESET}')
 	else:
-		print(f'{Fore.MAGENTA}Testing Sanity Go -> OpenJDK{Fore.RESET} - {Fore.RED}SKIPPING due to Go bug in loading JVM in windows (https://github.com/golang/go/issues/58542){Fore.RESET}')
+		print(f'{Fore.MAGENTA}Testing Sanity Go -> JVM{Fore.RESET} - {Fore.RED}SKIPPING due to Go bug in loading JVM in windows (https://github.com/golang/go/issues/58542){Fore.RESET}')
 

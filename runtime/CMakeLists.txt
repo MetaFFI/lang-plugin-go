@@ -27,7 +27,7 @@ add_custom_target(build_go_guest DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/test/TestRu
 
 # run go_api_test.cpp doctest unit test
 c_cpp_exe(go_api_test
-		"${xllr.openjdk_src};${sdk_src};go_api_test.cpp"
+		"${xllr.go_src};${sdk_src};go_api_test.cpp"
 		"${sdk_include_dir};${Boost_INCLUDE_DIRS};${doctest_INCLUDE_DIRS};"
 		"doctest::doctest;Boost::filesystem;xllr.go"
 		".")
