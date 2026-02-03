@@ -16,11 +16,8 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/idl")
 # compiler
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/compiler")
 
-# api
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/api")
-
 add_custom_target(go ALL
-	DEPENDS xllr.go metaffi.compiler.go metaffi.idl.go go_api_test
+	DEPENDS xllr.go metaffi.compiler.go metaffi.idl.go
 )
 set_target_properties(go PROPERTIES EXCLUDE_FROM_ALL TRUE)
 

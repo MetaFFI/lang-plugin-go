@@ -14,7 +14,6 @@ require (
 	golang.org/x/text v0.18.0 // indirect
 )
 
-replace github.com/MetaFFI/sdk/idl_entities/go => ../../../../../../sdk/idl_entities/go
 
 // for debug - uncomment
 //replace github.com/MetaFFI/lang-plugin-go/api => ../../../../api

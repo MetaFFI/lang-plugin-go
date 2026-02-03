@@ -21,7 +21,6 @@ require (
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 )
 
-replace github.com/MetaFFI/sdk/idl_entities/go => ../../../../../../sdk/idl_entities/go
 
 // for debug - uncomment
 //replace github.com/MetaFFI/lang-plugin-go/api => ../../../../api

@@ -6,4 +6,3 @@ toolchain go1.24.4
 
 require github.com/MetaFFI/sdk/compiler/go v0.0.0
 
-replace github.com/MetaFFI/sdk/compiler/go => ../../sdk/compiler/go

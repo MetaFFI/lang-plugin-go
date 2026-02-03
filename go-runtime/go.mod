@@ -7,4 +7,3 @@ toolchain go1.24.4
 require github.com/MetaFFI/sdk/idl_entities/go v0.0.0
 
 // for tests
-replace github.com/MetaFFI/sdk/idl_entities/go => ../../sdk/idl_entities/go

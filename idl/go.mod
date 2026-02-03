@@ -16,8 +16,5 @@ require (
 	golang.org/x/tools v0.35.0 // indirect
 )
 
-replace github.com/MetaFFI/sdk/compiler/go => ../../sdk/compiler/go
 
-replace github.com/MetaFFI/sdk/idl_entities/go => ../../sdk/idl_entities/go
 
-replace github.com/GreenFuze/go-parser => ../../../GreenFuze/go-parser

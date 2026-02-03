@@ -4,6 +4,9 @@
 #include <filesystem>
 #include <runtime/runtime_plugin_api.h>
 #include <utils/scope_guard.hpp>
+#include <utils/logger.hpp>
+
+static auto LOG = metaffi::get_logger("go.runtime");
 
 std::string original;
 std::filesystem::path module_path;
@@ -30,14 +33,14 @@ struct GlobalSetup {
 
 		if(std::getenv("METAFFI_HOME") == nullptr)
 		{
-			std::cerr << "METAFFI_HOME" << " is not set" << std::endl;
+			METAFFI_ERROR(LOG, "METAFFI_HOME is not set");
 			exit(1);
 		}
 		
 		const char* err = load_xllr();
 		if(err)
 		{
-			std::cerr << "failed to load XLLR functions: " << err << std::endl;
+			METAFFI_ERROR(LOG, "failed to load XLLR functions: {}", err);
 			exit(1);
 		}
 		
