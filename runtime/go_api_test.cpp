@@ -76,7 +76,7 @@ xcall* cppload_function(const std::string& mod_path,
 	}
 	REQUIRE((err_len_load == 0));
 	REQUIRE((pxcall->pxcall_and_context[0] != nullptr));
-	REQUIRE((pxcall->pxcall_and_context[1] == nullptr));// no context in Go
+	// pxcall_and_context[1] holds GoXCallHolder (module + entity) for lifetime
 
 	return pxcall;
 };

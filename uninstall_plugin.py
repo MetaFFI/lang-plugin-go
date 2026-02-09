@@ -38,7 +38,7 @@ if __name__ == "__main__":
 	metaffi_home = os.getenv('METAFFI_HOME')
 	assert metaffi_home is not None, 'METAFFI_HOME is not set'
 	
-	plugins_dir = os.path.join(metaffi_home, 'python3')
+	plugins_dir = os.path.join(metaffi_home, 'go')
 	
 	# remove the plugins directory
 	shutil.rmtree(plugins_dir)

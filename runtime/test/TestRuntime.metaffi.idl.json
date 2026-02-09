@@ -1,0 +1,626 @@
+{
+  "idl_source": "TestRuntime",
+  "idl_extension": ".go",
+  "idl_filename_with_extension": "TestRuntime.go",
+  "idl_full_path": "TestRuntime.go",
+  "metaffi_guest_lib": "TestRuntime_MetaFFIGuest",
+  "target_language": "go",
+  "modules": [
+    {
+      "name": "TestRuntime",
+      "comment": "",
+      "tags": {},
+      "functions": [
+        {
+          "name": "HelloWorld",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "HelloWorld",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [],
+          "return_values": [],
+          "overload_index": 0
+        },
+        {
+          "name": "ReturnsAnError",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "ReturnsAnError",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [],
+          "return_values": [],
+          "overload_index": 0
+        },
+        {
+          "name": "DivIntegers",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "DivIntegers",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [
+            {
+              "name": "x",
+              "type": "int64",
+              "type_alias": "int",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false
+            },
+            {
+              "name": "y",
+              "type": "int64",
+              "type_alias": "int",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false
+            }
+          ],
+          "return_values": [
+            {
+              "name": "ret",
+              "type": "float32",
+              "type_alias": "float32",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false
+            }
+          ],
+          "overload_index": 0
+        },
+        {
+          "name": "JoinStrings",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "JoinStrings",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [
+            {
+              "name": "arrs",
+              "type": "string8",
+              "type_alias": "[]string",
+              "comment": "",
+              "tags": {},
+              "dimensions": 1,
+              "is_optional": false
+            }
+          ],
+          "return_values": [
+            {
+              "name": "ret",
+              "type": "string8",
+              "type_alias": "string",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false
+            }
+          ],
+          "overload_index": 0
+        },
+        {
+          "name": "WaitABit",
+          "comment": "",
+          "tags": {
+            "has_error_return": "true"
+          },
+          "entity_path": {
+            "callable": "WaitABit",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [
+            {
+              "name": "d",
+              "type": "int64",
+              "type_alias": "time.Duration",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false
+            }
+          ],
+          "return_values": [],
+          "overload_index": 0
+        },
+        {
+          "name": "GetSomeClasses",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "GetSomeClasses",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [],
+          "return_values": [
+            {
+              "name": "ret",
+              "type": "handle",
+              "type_alias": "[]SomeClass",
+              "comment": "",
+              "tags": {},
+              "dimensions": 1,
+              "is_optional": false
+            }
+          ],
+          "overload_index": 0
+        },
+        {
+          "name": "ExpectThreeSomeClasses",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "ExpectThreeSomeClasses",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [
+            {
+              "name": "arr",
+              "type": "handle",
+              "type_alias": "[]SomeClass",
+              "comment": "",
+              "tags": {},
+              "dimensions": 1,
+              "is_optional": false
+            }
+          ],
+          "return_values": [],
+          "overload_index": 0
+        },
+        {
+          "name": "ExpectThreeBuffers",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "ExpectThreeBuffers",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [
+            {
+              "name": "buffers",
+              "type": "uint8",
+              "type_alias": "[][]byte",
+              "comment": "",
+              "tags": {},
+              "dimensions": 2,
+              "is_optional": false
+            }
+          ],
+          "return_values": [],
+          "overload_index": 0
+        },
+        {
+          "name": "GetThreeBuffers",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "GetThreeBuffers",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [],
+          "return_values": [
+            {
+              "name": "ret",
+              "type": "uint8",
+              "type_alias": "[][]byte",
+              "comment": "",
+              "tags": {},
+              "dimensions": 2,
+              "is_optional": false
+            }
+          ],
+          "overload_index": 0
+        },
+        {
+          "name": "NewTestMap",
+          "comment": "",
+          "tags": {},
+          "entity_path": {
+            "callable": "NewTestMap",
+            "module": "TestRuntime.go",
+            "package": "TestRuntime"
+          },
+          "parameters": [],
+          "return_values": [
+            {
+              "name": "ret",
+              "type": "handle",
+              "type_alias": "*TestMap",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false
+            }
+          ],
+          "overload_index": 0
+        }
+      ],
+      "classes": [
+        {
+          "name": "SomeClass",
+          "comment": "",
+          "tags": {},
+          "entity_path": null,
+          "constructors": [],
+          "release": {
+            "name": "ReleaseSomeClass",
+            "comment": "Releases object",
+            "tags": {},
+            "entity_path": {},
+            "parameters": [
+              {
+                "name": "this_instance",
+                "type": "handle",
+                "type_alias": "",
+                "comment": "",
+                "tags": {},
+                "dimensions": 0,
+                "is_optional": false
+              }
+            ],
+            "return_values": [],
+            "overload_index": 0,
+            "instance_required": true
+          },
+          "methods": [
+            {
+              "name": "Print",
+              "comment": "",
+              "tags": {
+                "receiver_pointer": "false"
+              },
+              "entity_path": {
+                "callable": "SomeClass.Print",
+                "module": "TestRuntime.go",
+                "package": "TestRuntime"
+              },
+              "parameters": [
+                {
+                  "name": "this_instance",
+                  "type": "handle",
+                  "type_alias": "",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "return_values": [],
+              "overload_index": 0,
+              "instance_required": true
+            }
+          ],
+          "fields": []
+        },
+        {
+          "name": "TestMap",
+          "comment": "",
+          "tags": {},
+          "entity_path": null,
+          "constructors": [
+            {
+              "name": "NewTestMap",
+              "comment": "",
+              "tags": {},
+              "entity_path": {
+                "callable": "NewTestMap",
+                "module": "TestRuntime.go",
+                "package": "TestRuntime"
+              },
+              "parameters": [],
+              "return_values": [
+                {
+                  "name": "ret",
+                  "type": "handle",
+                  "type_alias": "*TestMap",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "overload_index": 1
+            }
+          ],
+          "release": {
+            "name": "ReleaseTestMap",
+            "comment": "Releases object",
+            "tags": {},
+            "entity_path": {},
+            "parameters": [
+              {
+                "name": "this_instance",
+                "type": "handle",
+                "type_alias": "",
+                "comment": "",
+                "tags": {},
+                "dimensions": 0,
+                "is_optional": false
+              }
+            ],
+            "return_values": [],
+            "overload_index": 0,
+            "instance_required": true
+          },
+          "methods": [
+            {
+              "name": "Set",
+              "comment": "",
+              "tags": {
+                "receiver_pointer": "true"
+              },
+              "entity_path": {
+                "callable": "TestMap.Set",
+                "module": "TestRuntime.go",
+                "package": "TestRuntime"
+              },
+              "parameters": [
+                {
+                  "name": "this_instance",
+                  "type": "handle",
+                  "type_alias": "",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                },
+                {
+                  "name": "k",
+                  "type": "string8",
+                  "type_alias": "string",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                },
+                {
+                  "name": "v",
+                  "type": "any",
+                  "type_alias": "interface{}",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "return_values": [],
+              "overload_index": 0,
+              "instance_required": true
+            },
+            {
+              "name": "Get",
+              "comment": "",
+              "tags": {
+                "receiver_pointer": "true"
+              },
+              "entity_path": {
+                "callable": "TestMap.Get",
+                "module": "TestRuntime.go",
+                "package": "TestRuntime"
+              },
+              "parameters": [
+                {
+                  "name": "this_instance",
+                  "type": "handle",
+                  "type_alias": "",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                },
+                {
+                  "name": "k",
+                  "type": "string8",
+                  "type_alias": "string",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "return_values": [
+                {
+                  "name": "ret",
+                  "type": "any",
+                  "type_alias": "interface{}",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "overload_index": 0,
+              "instance_required": true
+            },
+            {
+              "name": "Contains",
+              "comment": "",
+              "tags": {
+                "receiver_pointer": "true"
+              },
+              "entity_path": {
+                "callable": "TestMap.Contains",
+                "module": "TestRuntime.go",
+                "package": "TestRuntime"
+              },
+              "parameters": [
+                {
+                  "name": "this_instance",
+                  "type": "handle",
+                  "type_alias": "",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                },
+                {
+                  "name": "k",
+                  "type": "string8",
+                  "type_alias": "string",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "return_values": [
+                {
+                  "name": "ret",
+                  "type": "bool",
+                  "type_alias": "bool",
+                  "comment": "",
+                  "tags": {},
+                  "dimensions": 0,
+                  "is_optional": false
+                }
+              ],
+              "overload_index": 0,
+              "instance_required": true
+            }
+          ],
+          "fields": [
+            {
+              "name": "Name",
+              "type": "string8",
+              "type_alias": "string",
+              "comment": "",
+              "tags": {},
+              "dimensions": 0,
+              "is_optional": false,
+              "getter": {
+                "name": "GetName",
+                "comment": "",
+                "tags": {
+                  "receiver_pointer": "true"
+                },
+                "entity_path": {
+                  "field": "TestMap.Name",
+                  "getter": "true",
+                  "module": "TestRuntime.go",
+                  "package": "TestRuntime"
+                },
+                "parameters": [
+                  {
+                    "name": "this_instance",
+                    "type": "handle",
+                    "type_alias": "",
+                    "comment": "",
+                    "tags": {},
+                    "dimensions": 0,
+                    "is_optional": false
+                  }
+                ],
+                "return_values": [
+                  {
+                    "name": "Name",
+                    "type": "string8",
+                    "type_alias": "string",
+                    "comment": "",
+                    "tags": {},
+                    "dimensions": 0,
+                    "is_optional": false
+                  }
+                ],
+                "overload_index": 0,
+                "instance_required": true
+              },
+              "setter": {
+                "name": "SetName",
+                "comment": "",
+                "tags": {
+                  "receiver_pointer": "true"
+                },
+                "entity_path": {
+                  "field": "TestMap.Name",
+                  "module": "TestRuntime.go",
+                  "package": "TestRuntime",
+                  "setter": "true"
+                },
+                "parameters": [
+                  {
+                    "name": "this_instance",
+                    "type": "handle",
+                    "type_alias": "",
+                    "comment": "",
+                    "tags": {},
+                    "dimensions": 0,
+                    "is_optional": false
+                  },
+                  {
+                    "name": "Name",
+                    "type": "string8",
+                    "type_alias": "string",
+                    "comment": "",
+                    "tags": {},
+                    "dimensions": 0,
+                    "is_optional": false
+                  }
+                ],
+                "return_values": [],
+                "overload_index": 0,
+                "instance_required": true
+              }
+            }
+          ]
+        }
+      ],
+      "globals": [
+        {
+          "name": "FiveSeconds",
+          "type": "any",
+          "type_alias": "any",
+          "comment": "",
+          "tags": {},
+          "dimensions": 0,
+          "is_optional": false,
+          "getter": {
+            "name": "GetFiveSeconds",
+            "comment": "",
+            "tags": {},
+            "entity_path": {
+              "getter": "true",
+              "global": "FiveSeconds",
+              "module": "TestRuntime.go",
+              "package": "TestRuntime"
+            },
+            "parameters": [],
+            "return_values": [
+              {
+                "name": "FiveSeconds",
+                "type": "any",
+                "type_alias": "any",
+                "comment": "",
+                "tags": {},
+                "dimensions": 0,
+                "is_optional": false
+              }
+            ],
+            "overload_index": 0
+          },
+          "setter": null
+        }
+      ],
+      "external_resources": [
+        "time"
+      ]
+    }
+  ]
+}

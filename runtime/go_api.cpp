@@ -1,113 +1,299 @@
 #include <runtime/runtime_plugin_api.h>
 #include <utils/scope_guard.hpp>
-#include <boost/thread.hpp>
-#include "functions_repository.h"
 #include <utils/entity_path_parser.h>
+#include <runtime_manager/go/runtime_manager.h>
+#include <runtime_manager/go/module.h>
+#include <runtime_manager/go/entity.h>
+
+#include <memory>
+#include <unordered_map>
+#include <mutex>
+#include <sstream>
+#include <cstring>
+#include <iostream>
+
+#include <boost/algorithm/string.hpp>
+
+#define GO_PLUGIN_LOG(msg) (std::cerr << "[go_plugin] " << msg << std::endl)
 
 using namespace metaffi::utils;
 
-#define handle_err(err, desc) \
-	{auto err_len = strlen( desc ); \
-	*err = (char*)malloc(err_len + 1); \
-	std::copy(desc, desc + err_len, *err);   \
-    (*err)[err_len] = '\0';}
+namespace
+{
+	void set_err(char** err, const char* msg)
+	{
+		if (err == nullptr) return;
+		const std::size_t len = std::strlen(msg);
+		char* buf = static_cast<char*>(malloc(len + 1));
+		if (buf) {
+			std::memcpy(buf, msg, len + 1);
+			*err = buf;
+		}
+	}
 
-#define catch_err(err, err_len, desc) \
-catch(std::exception& exc) \
-{\
-	handle_err(err, err_len, desc);\
+	// Keeps Module and Entity alive for the lifetime of the xcall
+	struct GoXCallHolder
+	{
+		std::shared_ptr<Module> module;
+		std::shared_ptr<Entity> entity;
+	};
+
+	// Single global runtime manager (Go has no external runtime to load)
+	go_runtime_manager& get_go_manager()
+	{
+		static go_runtime_manager manager;
+		return manager;
+	}
+
+	// Cache loaded modules by path so we don't load the same library multiple times
+	std::unordered_map<std::string, std::shared_ptr<Module>>& get_module_cache()
+	{
+		static std::unordered_map<std::string, std::shared_ptr<Module>> cache;
+		return cache;
+	}
+
+	static std::mutex g_module_cache_mutex;
+
+	// Build Go guest entrypoint symbol name from entity_path (e.g. "EntryPoint_HelloWorld")
+	std::string build_entrypoint_name(const char* entity_path)
+	{
+		entity_path_parser fpp(entity_path);
+		std::stringstream fp;
+		fp << "EntryPoint_";
+
+		if (fpp.contains("callable"))
+		{
+			std::string callable_name = fpp["callable"];
+			boost::replace_all(callable_name, ".", "_");
+			fp << callable_name;
+			if (callable_name.size() >= 12 && callable_name.substr(callable_name.size() - 12) == "_EmptyStruct")
+				fp << "_MetaFFI";
+		}
+		else if (fpp.contains("global"))
+		{
+			if (fpp.contains("getter")) fp << "Get";
+			else if (fpp.contains("setter")) fp << "Set";
+			else throw std::runtime_error("global action is not specified (getter/setter)");
+			fp << fpp["global"];
+		}
+		else if (fpp.contains("field"))
+		{
+			std::string action = fpp.contains("getter") ? "_Get" : fpp.contains("setter") ? "_Set" : "";
+			if (action.empty()) throw std::runtime_error("field action is not specified (getter/setter)");
+			std::string fieldName = fpp["field"];
+			boost::replace_all(fieldName, ".", action);
+			fp << fieldName;
+		}
+		else
+			throw std::runtime_error("entity_path must contain callable, global, or field");
+
+		return fp.str();
+	}
 }
-
-#define handle_err_str(err, err_len, descstr) \
-	*err_len = descstr.length(); \
-	*err = (char*)malloc(*err_len + 1); \
-	descstr.copy(*err, *err_len, 0); \
-	memset((*err+*err_len), 0, 1);
-
-
-#define TRUE 1
-#define FALSE 0
-
-#define GO_RUNTIME "go_runtime"
-#define GO_RUNTIME_LENGTH 10
-
-boost::mutex runtime_flags_lock;
-
 
 //--------------------------------------------------------------------
 void load_runtime(char** err)
 {
-	// go runtime loads when loading the module
+	// No-op: Go compiles to standalone binaries; there is no external runtime to load.
+	(void)err;
 }
+
 //--------------------------------------------------------------------
-void free_runtime(char** /*err*/){ /* No runtime free */ }
+void free_runtime(char** err)
+{
+	// No-op: Go shared libraries cannot be unloaded (dlclose limitation).
+	(void)err;
+}
+
 //--------------------------------------------------------------------
 xcall* load_entity(const char* module_path, const char* entity_path, metaffi_type_info* params_types, int8_t params_count, metaffi_type_info* retvals_types, int8_t retval_count, char** err)
 {
-	/*
-	 * Load modules into modules repository - make sure every module is loaded once
-	 */
+	(void)params_types;
+	(void)params_count;
+	(void)retvals_types;
+	(void)retval_count;
+
 	try
 	{
-		// build from function path the correct entrypoint
-		metaffi::utils::entity_path_parser fpp(entity_path);
-		
-		std::stringstream fp;
-		fp << "EntryPoint_";
-		
-		
-		if(fpp.contains("callable"))
+		if (module_path == nullptr || module_path[0] == '\0')
 		{
-			std::string callable_name = fpp["callable"];
-			boost::replace_all(callable_name, ".", "_");
-			
-			fp << callable_name;
-			
-			if(callable_name.ends_with("_EmptyStruct")){
-				fp << "_MetaFFI";
+			set_err(err, "module_path cannot be null or empty");
+			return nullptr;
+		}
+		if (entity_path == nullptr || entity_path[0] == '\0')
+		{
+			set_err(err, "entity_path cannot be null or empty");
+			return nullptr;
+		}
+
+		GO_PLUGIN_LOG("load_entity: module_path=" << module_path << " entity_path=" << entity_path);
+
+		go_runtime_manager& manager = get_go_manager();
+		std::shared_ptr<Module> module;
+
+		{
+			std::lock_guard<std::mutex> lock(g_module_cache_mutex);
+			auto& cache = get_module_cache();
+			auto it = cache.find(module_path);
+			if (it != cache.end())
+			{
+				module = it->second;
+				GO_PLUGIN_LOG("load_entity: module from cache");
+			}
+			else
+			{
+				GO_PLUGIN_LOG("load_entity: loading module...");
+				manager.load_runtime();
+				module = manager.load_module(module_path);
+				cache[module_path] = module;
+				GO_PLUGIN_LOG("load_entity: module loaded");
 			}
 		}
-		else if(fpp.contains("global"))
+
+		// Module::load_entity expects entity_path (e.g. "callable=CallTransformer") and maps it to symbol EntryPoint_* internally
+		GO_PLUGIN_LOG("load_entity: calling module->load_entity(entity_path)");
+		std::shared_ptr<Entity> entity = module->load_entity(entity_path);
+		GO_PLUGIN_LOG("load_entity: got entity");
+		void* func_ptr = entity->get_function_pointer();
+		GO_PLUGIN_LOG("load_entity: func_ptr=" << func_ptr);
+		if (func_ptr == nullptr)
 		{
-			fp << (fpp.contains("getter") ? "Get" :
-				   fpp.contains("setter") ? "Set" :
-				   throw std::runtime_error("global action is not specified"));
-			
-			fp << fpp["global"];
+			set_err(err, "load_entity: function pointer is null");
+			return nullptr;
 		}
-		else if(fpp.contains("field"))
-		{
-			std::string action = (fpp.contains("getter") ? "_Get" :
-							       fpp.contains("setter") ? "_Set" :
-							       throw std::runtime_error("global action is not specified"));
-			
-			std::string fieldName = fpp["field"];
-			boost::replace_all(fieldName, ".", action);
-			
-			fp << fieldName;
-		}
-		
-		void* pfunc = functions_repository::get_instance().load_function(module_path, fp.str(), params_count, retval_count);
-		xcall* pxcall = new xcall(pfunc, nullptr);
-		
+
+		GoXCallHolder* holder = new GoXCallHolder{std::move(module), std::move(entity)};
+		xcall* pxcall = new xcall(func_ptr, holder);
+		GO_PLUGIN_LOG("load_entity: created xcall, returning");
 		return pxcall;
 	}
-	catch(std::exception& exc)
+	catch (const std::exception& e)
 	{
-		handle_err(err, exc.what());
+		set_err(err, e.what());
+		return nullptr;
 	}
-	
-	return nullptr;
 }
+
 //--------------------------------------------------------------------
+// Context struct matching Go's go_callable_context (GoCallable.go)
+#pragma pack(push, 1)
+struct go_callable_context
+{
+	unsigned long long func_handle;
+	int8_t params_count;
+	int8_t retval_count;
+};
+#pragma pack(pop)
+
 xcall* make_callable(void* make_callable_context, metaffi_type_info* params_types, int8_t params_count, metaffi_type_info* retvals_types, int8_t retval_count, char** err)
 {
-	return nullptr;
+	try
+	{
+		// make_callable_context is a Go handle (metaffi_handle, stored in the Go handle table).
+		// We need a loaded Go module to look up the dispatcher symbols.
+		std::shared_ptr<Module> module;
+		{
+			std::lock_guard<std::mutex> lock(g_module_cache_mutex);
+			auto& cache = get_module_cache();
+			if (cache.empty())
+			{
+				set_err(err, "make_callable: no Go modules loaded");
+				return nullptr;
+			}
+			// All Go guest modules link the same SDK, so any module has the dispatchers.
+			module = cache.begin()->second;
+		}
+
+		bool has_params = params_count > 0;
+		bool has_retvals = retval_count > 0;
+
+		const char* dispatcher_name =
+			has_params && has_retvals   ? "GoCallable_ParamsRet"
+			: !has_params && has_retvals ? "GoCallable_NoParamsRet"
+			: has_params && !has_retvals ? "GoCallable_ParamsNoRet"
+			                             : "GoCallable_NoParamsNoRet";
+
+		void* dispatcher = module->get_symbol(dispatcher_name);
+		if (!dispatcher)
+		{
+			std::string msg = std::string("make_callable: dispatcher '") + dispatcher_name + "' not found in Go module";
+			set_err(err, msg.c_str());
+			return nullptr;
+		}
+
+		// Allocate a context matching Go's go_callable_context
+		auto* ctx = static_cast<go_callable_context*>(malloc(sizeof(go_callable_context)));
+		ctx->func_handle = reinterpret_cast<unsigned long long>(make_callable_context);
+		ctx->params_count = params_count;
+		ctx->retval_count = retval_count;
+
+		xcall* pxcall = new xcall(dispatcher, ctx);
+		GO_PLUGIN_LOG("make_callable: created xcall dispatcher=" << dispatcher_name << " handle=" << ctx->func_handle);
+		return pxcall;
+	}
+	catch (const std::exception& e)
+	{
+		set_err(err, e.what());
+		return nullptr;
+	}
 }
+
 //--------------------------------------------------------------------
-void free_xcall(xcall* pxcall, char** /*err*/)
+void free_xcall(xcall* pxcall, char** err)
 {
-	delete pxcall;
-	pxcall = nullptr;
+	if (pxcall == nullptr) return;
+	try
+	{
+		void* context = pxcall->pxcall_and_context[1];
+		if (context != nullptr)
+		{
+			GoXCallHolder* holder = static_cast<GoXCallHolder*>(context);
+			delete holder;
+		}
+		delete pxcall;
+	}
+	catch (const std::exception& e)
+	{
+		set_err(err, e.what());
+	}
 }
+
 //--------------------------------------------------------------------
+// XLLR calls these with the xcall* as context; we forward to the function pointer stored in the xcall.
+void xcall_params_ret(void* context, cdts params_ret[2], char** out_err)
+{
+	GO_PLUGIN_LOG("xcall_params_ret: entry context=" << context);
+	if (context == nullptr) { set_err(out_err, "xcall_params_ret: context is null"); return; }
+	xcall* pxcall = static_cast<xcall*>(context);
+	GO_PLUGIN_LOG("xcall_params_ret: pxcall=" << static_cast<void*>(pxcall) << " func=" << (pxcall ? pxcall->pxcall_and_context[0] : nullptr));
+	(*pxcall)(params_ret, out_err);
+	GO_PLUGIN_LOG("xcall_params_ret: exit");
+}
+
+void xcall_params_no_ret(void* context, cdts parameters[1], char** out_err)
+{
+	GO_PLUGIN_LOG("xcall_params_no_ret: entry context=" << context);
+	if (context == nullptr) { set_err(out_err, "xcall_params_no_ret: context is null"); return; }
+	xcall* pxcall = static_cast<xcall*>(context);
+	(*pxcall)(parameters, out_err);
+	GO_PLUGIN_LOG("xcall_params_no_ret: exit");
+}
+
+void xcall_no_params_ret(void* context, cdts return_values[1], char** out_err)
+{
+	GO_PLUGIN_LOG("xcall_no_params_ret: entry context=" << context);
+	if (context == nullptr) { set_err(out_err, "xcall_no_params_ret: context is null"); return; }
+	xcall* pxcall = static_cast<xcall*>(context);
+	GO_PLUGIN_LOG("xcall_no_params_ret: pxcall=" << static_cast<void*>(pxcall) << " func=" << (pxcall ? pxcall->pxcall_and_context[0] : nullptr));
+	(*pxcall)(return_values, out_err);
+	GO_PLUGIN_LOG("xcall_no_params_ret: exit");
+}
+
+void xcall_no_params_no_ret(void* context, char** out_err)
+{
+	GO_PLUGIN_LOG("xcall_no_params_no_ret: entry context=" << context);
+	if (context == nullptr) { set_err(out_err, "xcall_no_params_no_ret: context is null"); return; }
+	xcall* pxcall = static_cast<xcall*>(context);
+	(*pxcall)(out_err);
+	GO_PLUGIN_LOG("xcall_no_params_no_ret: exit");
+}
