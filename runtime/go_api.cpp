@@ -11,10 +11,31 @@
 #include <sstream>
 #include <cstring>
 #include <iostream>
+#include <cstdlib>
 
 #include <boost/algorithm/string.hpp>
 
-#define GO_PLUGIN_LOG(msg) (std::cerr << "[go_plugin] " << msg << std::endl)
+namespace
+{
+	bool go_plugin_log_enabled()
+	{
+		static const bool enabled = []() -> bool
+		{
+			const char* raw = std::getenv("METAFFI_GO_PLUGIN_DEBUG_LOG");
+			if(!raw)
+			{
+				return false;
+			}
+
+			std::string val(raw);
+			boost::algorithm::to_lower(val);
+			return val == "1" || val == "true" || val == "yes" || val == "on";
+		}();
+		return enabled;
+	}
+}
+
+#define GO_PLUGIN_LOG(msg) do { if(go_plugin_log_enabled()) { std::cerr << "[go_plugin] " << msg << std::endl; } } while(0)
 
 using namespace metaffi::utils;
 
@@ -270,22 +291,24 @@ void xcall_params_ret(void* context, cdts params_ret[2], char** out_err)
 	GO_PLUGIN_LOG("xcall_params_ret: exit");
 }
 
-void xcall_params_no_ret(void* context, cdts parameters[1], char** out_err)
+void xcall_params_no_ret(void* context, cdts params_ret[2], char** out_err)
 {
 	GO_PLUGIN_LOG("xcall_params_no_ret: entry context=" << context);
 	if (context == nullptr) { set_err(out_err, "xcall_params_no_ret: context is null"); return; }
 	xcall* pxcall = static_cast<xcall*>(context);
-	(*pxcall)(parameters, out_err);
+	// Convention: params_ret[0]=params, params_ret[1]=unused; pass params slot to Go handler
+	(*pxcall)(&params_ret[0], out_err);
 	GO_PLUGIN_LOG("xcall_params_no_ret: exit");
 }
 
-void xcall_no_params_ret(void* context, cdts return_values[1], char** out_err)
+void xcall_no_params_ret(void* context, cdts params_ret[2], char** out_err)
 {
 	GO_PLUGIN_LOG("xcall_no_params_ret: entry context=" << context);
 	if (context == nullptr) { set_err(out_err, "xcall_no_params_ret: context is null"); return; }
 	xcall* pxcall = static_cast<xcall*>(context);
 	GO_PLUGIN_LOG("xcall_no_params_ret: pxcall=" << static_cast<void*>(pxcall) << " func=" << (pxcall ? pxcall->pxcall_and_context[0] : nullptr));
-	(*pxcall)(return_values, out_err);
+	// Convention: params_ret[0]=params (unused), params_ret[1]=retvals; pass retvals slot to Go handler
+	(*pxcall)(&params_ret[1], out_err);
 	GO_PLUGIN_LOG("xcall_no_params_ret: exit");
 }
 
