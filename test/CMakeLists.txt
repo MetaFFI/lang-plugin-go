@@ -34,6 +34,8 @@ set(go_host_test_libs
 	metaffi.api.cpp
 )
 
+set(go_host_test_cgo_flags "-I$ENV{METAFFI_HOME} -I$ENV{METAFFI_HOME}/include -I$ENV{METAFFI_SOURCE_ROOT}/sdk")
+
 c_cpp_exe(go_host_test
 	"${go_host_test_src}"
 	"${go_host_test_includes}"
@@ -49,13 +51,14 @@ set_tests_properties(go_host_test_build_guest PROPERTIES FIXTURES_SETUP go_host_
 if(WIN32)
 	set(go_host_test_path "$ENV{METAFFI_HOME}/sdk/api/cpp;$ENV{PATH}")
 	string(REPLACE ";" "\\;" go_host_test_path "${go_host_test_path}")
-	set_tests_properties(go_host_test_build_guest PROPERTIES ENVIRONMENT "PATH=${go_host_test_path}")
+	set_tests_properties(go_host_test_build_guest PROPERTIES
+		ENVIRONMENT "PATH=${go_host_test_path};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
 elseif(APPLE)
 	set_tests_properties(go_host_test_build_guest PROPERTIES
-		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{DYLD_LIBRARY_PATH}")
+		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{DYLD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
 else()
 	set_tests_properties(go_host_test_build_guest PROPERTIES
-		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{LD_LIBRARY_PATH}")
+		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{LD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
 endif()
 
 add_test(NAME go_host_test COMMAND $ENV{METAFFI_HOME}/go_host_test${CMAKE_EXECUTABLE_SUFFIX})
@@ -64,15 +67,15 @@ if(WIN32)
 	set(go_host_test_path "$ENV{METAFFI_HOME}/sdk/api/cpp;$ENV{PATH}")
 	string(REPLACE ";" "\\;" go_host_test_path "${go_host_test_path}")
 	set_tests_properties(go_host_test PROPERTIES
-		ENVIRONMENT "PATH=${go_host_test_path}"
+		ENVIRONMENT "PATH=${go_host_test_path};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
 	)
 elseif(APPLE)
 	set_tests_properties(go_host_test PROPERTIES
-		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{DYLD_LIBRARY_PATH}"
+		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{DYLD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
 	)
 else()
 	set_tests_properties(go_host_test PROPERTIES
-		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{LD_LIBRARY_PATH}"
+		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{LD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
 	)
 endif()
 set(go_host_test go_host_test PARENT_SCOPE)
