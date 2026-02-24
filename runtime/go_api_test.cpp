@@ -164,6 +164,9 @@ TEST_SUITE("go runtime api")
 
 	TEST_CASE("runtime_test_target.SomeClass")
 	{
+		fprintf(stderr, "+++ SomeClass test: entering test case\n");
+		fflush(stderr);
+
 		std::string entity_path = "callable=GetSomeClasses";
 		std::vector<metaffi_type_info> retvals_getSomeClasses_types = {{metaffi_handle_array_type, (char*) "SomeClass[]", true, 1}};
 		xcall* pgetSomeClasses = cppload_function(module_path.string(), entity_path, {}, retvals_getSomeClasses_types);
@@ -184,9 +187,13 @@ TEST_SUITE("go runtime api")
 		cdts& pcdts_params = pcdts[0];
 		cdts& pcdts_retvals = pcdts[1];
 
+		fprintf(stderr, "+++ SomeClass test: calling GetSomeClasses\n");
+		fflush(stderr);
 		(*pgetSomeClasses)(pcdts, &err);
 		if(err) { FAIL(std::string(err)); }
-		
+		fprintf(stderr, "+++ SomeClass test: GetSomeClasses returned OK\n");
+		fflush(stderr);
+
 		REQUIRE((pcdts_retvals[0].type == metaffi_handle_array_type));
 		REQUIRE((pcdts_retvals[0].cdt_val.array_val->fixed_dimensions == 1));
 		REQUIRE((pcdts_retvals[0].cdt_val.array_val->length == 3));
@@ -219,8 +226,12 @@ TEST_SUITE("go runtime api")
 		pcdts_params2[0].cdt_val.array_val->arr[1].set_handle(arr[1]);
 		pcdts_params2[0].cdt_val.array_val->arr[2].set_handle(arr[2]);
 
+		fprintf(stderr, "+++ SomeClass test: calling ExpectThreeSomeClasses\n");
+		fflush(stderr);
 		(*pexpectThreeSomeClasses)(pcdts2, &err);
 		if(err) { FAIL(std::string(err)); }
+		fprintf(stderr, "+++ SomeClass test: ExpectThreeSomeClasses returned OK\n");
+		fflush(stderr);
 		xllr_free_cdts_buffer(pcdts2);
 
 		//--------------------------------------------------------------------
@@ -231,8 +242,12 @@ TEST_SUITE("go runtime api")
 
 		pcdts_params3[0].set_handle(arr[1]);// use the 2nd instance
 
+		fprintf(stderr, "+++ SomeClass test: calling SomeClass.Print\n");
+		fflush(stderr);
 		(*pSomeClassPrint)(pcdts3, &err);
 		if(err) { FAIL(std::string(err)); }
+		fprintf(stderr, "+++ SomeClass test: SomeClass.Print returned OK\n");
+		fflush(stderr);
 		xllr_free_cdts_buffer(pcdts3);
 	}
 
