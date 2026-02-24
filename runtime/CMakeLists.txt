@@ -40,11 +40,7 @@ c_cpp_exe(go_api_test
 		"${xllr.go_src};${sdk_go_plugin_src};go_api_test.cpp"
 		"${sdk_go_plugin_include};${Boost_INCLUDE_DIRS};${doctest_INCLUDE_DIRS};"
 		"doctest::doctest;Boost::filesystem;xllr.go"
-		".")
-
-add_custom_command(TARGET go_api_test POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E remove $ENV{METAFFI_HOME}/xllr.go.dll
-)
+		"./go")
 add_dependencies(go_api_test xllr.go build_go_guest)
 
 add_test(NAME go_api_test_build_guest
@@ -53,7 +49,7 @@ add_test(NAME go_api_test_build_guest
 set_tests_properties(go_api_test_build_guest PROPERTIES FIXTURES_SETUP go_guest_built)
 
 add_test(NAME go_api_test
-		COMMAND $ENV{METAFFI_HOME}/go_api_test)
+		COMMAND $ENV{METAFFI_HOME}/go/go_api_test)
 set_tests_properties(go_api_test PROPERTIES FIXTURES_REQUIRED go_guest_built)
 
 set(go_runtime_test_cgo_flags "-I$ENV{METAFFI_HOME} -I$ENV{METAFFI_HOME}/include -I$ENV{METAFFI_SOURCE_ROOT}/sdk")

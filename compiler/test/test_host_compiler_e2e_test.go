@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -15,7 +16,7 @@ const (
 	idlRelPath     = "sdk/test_modules/guest_modules/test/xllr.test.idl.json"
 	pluginDir      = "test"
 	pluginNameWin  = "xllr.test.dll"
-	pluginNameUnix = "libxllr.test.so"
+	pluginNameUnix = "xllr.test.so"
 	pluginNameMac  = "libxllr.test.dylib"
 	outputDir      = "output"
 	outputTestDir  = "output/test"
@@ -106,11 +107,8 @@ func TestHostCompilerE2E(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read e2e_entity_test.go: %v", err)
 	}
-	// Remove the leading "//go:build ignore\n" line so the file is built in output/test
-	const buildIgnore = "//go:build ignore\n"
-	if len(entityTestBytes) >= len(buildIgnore) && string(entityTestBytes[:len(buildIgnore)]) == buildIgnore {
-		entityTestBytes = entityTestBytes[len(buildIgnore):]
-	}
+	// Remove build-ignore headers regardless of CRLF/LF checkout style.
+	entityTestBytes = stripBuildIgnoreHeader(entityTestBytes)
 	destEntityTest := filepath.Join(outTestDir, "e2e_entity_test.go")
 	if err := os.WriteFile(destEntityTest, entityTestBytes, 0644); err != nil {
 		t.Fatalf("write e2e_entity_test.go: %v", err)
@@ -176,4 +174,15 @@ func splitLines(s string) []string {
 		lines = append(lines, s[start:])
 	}
 	return lines
+}
+
+func stripBuildIgnoreHeader(in []byte) []byte {
+	s := strings.ReplaceAll(string(in), "\r\n", "\n")
+	if strings.HasPrefix(s, "//go:build ignore\n") {
+		s = strings.TrimPrefix(s, "//go:build ignore\n")
+		if strings.HasPrefix(s, "// +build ignore\n") {
+			s = strings.TrimPrefix(s, "// +build ignore\n")
+		}
+	}
+	return []byte(s)
 }
