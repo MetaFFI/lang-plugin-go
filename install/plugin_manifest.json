@@ -1,0 +1,17 @@
+{
+	"name": "go",
+	"version": "0.3.1",
+	"files": {
+		"windows": [
+			"xllr.go.dll",
+			"metaffi.idl.go.dll",
+			"metaffi.compiler.go.dll"
+		],
+		"ubuntu": [
+			"xllr.go.so",
+			"metaffi.idl.go.so",
+			"metaffi.compiler.go.so"
+		]
+	},
+	"extra_files": {}
+}
