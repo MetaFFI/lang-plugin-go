@@ -40,7 +40,8 @@ c_cpp_exe(go_api_test
 		"${xllr.go_src};${sdk_go_plugin_src};go_api_test.cpp"
 		"${sdk_go_plugin_include};${Boost_INCLUDE_DIRS};${doctest_INCLUDE_DIRS};"
 		"doctest::doctest;Boost::filesystem;xllr.go"
-		"./go")
+		"./go"
+		INCLUDE_IN_ALL)
 add_dependencies(go_api_test xllr.go build_go_guest)
 
 add_test(NAME go_api_test_build_guest

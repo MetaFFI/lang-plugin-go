@@ -5,6 +5,7 @@
 #include <runtime/runtime_plugin_api.h>
 #include <utils/scope_guard.hpp>
 #include <utils/logger.hpp>
+#include <utils/safe_func.h>
 
 static auto LOG = metaffi::get_logger("go.runtime");
 
@@ -31,11 +32,13 @@ struct GlobalSetup {
 		module_path.append("TestRuntime_MetaFFIGuest.so");
 #endif
 
-		if(std::getenv("METAFFI_HOME") == nullptr)
+		char* metaffi_home = metaffi_getenv_alloc("METAFFI_HOME");
+		if(metaffi_home == nullptr)
 		{
 			METAFFI_ERROR(LOG, "METAFFI_HOME is not set");
 			exit(1);
 		}
+		metaffi_free_env(metaffi_home);
 		
 		const char* err = load_xllr();
 		if(err)
@@ -66,8 +69,8 @@ xcall* cppload_function(const std::string& mod_path,
 
 	xcall* pxcall = load_entity(mod_path.c_str(),
 	                            entity_path.c_str(),
-	                            params_types_arr, params_types.size(),
-	                            retvals_types_arr, retvals_types.size(),
+	                            params_types_arr, static_cast<int8_t>(params_types.size()),
+	                            retvals_types_arr, static_cast<int8_t>(retvals_types.size()),
 	                            &err);
 
 	if(err)

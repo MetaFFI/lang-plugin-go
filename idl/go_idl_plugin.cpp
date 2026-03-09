@@ -5,6 +5,7 @@
 #include <string>
 #include <fstream>
 #include <cstring>
+#include <utils/safe_func.h>
 
 static auto LOG = metaffi::get_logger("go.idl");
 
@@ -16,15 +17,20 @@ public:
 	void init() override
 	{
 		// Resolve go_idl_compiler path: METAFFI_HOME/go/go_idl_compiler[.exe] (lang-plugin-go copies it there)
-		const char* home = std::getenv("METAFFI_HOME");
+		char* home = metaffi_getenv_alloc("METAFFI_HOME");
 		if (home && home[0])
 		{
 			std::string path = home;
+			metaffi_free_env(home);
 			path += "/go/go_idl_compiler";
 #ifdef _WIN32
 			path += ".exe";
 #endif
 			compiler_.set_executable_path(path);
+		}
+		else
+		{
+			metaffi_free_env(home);
 		}
 		METAFFI_INFO(LOG, "Go IDL plugin initialized");
 	}

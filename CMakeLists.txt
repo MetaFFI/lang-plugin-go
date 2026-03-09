@@ -17,10 +17,8 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/compiler")
 # test (C++ host tests calling Go guest module)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/test")
 
-add_custom_target(go ALL
-	DEPENDS xllr.go metaffi.idl.go metaffi.compiler.go go_host_test
-)
-set_target_properties(go PROPERTIES EXCLUDE_FROM_ALL TRUE)
+add_custom_target(go)
+add_dependencies(go xllr.go metaffi.idl.go metaffi.compiler.go go_host_test)
 
 # set go to parent scope
 set(go ${go} PARENT_SCOPE)
