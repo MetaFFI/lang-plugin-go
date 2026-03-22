@@ -217,7 +217,9 @@ TEST_SUITE("go runtime api")
 		                                       pcdts_retvals[0].cdt_val.array_val->arr[1].cdt_val.handle_val,
 		                                       pcdts_retvals[0].cdt_val.array_val->arr[2].cdt_val.handle_val};
 
-		xllr_free_cdts_buffer(pcdts);
+		// Note: pcdts is freed AFTER all arr[] handle pointers are done being used.
+		// arr[] holds raw pointers into pcdts's allocation; freeing pcdts early
+		// causes use-after-free in optimized builds (heap corruption).
 		//--------------------------------------------------------------------
 
 		cdts* pcdts2 = (cdts*)xllr_alloc_cdts_buffer(1, 0);
@@ -252,6 +254,9 @@ TEST_SUITE("go runtime api")
 		fprintf(stderr, "+++ SomeClass test: SomeClass.Print returned OK\n");
 		fflush(stderr);
 		xllr_free_cdts_buffer(pcdts3);
+
+		// Free pcdts here — after all arr[] pointers have been consumed.
+		xllr_free_cdts_buffer(pcdts);
 	}
 
 
