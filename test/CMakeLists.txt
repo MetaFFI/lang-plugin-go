@@ -31,7 +31,6 @@ set(go_host_test_includes
 set(go_host_test_libs
 	doctest::doctest
 	Boost::filesystem
-	metaffi.api.cpp
 )
 
 set(go_host_test_cgo_flags "-I$ENV{METAFFI_HOME} -I$ENV{METAFFI_HOME}/include -I$ENV{METAFFI_SOURCE_ROOT}/sdk")
@@ -43,39 +42,46 @@ c_cpp_exe(go_host_test
 	"$ENV{METAFFI_HOME}"
 )
 
+# Header-only API: force-include metaffi.h so all TUs get inline implementations
+if(MSVC)
+	target_compile_options(go_host_test PRIVATE "/FImetaffi/metaffi.h")
+else()
+	target_compile_options(go_host_test PRIVATE -include metaffi/metaffi.h)
+endif()
+
 # Build guest module with metaffi first (IDL + guest compiler). Only if this succeeds do we run go_host_test.
 set(go_guest_idl_dir "${metaffi_sdk_root}/test_modules/guest_modules/go")
 add_test(NAME go_host_test_build_guest COMMAND $ENV{METAFFI_HOME}/metaffi${CMAKE_EXECUTABLE_SUFFIX}
 	-c --idl "${go_guest_idl_dir}" -g go -o "${go_guest_idl_dir}/test_bin")
 set_tests_properties(go_host_test_build_guest PROPERTIES FIXTURES_SETUP go_host_fixture)
 if(WIN32)
-	set(go_host_test_path "$ENV{METAFFI_HOME}/sdk/api/cpp;$ENV{PATH}")
+	set(go_host_test_path "$ENV{PATH}")
 	string(REPLACE ";" "\\;" go_host_test_path "${go_host_test_path}")
 	set_tests_properties(go_host_test_build_guest PROPERTIES
 		ENVIRONMENT "PATH=${go_host_test_path};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
 elseif(APPLE)
 	set_tests_properties(go_host_test_build_guest PROPERTIES
-		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{DYLD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
+		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{DYLD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
 else()
 	set_tests_properties(go_host_test_build_guest PROPERTIES
-		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{LD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
+		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}")
 endif()
 
 add_test(NAME go_host_test COMMAND $ENV{METAFFI_HOME}/go_host_test${CMAKE_EXECUTABLE_SUFFIX})
 set_tests_properties(go_host_test PROPERTIES FIXTURES_REQUIRED go_host_fixture)
 if(WIN32)
-	set(go_host_test_path "$ENV{METAFFI_HOME}/sdk/api/cpp;$ENV{PATH}")
+	set(go_host_test_path "$ENV{PATH}")
 	string(REPLACE ";" "\\;" go_host_test_path "${go_host_test_path}")
 	set_tests_properties(go_host_test PROPERTIES
 		ENVIRONMENT "PATH=${go_host_test_path};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
 	)
 elseif(APPLE)
 	set_tests_properties(go_host_test PROPERTIES
-		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{DYLD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
+		ENVIRONMENT "DYLD_LIBRARY_PATH=$ENV{DYLD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
 	)
 else()
 	set_tests_properties(go_host_test PROPERTIES
-		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{METAFFI_HOME}/sdk/api/cpp:$ENV{LD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
+		ENVIRONMENT "LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH};CGO_CFLAGS=${go_host_test_cgo_flags};CGO_CPPFLAGS=${go_host_test_cgo_flags}"
 	)
 endif()
 set(go_host_test go_host_test PARENT_SCOPE)
